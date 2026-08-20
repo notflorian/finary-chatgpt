@@ -1,0 +1,26 @@
+services:
+  finary-bridge:
+    build:
+      context: ./finary-bridge
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - finary-stack
+
+networks:
+  finary-stack:
+    driver: bridge
