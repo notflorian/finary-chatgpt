@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+credentials.json
+jwt.json
+localCookiesMozilla.txt
+Finary_backup_codes.txt
 
 # macOS
 .DS_Store
