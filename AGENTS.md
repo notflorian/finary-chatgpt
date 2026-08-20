@@ -435,12 +435,52 @@ Implement:
 - response validation
 - structured errors
 
+Phase 2 live verification established these mandatory normalization constraints:
+
+- Finary account IDs are strings, while position IDs may be numeric. Convert
+  every upstream identifier to a canonical string before key generation.
+- Position IDs come from separate asset-category namespaces. Include the
+  adapter position kind in `source_asset_id` or `position_key` so equal numeric
+  IDs from different categories cannot collide.
+- Use the dedicated adapter position collections as the canonical position
+  source. Do not also normalize asset arrays nested inside account records,
+  because that would double-count the same upstream holdings.
+- Link positions to accounts using the verified `holdings_account_id` field.
+  Treat nested `account` and `bank_account` objects as non-authoritative
+  upstream details unless a fixture proves a required fallback.
+- Do not assume fields prefixed with `display_` are EUR. An amount may populate
+  an `*_eur` field only when its currency provenance proves it is EUR or a
+  verified FX conversion is available. Reject a snapshot whose totals cannot
+  be normalized reliably instead of silently relabeling or omitting amounts.
+- Select and document exactly one gross-assets source and explicit exclusion
+  rules for aggregate or collection accounts. Never sum both account balances
+  and position values into gross assets.
+- Metadata exposed downstream must use an explicit allowlist of stable,
+  non-sensitive keys. Never copy complete upstream records, nested institution
+  objects, account identifiers, addresses, or raw private payloads into
+  `metadata`.
+- The verified upstream surface has no usable liability representation yet.
+  Empty embedded `loans` arrays do not prove that liabilities are zero. Map the
+  adapter's unavailable-feature error to a structured API error; do not publish
+  `liabilities_eur = 0` or a net-worth figure as if liability coverage were
+  complete.
+- Live authentication requires a fresh TOTP or email-code challenge for a new
+  in-memory Clerk session. `/v1/snapshot` must never prompt interactively.
+  Authentication/session lifetime must be dependency-injected and documented;
+  do not persist cookies, bearer tokens, backup codes, or TOTP secrets as part
+  of Phase 3.
+
 Definition of done:
 
 - `/v1/snapshot` returns only the stable internal schema
 - no private Finary schema leaks to n8n
 - tests cover malformed upstream data
 - duplicate IDs are rejected
+- tests cover equal numeric position IDs in different asset categories
+- tests prove account and nested position data are not double-counted
+- every populated EUR field has verified currency provenance
+- unavailable liabilities produce an explicit structured error rather than a
+  misleading zero-liability snapshot
 
 ### Phase 4 - Google Sheets schema
 
