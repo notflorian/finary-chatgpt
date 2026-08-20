@@ -7,9 +7,9 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phase 2 adds an isolated client adapter for Finary's private API. The public
-bridge still exposes only the local health endpoint: portfolio normalization
-and `/v1/snapshot` remain intentionally deferred to Phase 3.
+Phase 3 adds a stable, versioned normalized portfolio contract at
+`GET /v1/snapshot`. Private Finary response fields remain confined to the
+adapter and normalizer; Google Sheets and n8n remain deferred.
 
 ## Prerequisites
 
@@ -42,6 +42,19 @@ Expected response:
   "version": "0.1.0"
 }
 ```
+
+The snapshot endpoint is:
+
+```bash
+curl http://127.0.0.1:8000/v1/snapshot
+```
+
+The current live adapter intentionally returns a structured
+`FINARY_FEATURE_UNAVAILABLE` error because Finary liability coverage has not
+been verified. It does not publish zero liabilities or a misleading net worth.
+A successful snapshot is available to deterministic injected clients that
+explicitly provide a complete liability collection, including a known-empty
+collection.
 
 ## Run with Docker Compose
 
@@ -81,8 +94,9 @@ docs/            Architecture and future operational documentation
 
 - Keep `.env` local; it is ignored by Git.
 - Never add Finary credentials to Google Sheets, ChatGPT, logs, or commits.
-- The only implemented HTTP endpoint is `GET /health`; it has no upstream
-  dependencies.
+- `GET /health` has no upstream dependencies and never creates a Finary client.
+- `GET /v1/snapshot` returns only strict Pydantic models with schema version
+  `1.0`, category-aware keys, allowlisted fields, and sanitized errors.
 - Finary credentials are read from `FINARY_EMAIL`, `FINARY_PASSWORD`, and the
   optional `FINARY_MFA_CODE` environment variable.
 - The private API surface was verified against `finary_uapi` 0.2.3. The bridge
@@ -100,8 +114,13 @@ docs/            Architecture and future operational documentation
   duplication behavior remain unverified. The adapter therefore reports
   liabilities through an explicit unavailable-feature exception instead of
   fabricating an extraction rule.
-- `GET /v1/snapshot`, portfolio normalization, Google Sheets, and n8n workflows
-  are intentionally deferred to later phases.
+- Gross assets use non-collection account balances only. Position values are
+  never added to account balances, preventing double counting.
+- EUR fields are populated only from amounts whose associated currency is
+  explicitly `EUR`; `display_*` values are never assumed to be EUR.
+- Downstream `metadata` is currently an empty allowlist. No raw institution,
+  account, valuable, address, description, or correlation data is copied.
+- Google Sheets and n8n workflows remain intentionally deferred.
 
 ## Optional live adapter smoke test
 

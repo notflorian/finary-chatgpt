@@ -237,6 +237,33 @@ Recommended approach:
 - bridge computes normalized component values
 - n8n recomputes summary totals as a consistency check
 
+Phase 3 uses non-collection account balances as the sole source for
+`gross_assets_eur`. It never adds position values to account balances. An
+account is excluded only when the verified upstream `is_collection` field is
+exactly `true`; a missing field is treated as a leaf account for compatibility
+with the canonical fixture. Every included account balance must have explicit
+EUR currency provenance or snapshot normalization fails.
+
+A successful schema `1.0` response has numeric `gross_assets_eur`,
+`liabilities_eur`, and `net_worth_eur`. The live Phase 2 adapter currently
+raises `FinaryFeatureUnavailableError` for liabilities, so the HTTP endpoint
+returns `FINARY_FEATURE_UNAVAILABLE` instead of emitting a successful response
+with assumed zero liabilities. A known-empty liability collection returned by
+an injected complete client is distinct from an unavailable collection and may
+produce `liabilities_eur = 0`.
+
+Phase 3 maps application failures to a stable error envelope. Messages are
+fixed and never include raw adapter exception text.
+
+| Error code | HTTP status | Source |
+| --- | ---: | --- |
+| `FINARY_AUTH_FAILED` | 502 | `FinaryAuthenticationError` |
+| `FINARY_TIMEOUT` | 504 | `FinaryUpstreamTimeoutError` |
+| `FINARY_MALFORMED_RESPONSE` | 502 | `FinaryMalformedResponseError` |
+| `FINARY_UPSTREAM_ERROR` | 502 | `FinaryUpstreamError` or unknown adapter error |
+| `FINARY_FEATURE_UNAVAILABLE` | 503 | `FinaryFeatureUnavailableError` |
+| `SNAPSHOT_VALIDATION_FAILED` | 502 | normalized contract validation failure |
+
 ## 6. Stable data models
 
 ## 6.1 Account
@@ -265,9 +292,10 @@ Required:
 - `source_account_id`
 - `name`
 - `account_type`
-- `market_value_eur`
 
 Nullable fields should remain nullable rather than using fake values.
+`market_value_eur` is nullable on the model, but every non-collection account
+must have a proven EUR value for a successful snapshot total.
 
 ## 6.2 Position
 
@@ -275,9 +303,9 @@ Suggested schema:
 
 ```json
 {
-  "position_key": "finary:12345:asset:67890",
+  "position_key": "finary:12345:asset:securities:67890",
   "source": "finary",
-  "source_asset_id": "67890",
+  "source_asset_id": "securities:67890",
   "account_key": "finary:account:12345",
   "name": "Example ETF",
   "ticker": null,
@@ -304,6 +332,49 @@ Do not use ticker as identifier.
 
 Do not use ISIN alone as identifier because the same instrument may exist in multiple accounts.
 
+Position identities are category-aware because numeric record IDs are not
+globally unique across Finary collections:
+
+```text
+source_asset_id = {position_kind}:{position_id}
+position_key = finary:{account_id}:asset:{position_kind}:{position_id}
+```
+
+The authoritative account reference is the top-level
+`holdings_account_id`. Nested `account` and `bank_account` objects are ignored.
+
+### 6.2.1 Phase 3 position mappings
+
+Only collections with a non-empty verified fixture have normalization rules.
+Non-empty data from another collection fails explicitly until a verified
+handler is added.
+
+| Position kind | Name | Ticker/code | ISIN | Market currency | Classification |
+| --- | --- | --- | --- | --- | --- |
+| `securities` | `security.name` | `security.symbol` | `security.isin` | `security.currency.code` | `OTHER` |
+| `cryptos` | `crypto.name` | `crypto.code` | null | unverified | `CRYPTO` |
+| `fonds_euro` | top-level `name` | null | null | top-level `currency.code` | `LIFE_INSURANCE_FUND` |
+| `generic_assets` | top-level `name` | null | null | top-level `currency.code` | `OTHER` |
+| `real_estates` | top-level `name` | null | null | top-level `currency.code` | `REAL_ESTATE` |
+| `scpis` | `scpi.name` | null | null | unverified | `SCPI` |
+
+All supported kinds use the record `id`, `holdings_account_id`, `quantity`,
+`current_price`, `current_value`, and `buying_value` where present. SCPI uses
+top-level `quantity`, falling back to verified `shares` only when quantity is
+absent. Real-estate `current_value` is not adjusted again by ownership
+percentage.
+
+`market_value_native` uses top-level `current_value`. `market_value_eur` and
+`fx_to_eur = 1.0` are populated only when the market-value currency source in
+the table is exactly `EUR`. `cost_basis_eur` uses `buying_value` only when its
+verified cost currency is EUR. For crypto, `buying_price_currency.code` proves
+cost-basis currency only; it does not prove current-value currency. No
+speculative FX conversion or `display_*` inference is performed.
+
+The Phase 3 metadata allowlist is empty. Every normalized account, position,
+and liability returns `{}` for `metadata`; complete upstream records and nested
+private objects are never copied.
+
 ## 6.3 Liability
 
 Suggested schema:
@@ -323,6 +394,25 @@ Suggested schema:
   "metadata": {}
 }
 ```
+
+The model is implemented, but no non-empty upstream liability normalization is
+implemented. Empty nested `loans` arrays are ignored and never interpreted as
+proof of zero liabilities. The current live endpoint therefore returns the
+structured unavailable-feature error before calculating net worth.
+
+## 6.4 Phase 4 handoff constraints
+
+The Google Sheets schema phase must preserve these Phase 3 semantics:
+
+- `source_asset_id` and `position_key` include the position kind.
+- Position `market_value_eur`, `cost_basis_eur`, `currency`, and `fx_to_eur`
+  may be null when upstream currency provenance is incomplete.
+- A structured snapshot error means no complete snapshot exists; downstream
+  code must not replace unavailable liabilities or net worth with zero.
+- Account balances are the authoritative gross-assets source. Position values
+  are analytical components and must not be added to account totals.
+- `metadata` is currently empty by policy and cannot be used as a raw upstream
+  escape hatch.
 
 ## 7. Google Sheets workbook
 
@@ -516,7 +606,7 @@ Construct:
 Example:
 
 ```text
-2026-08-20:finary:12345:asset:67890
+2026-08-20:finary:12345:asset:securities:67890
 ```
 
 Behavior:
@@ -864,7 +954,7 @@ Example:
 Previous current state:
 
 ```text
-position_key = finary:12345:asset:67890
+position_key = finary:12345:asset:securities:67890
 is_active = TRUE
 last_seen_run_id = run-A
 ```
@@ -975,6 +1065,12 @@ If the private Finary authentication requires interactive MFA or session bootstr
 Prefer reusing a valid session mechanism when supported by the chosen upstream client.
 
 Never expose these values downstream.
+
+Phase 3 creates the production adapter without an interactive code provider.
+`GET /v1/snapshot` therefore never prompts. A fresh bridge process may require
+a current `FINARY_MFA_CODE`; missing or expired verification state returns
+`FINARY_AUTH_FAILED`. Cookies, bearer tokens, TOTP secrets, backup codes, and
+session state remain in memory only and are not persisted.
 
 ## 25. Google authentication
 
