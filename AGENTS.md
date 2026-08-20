@@ -497,11 +497,29 @@ Create documentation and initialization helpers for:
 - cashflows
 - sync_runs
 
+Phase 4 must preserve the implemented Phase 3 contract:
+
+- Treat `source_asset_id` and `position_key` as category-aware identifiers;
+  never remove the position kind from either key.
+- Allow position currency and EUR-derived fields to be blank when Phase 3
+  cannot prove EUR provenance. Do not coerce unknown amounts to zero or infer
+  EUR from `display_*` values.
+- Treat a structured snapshot error as the absence of a complete snapshot.
+  In particular, unavailable liability coverage must not create zero-valued
+  liability or net-worth rows, and must not overwrite prior valid data.
+- Keep account balances as the authoritative source for gross assets. Position
+  values are analytical components and must not be added to account balances.
+- Keep the metadata allowlist empty unless a later verified contract change
+  explicitly introduces stable, non-sensitive metadata fields.
+- Document automated, manual, nullable, and derived columns distinctly so the
+  later n8n workflow can preserve null semantics and ownership boundaries.
+
 Definition of done:
 
 - every column is documented
 - every sheet has a unique-key strategy
 - data types are documented
+- nullable fields and unknown-value behavior are documented
 - sample rows are provided
 
 Do not hardcode a user's financial values in repository fixtures.

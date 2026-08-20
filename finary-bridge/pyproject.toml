@@ -23,7 +23,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["app", "app.services"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
