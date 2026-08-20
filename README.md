@@ -7,9 +7,9 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phase 1 implements only the local `finary-bridge` bootstrap and its health
-endpoint. It does **not** connect to Finary, authenticate, or expose a
-portfolio snapshot yet.
+Phase 2 adds an isolated client adapter for Finary's private API. The public
+bridge still exposes only the local health endpoint: portfolio normalization
+and `/v1/snapshot` remain intentionally deferred to Phase 3.
 
 ## Prerequisites
 
@@ -83,5 +83,42 @@ docs/            Architecture and future operational documentation
 - Never add Finary credentials to Google Sheets, ChatGPT, logs, or commits.
 - The only implemented HTTP endpoint is `GET /health`; it has no upstream
   dependencies.
-- `GET /v1/snapshot`, Finary authentication, data normalization, and n8n
-  workflows are intentionally deferred to later phases.
+- Finary credentials are read from `FINARY_EMAIL`, `FINARY_PASSWORD`, and the
+  optional `FINARY_MFA_CODE` environment variable.
+- The private API surface was verified against `finary_uapi` 0.2.3. The bridge
+  uses `curl-cffi` directly because that library's helper persists JWT/cookie
+  files and may debug-log complete entity payloads; neither behavior is suitable
+  for this service boundary.
+- Authentication uses the verified Clerk password flow with TOTP or prepared
+  email-code challenges and retains cookies and the bearer token in memory only.
+- The adapter retrieves holding accounts and the verified asset collections
+  for securities, crypto, euro funds, crowdlending, generic assets, precious
+  metals, real estate, SCPI, and startups.
+- The verified upstream client surface does not provide a callable liability
+  endpoint. Live account, real-estate, and SCPI payloads exposed nested `loans`
+  arrays, but all observed arrays were empty, so their element schema and
+  duplication behavior remain unverified. The adapter therefore reports
+  liabilities through an explicit unavailable-feature exception instead of
+  fabricating an extraction rule.
+- `GET /v1/snapshot`, portfolio normalization, Google Sheets, and n8n workflows
+  are intentionally deferred to later phases.
+
+## Optional live adapter smoke test
+
+The normal test suite uses anonymized fixtures and never contacts Finary. To
+run the separate live structural smoke test deliberately, provide credentials
+locally and set the explicit opt-in flag:
+
+```bash
+FINARY_LIVE_TEST=1 python -m pytest -m live tests/live -s --tb=no
+```
+
+If Clerk requires an email-code or TOTP challenge, the live test prompts for
+the one-time code after starting the same in-memory authentication attempt. The
+code is not stored or logged.
+
+Set `FINARY_LIVE_DESCRIBE=1` for a sanitized structural report containing only
+record counts, top-level field names, and JSON types. It never prints field
+values or raw payloads.
+
+The smoke test does not print upstream payloads or financial values.

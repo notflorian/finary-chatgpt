@@ -1,0 +1,91 @@
+{
+  "message": "OK",
+  "error": null,
+  "result": [
+    {
+      "id": "account-synthetic-001",
+      "correlation_id": "account-correlation-synthetic-001",
+      "name": "Sample Investment Account",
+      "display_name": "Sample Investment Account",
+      "manual_type": "stocks",
+      "balance": 100.0,
+      "buying_value": 80.0,
+      "display_balance": 100.0,
+      "display_buying_value": 80.0,
+      "currency": {
+        "id": 1,
+        "code": "EUR",
+        "symbol": "EUR"
+      },
+      "display_currency": {
+        "id": 1,
+        "code": "EUR",
+        "symbol": "EUR"
+      },
+      "institution": {
+        "id": "institution-synthetic-001",
+        "name": "Sample Institution"
+      },
+      "bank_account_type": {
+        "id": "account-type-synthetic-001",
+        "name": "Investment account"
+      },
+      "holdings_account_type": {
+        "id": "holding-type-synthetic-001",
+        "name": "Securities"
+      },
+      "is_manual": true,
+      "has_transactions": false,
+      "iban": null,
+      "bic": null,
+      "securities": [],
+      "cryptos": [],
+      "fonds_euro": [],
+      "generic_assets": [],
+      "real_estates": [],
+      "scpis": [],
+      "loans": []
+    },
+    {
+      "id": "account-synthetic-002",
+      "correlation_id": "account-correlation-synthetic-002",
+      "name": "Sample Digital Assets Account",
+      "display_name": "Sample Digital Assets Account",
+      "manual_type": "crypto",
+      "balance": 50.0,
+      "buying_value": 40.0,
+      "display_balance": 50.0,
+      "display_buying_value": 40.0,
+      "currency": {
+        "id": 1,
+        "code": "EUR",
+        "symbol": "EUR"
+      },
+      "display_currency": {
+        "id": 1,
+        "code": "EUR",
+        "symbol": "EUR"
+      },
+      "institution": {
+        "id": "institution-synthetic-002",
+        "name": "Sample Digital Institution"
+      },
+      "bank_account_type": null,
+      "holdings_account_type": {
+        "id": "holding-type-synthetic-002",
+        "name": "Digital assets"
+      },
+      "is_manual": true,
+      "has_transactions": false,
+      "iban": null,
+      "bic": null,
+      "securities": [],
+      "cryptos": [],
+      "fonds_euro": [],
+      "generic_assets": [],
+      "real_estates": [],
+      "scpis": [],
+      "loans": []
+    }
+  ]
+}

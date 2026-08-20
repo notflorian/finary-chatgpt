@@ -1,0 +1,180 @@
+{
+  "securities": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1001,
+        "holdings_account_id": "account-synthetic-001",
+        "quantity": 4.0,
+        "buying_price": 25.0,
+        "buying_value": 100.0,
+        "current_value": 120.0,
+        "display_buying_price": 25.0,
+        "display_current_value": 120.0,
+        "account": {"id": "account-synthetic-001"},
+        "bank_account": {"id": "account-synthetic-001"},
+        "security": {
+          "id": 2001,
+          "correlation_id": "security-correlation-synthetic-001",
+          "name": "Sample Index Fund",
+          "symbol": "SAMPLE",
+          "isin": "XX0000000001",
+          "currency": {"code": "EUR"}
+        },
+        "valuable": {"id": 2001, "type": "Security"},
+        "type": "UserSecurity",
+        "is_reported": false,
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "cryptos": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1002,
+        "holdings_account_id": "account-synthetic-002",
+        "quantity": 2.0,
+        "buying_price": 25.0,
+        "buying_value": 50.0,
+        "current_price": 30.0,
+        "current_value": 60.0,
+        "buying_price_currency": {"code": "EUR"},
+        "account": {"id": "account-synthetic-002"},
+        "bank_account": {"id": "account-synthetic-002"},
+        "crypto": {
+          "id": 2002,
+          "correlation_id": "crypto-correlation-synthetic-001",
+          "name": "Sample Token",
+          "code": "SYN"
+        },
+        "valuable": {"id": 2002, "type": "Crypto"},
+        "owning_type": "hodled",
+        "type": "UserCrypto",
+        "is_reported": false,
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "fonds_euro": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1003,
+        "holdings_account_id": "account-synthetic-001",
+        "name": "Sample Euro Fund",
+        "quantity": 1.0,
+        "buying_price": null,
+        "buying_value": 100.0,
+        "current_price": 105.0,
+        "current_value": 105.0,
+        "currency": {"code": "EUR"},
+        "account": {"id": "account-synthetic-001"},
+        "bank_account": {"id": "account-synthetic-001"},
+        "valuable": {"id": 2003, "type": "FondsEuro"},
+        "type": "UserFondsEuro",
+        "is_reported": false,
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "crowdlendings": {
+    "message": "OK",
+    "error": null,
+    "result": []
+  },
+  "generic_assets": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1004,
+        "holdings_account_id": "account-synthetic-001",
+        "name": "Sample Collectible",
+        "category": "other",
+        "quantity": 1.0,
+        "buying_price": 100.0,
+        "buying_value": 100.0,
+        "current_price": 110.0,
+        "current_value": 110.0,
+        "currency": {"code": "EUR"},
+        "account": {"id": "account-synthetic-001"},
+        "bank_account": {"id": "account-synthetic-001"},
+        "valuable": {"id": 2004, "type": "GenericAsset"},
+        "type": "UserGenericAsset",
+        "is_reported": false,
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "precious_metals": {
+    "message": "OK",
+    "error": null,
+    "result": []
+  },
+  "real_estates": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1005,
+        "holdings_account_id": "account-synthetic-001",
+        "name": "Sample Property",
+        "description": "Synthetic property fixture",
+        "category": "other",
+        "building_type": "apartment",
+        "quantity": 1.0,
+        "surface": 10.0,
+        "surface_unit": "sqm",
+        "buying_price": 100.0,
+        "buying_value": 100.0,
+        "current_price": 110.0,
+        "current_value": 110.0,
+        "user_estimated_value": 110.0,
+        "ownership_percentage": 1.0,
+        "currency": {"code": "EUR"},
+        "account": {"id": "account-synthetic-001"},
+        "bank_account": {"id": "account-synthetic-001"},
+        "valuable": {"id": 2005, "type": "RealEstate"},
+        "loans": [],
+        "type": "UserRealEstate",
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "scpis": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1006,
+        "holdings_account_id": "account-synthetic-001",
+        "property_type": "other",
+        "shares": 2.0,
+        "quantity": 2.0,
+        "buying_price": 50.0,
+        "buying_value": 100.0,
+        "current_value": 105.0,
+        "account": {"id": "account-synthetic-001"},
+        "bank_account": {"id": "account-synthetic-001"},
+        "scpi": {
+          "id": 2006,
+          "name": "Sample Property Fund"
+        },
+        "valuable": {"id": 2006, "type": "Scpi"},
+        "loans": [],
+        "type": "UserScpi",
+        "is_reported": false,
+        "in_investment_plan": false
+      }
+    ]
+  },
+  "startups": {
+    "message": "OK",
+    "error": null,
+    "result": []
+  }
+}

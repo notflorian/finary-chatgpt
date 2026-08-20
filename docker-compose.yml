@@ -3,6 +3,9 @@ services:
     build:
       context: ./finary-bridge
     environment:
+      FINARY_EMAIL: ${FINARY_EMAIL:-}
+      FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
+      FINARY_PASSWORD: ${FINARY_PASSWORD:-}
       TZ: ${TZ:-Europe/Paris}
     ports:
       - "127.0.0.1:8000:8000"
