@@ -7,9 +7,10 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phase 3 adds a stable, versioned normalized portfolio contract at
-`GET /v1/snapshot`. Private Finary response fields remain confined to the
-adapter and normalizer; Google Sheets and n8n remain deferred.
+Phase 4 defines the downstream Google Sheets data model while preserving the
+stable Phase 3 contract at `GET /v1/snapshot`. Private Finary response fields
+remain confined to the adapter and normalizer; live Google access and n8n
+synchronization remain deferred.
 
 ## Prerequisites
 
@@ -90,6 +91,13 @@ n8n/workflows/   Reserved for Phase 5 synchronization workflows
 docs/            Architecture and future operational documentation
 ```
 
+The Google Sheets schema is documented in
+[`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,
+dependency-free initialization definition is
+[`docs/google-sheets-schema.json`](docs/google-sheets-schema.json). The JSON
+defines all ten sheet names, ordered headers, types, nullability, ownership,
+unique keys, and enum values without calling Google APIs.
+
 ## Security and scope
 
 - Keep `.env` local; it is ignored by Git.
@@ -120,7 +128,9 @@ docs/            Architecture and future operational documentation
   explicitly `EUR`; `display_*` values are never assumed to be EUR.
 - Downstream `metadata` is currently an empty allowlist. No raw institution,
   account, valuable, address, description, or correlation data is copied.
-- Google Sheets and n8n workflows remain intentionally deferred.
+- The Google Sheets schema and safe initialization definition are implemented.
+  Google credentials, live workbook creation, and n8n workflows remain
+  intentionally deferred.
 
 ## Optional live adapter smoke test
 

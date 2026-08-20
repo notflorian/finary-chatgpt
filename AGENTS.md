@@ -546,6 +546,33 @@ The workflow must:
 14. append a `sync_runs` record
 15. fail safely without destroying previous valid data
 
+Phase 5 must use `docs/google-sheets-schema.json` as the canonical source for
+sheet names, ordered headers, types, ownership, nullability, enums, and key
+formats. It must preserve these Phase 4 rules:
+
+- Validate the complete snapshot and all derived rows before any portfolio
+  write. A structured bridge error may append failed `sync_runs` telemetry but
+  must not update, clear, or deactivate portfolio rows.
+- Preserve blank cells as unknown values. Never coerce a nullable currency or
+  numeric field to zero, `N/A`, `unknown`, or the text `null`.
+- Copy the authoritative Phase 3 `gross_assets_eur` account-balance total and
+  use account balances only for consistency checking. Never add position values
+  to account balances.
+- Calculate position weights and asset-class percentages only over active
+  positions with known `market_value_eur`. Treat the result as known-EUR
+  coverage, not full gross-portfolio reconciliation, when any active position
+  lacks a verified EUR value.
+- Do not write `portfolio_daily` or current/history portfolio rows from an
+  incomplete snapshot. Unavailable liability coverage is not zero liabilities
+  and must not create a synthetic net worth.
+- Never overwrite the manual `allocation_targets`, `asset_overrides`, or
+  `cashflows` sheets. Apply enabled overrides using the documented exact-match
+  precedence and reject ambiguous matches.
+- Use decimal fractions for percentages, `TRUE`/`FALSE` for booleans,
+  Europe/Paris business dates, and timezone-aware ISO 8601 timestamps.
+- Preserve all category-aware IDs and deterministic current/history/daily keys
+  exactly as defined in the Phase 4 schema.
+
 Definition of done:
 
 - workflow JSON imports successfully into n8n
@@ -553,6 +580,8 @@ Definition of done:
 - a missing position becomes inactive
 - same-day history is updated rather than duplicated
 - next-day history creates a new row
+- nullable values remain blank rather than becoming zero placeholders
+- manual sheets are not overwritten
 
 ### Phase 6 - Error handling and operations
 

@@ -437,6 +437,17 @@ cashflows
 sync_runs
 ```
 
+Phase 4 makes [`google-sheets-schema.json`](google-sheets-schema.json) the
+canonical ordered header/type/ownership definition and
+[`google-sheets-schema.md`](google-sheets-schema.md) the complete data
+dictionary. The sections below remain the conceptual overview; the Phase 4
+schema is authoritative where it adds nullability and ownership detail.
+
+Unknown numeric values use blank cells, never zero or text placeholders.
+Position currency-derived values remain blank when Phase 3 cannot prove EUR
+provenance. A structured bridge error produces no portfolio write and cannot
+clear or deactivate the last valid state. No sheet contains raw metadata.
+
 ## 8. README sheet
 
 Purpose:
@@ -565,6 +576,11 @@ Unique key:
 liability_key
 ```
 
+The sheet is forward-compatible and may remain empty while Phase 3 liability
+coverage is unavailable. Empty does not prove zero liabilities. An unavailable
+snapshot must not create a synthetic row, clear prior valid rows, or mark them
+inactive.
+
 ## 12. positions_history
 
 One row per day and position.
@@ -661,6 +677,11 @@ Unique key:
 snapshot_date
 ```
 
+Only a complete successful snapshot may write this sheet. Liability and net
+worth cells are nullable for unknown historical/imported states; blank never
+means zero. `gross_assets_eur` remains the authoritative Phase 3 account-balance
+total and is never calculated by adding account and position values.
+
 Percentages should use a clearly documented denominator.
 
 Recommended:
@@ -668,10 +689,12 @@ Recommended:
 ```text
 asset class percentage =
 asset class market value /
-sum of active position market values
+sum of active position market values with known EUR values
 ```
 
 Do not mix liabilities into asset allocation percentages.
+If any active position lacks a verified EUR value, these percentages describe
+the known-EUR subset and must not be presented as full gross-portfolio coverage.
 
 ## 14. allocation_targets
 
@@ -693,9 +716,11 @@ enabled
 Example:
 
 ```text
-equity-main,EQUITY,,75,70,80,Main equity target,TRUE
-bond-main,BOND,,25,20,30,Main bond target,TRUE
+equity-main,EQUITY,,0.75,0.70,0.80,Main equity target,TRUE
+bond-main,BOND,,0.25,0.20,0.30,Main bond target,TRUE
 ```
+
+Percentages are stored as decimal fractions: `0.75` means 75%.
 
 This sheet is not overwritten by n8n.
 
