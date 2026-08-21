@@ -662,9 +662,9 @@ operational constraints, now preserved by Phase 6:
 - The verified adapter still has no complete liability feature. The canonical
   `/v2/snapshot` returns truthful asset state with explicit incomplete coverage
   and null liability-dependent totals. Phase 9 accepted the inactive end-to-end
-  path. Keep the daily workflow inactive until Phase 11 is published and green
-  and issue #18 explicitly approves activation; never treat incomplete coverage
-  as zero merely to enable scheduling.
+  path. Phase 12 published the protected live workflow after green Phase 11 CI
+  and explicit approval; the repository export stays inactive. Never treat
+  incomplete coverage as zero merely to enable scheduling.
 - The Google Sheets credential must be assigned to every Sheets node on both
   success and failure branches after import. Operations documentation must
   include this check and distinguish credential errors from quota errors.
@@ -718,16 +718,18 @@ to GitHub issues #13–#19 and are the authoritative next work:
 6. #17 — implemented: credential-free GitHub-hosted CI runs the stable `tests`,
    `static-analysis`, `repository-contracts`, and `n8n-import` checks. All four
    GitHub-hosted checks have been observed green.
-7. #18 — activate production synchronization only after all four stable checks
-   are green and activation is explicitly approved.
-8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
+7. #18 — the protected live schedule was published after all four stable checks
+   were green and activation was explicitly approved. Its first natural 07:30
+   execution is pending acceptance.
+8. #19 — connect ChatGPT to the validated workbook only after #18 accepts that
+   first scheduled execution; do not start it yet.
 
 These cross-cutting issues are operational milestones, not permission to weaken
 the existing contracts. Preserve these gates:
 
-- Keep the canonical production daily workflow inactive until the remaining
-  activation gates pass. Protected schema-2.0 workbook migration and inactive
-  same-day acceptance passed on 2026-08-21.
+- Keep the repository daily-workflow export inactive for safe imports. The
+  protected live workflow is published; use the documented Unpublish action as
+  the immediate kill-switch if a production gate fails.
 - The error-handler workflow may be published so n8n can select it; it has no
   schedule or external trigger. Do not publish the daily scheduled workflow
   until the activation gates pass.
@@ -749,9 +751,9 @@ the existing contracts. Preserve these gates:
 - Treat the persisted session as bearer-equivalent, server-revocable, and
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
-- Require CI readiness and explicit activation approval before enabling the
-  daily trigger. Phase 9 inactive end-to-end acceptance and Phase 10 Compose
-  migration/recovery acceptance are complete.
+- Phase 12 satisfied CI readiness and explicit activation approval before
+  enabling the daily trigger. Monitor and accept the first natural scheduled
+  execution before beginning #19.
 - Preserve the Phase 11 CI boundary: GitHub-hosted runners only, `contents: read`,
   full-SHA action pins, explicit Python and Node patch pins, no
   `pull_request_target`, no production secrets, and no live-test flags.

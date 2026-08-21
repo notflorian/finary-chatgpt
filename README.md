@@ -7,20 +7,23 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phases 1 through 10 implement and accept the bridge and inactive operational
-pipeline. Phase 11 adds credential-free GitHub Actions quality gates; all four
-GitHub-hosted checks have been observed green. The live
+Phases 1 through 10 implement and accept the bridge and operational pipeline.
+Phase 11 adds credential-free GitHub Actions quality gates; all four
+GitHub-hosted checks have been observed green. Phase 12 published the single
+live `Finary - Daily Sync` workflow after an explicit production preflight. Its
+first natural scheduled execution is still pending. The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
 a narrowly scoped, bridge-only persisted Clerk session after live restart
 verification. Private Finary fields remain confined to the adapter and
-normalizer. The canonical daily workflow remains inactive pending the separate
-production activation gate.
+normalizer. The repository workflow export remains inactive so imports cannot
+start a schedule accidentally; the protected live n8n workflow is published.
 
 Phase 9's sanitized application acceptance evidence is recorded in
 [`docs/end-to-end-acceptance.md`](docs/end-to-end-acceptance.md). Phase 10's
 sanitized live-stack migration evidence is recorded in
-[`docs/compose-migration.md`](docs/compose-migration.md).
+[`docs/compose-migration.md`](docs/compose-migration.md). Phase 12's sanitized
+activation record is [`docs/production-activation.md`](docs/production-activation.md).
 
 ## Prerequisites
 
@@ -119,8 +122,9 @@ The read-only `CI` GitHub Actions workflow validates pull requests and pushes to
 operations are explicitly excluded. See [`docs/ci.md`](docs/ci.md) for runtime
 pins, security boundaries, local reproduction, and failure diagnosis.
 
-Successful CI does not activate scheduling. The production daily workflow
-remains inactive until issue #18 is explicitly approved.
+Successful CI does not activate scheduling by itself. Issue #18 received
+explicit approval and the protected live daily workflow is now published; the
+repository export deliberately remains inactive.
 
 ## Repository layout
 
@@ -147,8 +151,9 @@ FINARY_SCHEMA_URL=http://schema-server/google-sheets-schema.json
 
 The workflows target n8n 2.35.5. The daily workflow supports a manual trigger
 and a daily 07:30 schedule in `Europe/Paris`. It targets the canonical
-schema-2.0 workbook and remains inactive/unpublished until production
-activation. The workbook must contain headers matching the canonical JSON. See
+schema-2.0 workbook. The protected live workflow is published, while this
+repository export remains inactive for safe import. The workbook must contain
+headers matching the canonical JSON. See
 [`docs/n8n-daily-sync.md`](docs/n8n-daily-sync.md) for setup, safety semantics,
 and status meanings. See [`docs/operations.md`](docs/operations.md)
 for monitoring, backups, credential rotation, and recovery.
@@ -178,18 +183,21 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 11 are implemented. Issue #23 implemented the canonical schema
-`2.0` contract, workbook, and inactive workflows. Phase 9 then accepted the
+Phases 1 through 12 are implemented through live activation. Issue #23
+implemented the canonical schema `2.0` contract, workbook, and workflows. Phase
+9 then accepted the
 merged end-to-end path with a protected-session restart, sanitized live v2
 snapshot, one inactive manual synchronization, workbook integrity checks, and
-credential-free lifecycle/recovery tests. It does not enable production
-scheduling.
+credential-free lifecycle/recovery tests. Phase 12 published the protected live
+schedule after a second successful inactive manual preflight. The first natural
+07:30 execution is pending, so issue #18 remains the active acceptance gate and
+issue #19 has not started.
 Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
-liability collection. The daily production schedule therefore remains disabled.
-The canonical v2 bridge publishes truthful asset state with explicit incomplete
-coverage while withholding liability-dependent totals.
+liability collection. The active schema-2.0 schedule therefore publishes
+truthful asset state with explicit incomplete coverage while withholding
+liability-dependent totals.
 
 Phase 8 reached
 [Outcome A](docs/finary-authentication-investigation.md). After one explicit
@@ -208,8 +216,8 @@ issue numbers are #13–#19:
 4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): accepted under schema 2.0; see the [sanitized evidence](docs/end-to-end-acceptance.md).
 5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16): accepted; the repository Compose project now owns all three live services and persistent n8n state.
 6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17): implemented; all four GitHub-hosted checks have been observed green.
-7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): remains the explicit activation gate after Phase 11.
-8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): live schedule published; first natural scheduled execution pending.
+8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), not started until #18 accepts the first scheduled run.
 
 Issue #13 remains an evidence-backed Outcome B and an explicit limitation of
 liability/net-worth analysis. Schema 2.0 allows truthful asset synchronization

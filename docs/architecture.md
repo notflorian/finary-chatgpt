@@ -1286,9 +1286,11 @@ Also keep a Manual Trigger for:
 
 Do not poll Finary every hour unless a future requirement justifies it.
 
-The production schedule remains inactive. Phase 10 migrated the live bridge,
-schema service, and persistent n8n instance into the repository Compose project
-without changing this activation state. The canonical `/v2/snapshot` path
+The protected live production schedule is active after Phase 12 preflight and
+explicit approval; its first natural scheduled execution is pending. The
+repository export remains inactive for safe imports. Phase 10 migrated the live
+bridge, schema service, and persistent n8n instance into the repository Compose
+project. The canonical `/v2/snapshot` path
 returns HTTP 200 with explicit incomplete liability coverage and null dependent
 totals; this is a valid asset snapshot, not `FINARY_FEATURE_UNAVAILABLE`.
 Phase 9 accepted one inactive manual synchronization under those semantics.
@@ -1438,8 +1440,8 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Accepted under schema 2.0; sanitized evidence recorded |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Accepted; protected restore and restart persistence verified |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented; all four GitHub-hosted checks observed green |
-| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Published green Phase 11 CI and explicit approval |
-| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
+| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Live schedule published; first natural run pending acceptance |
+| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | Do not start until #18 accepts the first scheduled run |
 
 Issue #13 produced the explicit versioned completeness design because no
 complete source could be proven. Issue #23 implements that design: the
@@ -1456,8 +1458,9 @@ evidence is in `docs/compose-migration.md`. Phase 11 adds four credential-free
 GitHub-hosted checks: tests, static analysis, repository contracts, and import
 validation against the Compose-pinned n8n runtime. This CI has no path to
 Finary, Clerk state, Google Sheets, the live n8n instance, or the live Docker
-host. Production remains gated on successful published CI and explicit
-activation; the daily schedule remains disabled.
+host. Production activation passed published CI and explicit approval. The
+protected live daily schedule is active while the repository export remains
+inactive.
 
 ### Phase 11 CI boundary
 

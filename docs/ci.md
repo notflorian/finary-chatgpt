@@ -120,9 +120,11 @@ It is not suitable for live state and must never replace the production
   longer resolves one digest-pinned n8n 2.35.5 image or the real pinned CLI
   rejected a canonical workflow.
 
-Do not bypass or weaken a gate to activate synchronization. Successful Phase 11
-CI is necessary but not sufficient: issue #18 remains the explicit production-
-activation decision.
+Do not bypass or weaken a gate to activate synchronization. Phase 12 activated
+the protected live schedule only after all four exact-main checks were green
+and the user explicitly approved publication. The current private-repository
+plan did not permit configuring or verifying required-check enforcement, so CI
+status was inspected directly and no unsupported enforcement claim is made.
 
 ## Live diagnostics
 
@@ -130,4 +132,4 @@ Live Finary and persisted-session tests remain manual, local, and explicitly
 opt-in as documented in `README.md` and `operations.md`. Phase 11 deliberately
 adds no live-test workflow and no Google synchronization test.
 
-**PRODUCTION SCHEDULE REMAINS DISABLED.**
+**PRODUCTION SCHEDULE IS ACTIVE; FIRST NATURAL RUN IS PENDING.**
