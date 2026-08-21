@@ -106,7 +106,7 @@ portfolio values. The live checks emitted structural status labels only.
 Phase 9 acceptance satisfies the implementation scope of issue #15. The
 remaining roadmap is:
 
-1. #16 — migrate the live stack to repository Docker Compose;
+1. #16 — repository Compose migration accepted; see `compose-migration.md`;
 2. #17 — add CI quality gates;
 3. #18 — activate production synchronization safely;
 4. #19 — connect ChatGPT to the validated workbook.

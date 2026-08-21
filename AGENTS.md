@@ -683,8 +683,8 @@ Definition of done:
   valid synchronization
 - restart, MFA bootstrap, Google credential assignment, quota recovery, and
   partial-write repair procedures are documented and tested where practical
-- the production schedule remains disabled until the remaining Compose, CI,
-  and activation gates are approved
+- the production schedule remains disabled until the remaining CI and explicit
+  activation gates are approved
 - recovery steps are documented
 
 ### Post-Phase-6 operational gates
@@ -710,9 +710,13 @@ to GitHub issues #13–#19 and are the authoritative next work:
    with explicit incomplete coverage, and workbook/manual-sheet integrity plus
    deterministic lifecycle and recovery checks passed. Evidence is documented
    in `docs/end-to-end-acceptance.md`.
-5. #16 — migrate the existing live containers to the repository Compose stack.
+5. #16 — completed: the live bridge, schema server, persistent n8n state,
+   workflows, credential, and execution history were migrated to the repository
+   Compose project after a protected backup and isolated restore test. Restart
+   persistence and service-volume isolation were verified. Evidence is in
+   `docs/compose-migration.md`.
 6. #17 — add credential-free CI quality gates.
-7. #18 — activate production synchronization; blocked by #16 and #17.
+7. #18 — activate production synchronization; blocked by #17.
 8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
 
 These cross-cutting issues are operational milestones, not permission to weaken
@@ -742,9 +746,9 @@ the existing contracts. Preserve these gates:
 - Treat the persisted session as bearer-equivalent, server-revocable, and
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
-- Require Compose/CI readiness and explicit activation approval before enabling
-  the daily trigger. Phase 9 inactive end-to-end and recovery acceptance is
-  complete.
+- Require CI readiness and explicit activation approval before enabling the
+  daily trigger. Phase 9 inactive end-to-end acceptance and Phase 10 Compose
+  migration/recovery acceptance are complete.
 - Configure ChatGPT/Google Drive consumption only after a valid workbook state
   exists; never expose Finary credentials or private upstream payloads.
 
