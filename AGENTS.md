@@ -152,6 +152,9 @@ FINARY_EMAIL=
 FINARY_PASSWORD=
 FINARY_MFA_CODE=
 FINARY_BRIDGE_API_KEY=
+FINARY_BRIDGE_URL=
+FINARY_GOOGLE_SHEET_ID=
+FINARY_SCHEMA_URL=
 N8N_ENCRYPTION_KEY=
 TZ=Europe/Paris
 ```
@@ -235,7 +238,8 @@ Construct downstream keys such as:
 
 ```text
 finary:account:{account_id}
-finary:{account_id}:asset:{asset_id}
+{position_kind}:{asset_id}
+finary:{account_id}:asset:{position_kind}:{asset_id}
 finary:liability:{liability_id}
 ```
 
@@ -572,6 +576,10 @@ formats. It must preserve these Phase 4 rules:
   Europe/Paris business dates, and timezone-aware ISO 8601 timestamps.
 - Preserve all category-aware IDs and deterministic current/history/daily keys
   exactly as defined in the Phase 4 schema.
+- Configure every Google Sheets read or preflight node with `Execute Once`.
+  Chained reads must never execute once per row returned by the previous sheet,
+  because that amplifies API requests as the workbook grows and exhausts the
+  per-user Google Sheets quota. Do not apply `Execute Once` to row write nodes.
 
 Definition of done:
 
@@ -595,11 +603,64 @@ Add:
 - failure scenarios
 - manual recovery procedure
 
+Phase 5 implementation and live verification established these mandatory
+operational constraints for Phase 6:
+
+- The main workflow already records sanitized structured bridge failures before
+  portfolio writes. The error workflow must cover uncaught n8n, Code node,
+  Google Sheets, and mid-write failures without creating duplicate failed
+  telemetry for a run that was already recorded.
+- Google Sheets enforces per-user read and write request quotas. Add bounded
+  retry with exponential backoff for retryable `429` and temporary `5xx`
+  failures, configure a finite workflow execution timeout, and document how to
+  identify and stop a stale running execution. A quota increase must not be the
+  only mitigation.
+- Preserve `Execute Once` on every Google Sheets read and preflight node. Add a
+  regression check so a preceding sheet with many rows cannot multiply later
+  read requests. Write nodes must continue to process every prepared row.
+- Sanitize Google and n8n errors before writing `sync_runs` or sending a
+  notification. Do not expose spreadsheet IDs, OAuth material, project details,
+  raw node payloads, credentials, tokens, cookies, MFA values, or private
+  portfolio rows. Use stable error categories and include only a safe failing
+  step name when useful.
+- Derive the last successful synchronization from the newest `SUCCESS` or
+  `SUCCESS_WITH_WARNINGS` telemetry row. A later `FAILED` row must not replace
+  or obscure the last-known-valid state.
+- A private GitHub repository cannot serve the canonical schema through an
+  unauthenticated raw GitHub URL. Provide and document a local, credential-free
+  schema-serving path reachable from n8n, and keep
+  `docs/google-sheets-schema.json` as the single canonical schema source.
+- `docker compose` must start the operational local stack, including n8n with a
+  persistent data volume and a network-reachable canonical schema source. Do
+  not embed Google OAuth credentials or n8n credential IDs in repository files.
+- A new bridge process may require a fresh TOTP or prepared email-code challenge
+  before it has an authenticated in-memory Clerk session. Document the exact
+  non-interactive bootstrap and restart procedure. Do not add persistent Clerk
+  cookies, bearer tokens, TOTP storage, or interactive prompting to HTTP routes.
+- The verified adapter still has no complete liability feature. Keep the daily
+  workflow inactive for production while `/v1/snapshot` returns
+  `FINARY_FEATURE_UNAVAILABLE`; Phase 6 must not weaken the contract by treating
+  unavailable liabilities as zero merely to enable scheduling.
+- The Google Sheets credential must be assigned to every Sheets node on both
+  success and failure branches after import. Operations documentation must
+  include this check and distinguish credential errors from quota errors.
+
 Definition of done:
 
 - failed Finary authentication does not alter current portfolio data
 - malformed snapshots do not overwrite valid current data
 - error runs are visible in `sync_runs`
+- uncaught n8n and Google Sheets failures produce sanitized, non-duplicated
+  diagnostics when telemetry remains writable
+- retryable Google Sheets quota and temporary service failures use bounded
+  backoff, and executions cannot remain running indefinitely
+- the full local stack and canonical schema source start through Docker Compose
+- last-success reporting ignores later failed runs and identifies the newest
+  valid synchronization
+- restart, MFA bootstrap, Google credential assignment, quota recovery, and
+  partial-write repair procedures are documented and tested where practical
+- the production schedule remains disabled until the bridge can return a
+  complete snapshot without fabricating liability coverage
 - recovery steps are documented
 
 ## What not to implement initially
