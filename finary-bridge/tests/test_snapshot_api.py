@@ -11,6 +11,7 @@ from httpx import ASGITransport, AsyncClient, Response
 from app.finary_client import (
     FinaryAuthenticationError,
     FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryMalformedResponseError,
     FinaryRawAccounts,
     FinaryRawLiabilities,
@@ -50,7 +51,9 @@ class _FakeClient:
     def get_liabilities(self) -> FinaryRawLiabilities:
         if self.liabilities_unavailable:
             raise FinaryFeatureUnavailableError("synthetic private detail")
-        return FinaryRawLiabilities(records=())
+        return FinaryRawLiabilities(
+            records=(), coverage=FinaryLiabilityCoverage.COMPLETE
+        )
 
 
 def _request(path: str, client: _FakeClient) -> Response:

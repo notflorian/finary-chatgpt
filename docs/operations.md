@@ -6,16 +6,20 @@ does not change the Phase 5 synchronization semantics.
 
 ## Safety state
 
-Keep `Finary - Daily Sync` **inactive** in production. The live adapter still
-returns `FINARY_FEATURE_UNAVAILABLE` because liability coverage is unverified.
-That structured failure is expected and must not overwrite the last valid
-current portfolio state. Enable the schedule only after the bridge can produce
-a complete snapshot and a manual run has been reviewed.
+Keep `Finary - Daily Sync` **inactive** in production. Phase 7 concluded with
+Outcome B: no complete liability source is verified. The live schema `1.0`
+adapter therefore still returns `FINARY_FEATURE_UNAVAILABLE`. That structured
+failure is expected and must not overwrite the last valid current portfolio
+state. Enable the schedule only after the bridge can produce a complete
+snapshot and a manual run has been reviewed.
 
-The activation path is tracked in GitHub: liability completeness
-[#13](https://github.com/notflorian/finary-chatgpt/issues/13) and unattended
-authentication [#14](https://github.com/notflorian/finary-chatgpt/issues/14)
-block live acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15).
+The activation path is tracked in GitHub. Liability investigation
+[#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
+[Outcome B evidence and versioned proposal](liability-coverage-investigation.md),
+but schema `1.0` completeness remains unavailable. Unattended authentication
+[#14](https://github.com/notflorian/finary-chatgpt/issues/14) is the next
+roadmap gate. Both liability completeness and authentication must be resolved
+before live acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15).
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) are also
 required before production activation
@@ -141,6 +145,21 @@ For diagnostics, `/health` proves only that the bridge process is ready and
 never contacts Finary. Call `/v1/snapshot` manually with the configured API key
 to test the upstream path; expect the current sanitized
 `FINARY_FEATURE_UNAVAILABLE` response until liability coverage is verified.
+
+To repeat the sanitized adapter investigation deliberately, run from
+`finary-bridge` with local credentials and interactive MFA available:
+
+```bash
+FINARY_LIVE_TEST=1 FINARY_LIVE_DESCRIBE=1 \
+  python -m pytest -m live tests/live/test_finary_live.py -vv -s --tb=no
+```
+
+The liability diagnostic must report `NO VERIFIED COMPLETE SOURCE` for the
+current adapter. It prints no endpoint payload, value, ID, account name,
+institution, address, token, cookie, or MFA value. A successful authentication
+and empty nested `loans` arrays do not alter the conclusion. Operators must not
+create zero liability rows, calculate net worth, clear prior liabilities, or
+publish the daily schedule from that observation.
 
 ### Google authentication
 

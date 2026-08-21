@@ -7,6 +7,8 @@ from copy import deepcopy
 import pytest
 
 from app.finary_client import (
+    FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryPositionKind,
     FinaryRawAccounts,
     FinaryRawLiabilities,
@@ -355,9 +357,32 @@ def test_gross_assets_do_not_add_position_values(
 
 
 def test_empty_verified_liability_collection_is_supported_but_not_inferred_from_loans() -> None:
-    assert normalize_liabilities(FinaryRawLiabilities(records=())) == ()
+    assert (
+        normalize_liabilities(
+            FinaryRawLiabilities(
+                records=(), coverage=FinaryLiabilityCoverage.COMPLETE
+            )
+        )
+        == ()
+    )
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [FinaryLiabilityCoverage.PARTIAL, FinaryLiabilityCoverage.UNAVAILABLE],
+)
+def test_incomplete_empty_liability_collection_is_never_zero(
+    coverage: FinaryLiabilityCoverage,
+) -> None:
+    with pytest.raises(FinaryFeatureUnavailableError, match="not verified complete"):
+        normalize_liabilities(FinaryRawLiabilities(records=(), coverage=coverage))
 
 
 def test_non_empty_liability_collection_is_not_fabricated() -> None:
     with pytest.raises(SnapshotNormalizationError, match="no verified normalization rule"):
-        normalize_liabilities(FinaryRawLiabilities(records=({"id": "synthetic"},)))
+        normalize_liabilities(
+            FinaryRawLiabilities(
+                records=({"id": "synthetic"},),
+                coverage=FinaryLiabilityCoverage.COMPLETE,
+            )
+        )

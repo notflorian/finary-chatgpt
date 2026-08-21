@@ -409,10 +409,29 @@ Suggested schema:
 }
 ```
 
-The model is implemented, but no non-empty upstream liability normalization is
-implemented. Empty nested `loans` arrays are ignored and never interpreted as
-proof of zero liabilities. The current live endpoint therefore returns the
-structured unavailable-feature error before calculating net worth.
+The model is implemented, but Phase 7 concluded with Outcome B: no verified
+complete liability source. `finary_uapi` 0.2.3 at revision
+`be147ce47eb0acb3b8f2b1d2152c551953e775bd` contains no liability reader. Its
+documented `loans` CLI command has no dispatch implementation. Independent
+organization-scoped traffic evidence exposes a `credits/accounts` category and
+portfolio loan-status flags, but does not prove portfolio-wide completeness,
+a dedicated non-empty liability schema, identity/deduplication, lifecycle, or
+EUR provenance.
+
+`FinaryRawLiabilities` therefore carries explicit `COMPLETE`, `PARTIAL`, or
+`UNAVAILABLE` coverage. Only `COMPLETE` can be normalized by schema `1.0`.
+An explicitly complete empty collection may produce known zero in deterministic
+tests; partial or unavailable empty collections still raise
+`FinaryFeatureUnavailableError`. Empty nested `loans` arrays remain ignored and
+never prove zero liabilities. The current live endpoint returns the structured
+unavailable-feature error before calculating net worth.
+
+The full evidence and proposed future schema `2.0` coverage contract are in
+[`liability-coverage-investigation.md`](liability-coverage-investigation.md).
+That proposal would add an explicit liability coverage state and keep
+`liabilities_eur` and `net_worth_eur` null for `PARTIAL` or `UNAVAILABLE`.
+It is not implemented: `/v1/snapshot`, the Sheets schema, and n8n semantics are
+unchanged.
 
 ## 6.4 Phase 4 handoff constraints
 
@@ -1362,20 +1381,22 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 
 | Order | GitHub issue | Milestone | Dependency |
 | --- | --- | --- | --- |
-| 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Resolve liability coverage and snapshot completeness | Hard blocker |
-| 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Secure non-interactive Finary authentication | Hard blocker |
+| 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Outcome B: no verified complete liability source; versioned alternative documented | Investigation complete; schema `1.0` blocker remains |
+| 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Secure non-interactive Finary authentication | Next roadmap gate |
 | 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | #13, #14 |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Before activation |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
 | 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #15, #16, #17 |
 | 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 
-Issue #13 must either establish a callable, structurally verified liability
-source or produce an explicit versioned completeness design; it may not infer
-zero liabilities from empty nested arrays. Issue #14 must use a real supported
-authentication mechanism and may not persist Clerk/TOTP material merely to
-make scheduling work. Until #15 passes, `FINARY_FEATURE_UNAVAILABLE` is the
-correct live result and the daily production schedule must remain disabled.
+Issue #13 produced the explicit versioned completeness design because no
+complete source could be proven. Schema `1.0` was not weakened, and empty
+nested arrays still cannot infer zero liabilities. Any future schema `2.0`
+migration requires separate approval and coordinated Sheets/n8n changes. Issue
+#14 must use a real supported authentication mechanism and may not persist
+Clerk/TOTP material merely to make scheduling work. Until #15 passes,
+`FINARY_FEATURE_UNAVAILABLE` is the correct live result and the daily production
+schedule must remain disabled.
 
 ## 34. Final acceptance checklist
 

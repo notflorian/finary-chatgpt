@@ -7,11 +7,11 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phase 6 implements bounded operational handling, persistent local n8n configuration,
-sanitized failure diagnostics, and recovery documentation while
-preserving the stable Phase 3 contract at `GET /v1/snapshot` and the canonical
-Phase 4 workbook schema. Private Finary response fields remain confined to the
-adapter and normalizer.
+Phases 1 through 6 implement the bridge and operational pipeline. Phase 7
+concludes that no complete liability source is currently verified, so the
+fail-safe schema `1.0` contract at `GET /v1/snapshot` and the canonical Phase 4
+workbook schema remain unchanged. Private Finary response fields remain
+confined to the adapter and normalizer.
 
 ## Prerequisites
 
@@ -142,26 +142,30 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 6 are implemented. The daily production schedule remains
-disabled because the verified Finary surface does not provide complete
-liability coverage, so the live bridge correctly refuses to publish a
-misleading snapshot.
+Phases 1 through 7 are implemented. Phase 7 reached
+[Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
+0.2.3 nor the additional organization-scoped traffic evidence proves a complete
+liability collection. The daily production schedule therefore remains disabled,
+and the live bridge correctly refuses to publish a misleading snapshot.
 
 The post-Phase-6 roadmap uses ordinal titles 07–13; the corresponding GitHub
 issue numbers are #13–#19:
 
-1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13).
-2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14).
+1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13): Outcome B documented; schema `1.0` remains fail-safe.
+2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): next roadmap gate.
 3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15), blocked by #13 and #14.
 4. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
 5. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
 6. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
 7. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
-Issues #13 and #14 are the hard blockers. Do not persist Clerk cookies, bearer
-tokens, TOTP secrets, or backup codes merely to automate the schedule, and do
-not interpret empty nested `loans` arrays as zero liabilities. ChatGPT must
-never receive Finary credentials or raw private API payloads.
+Issue #13 resolves the investigation but not the live schema `1.0` completeness
+blocker. Its proposed schema `2.0` coverage model is documentation only and
+requires separate approval and downstream migration before use. Issue #14 is
+the next roadmap gate. Do not persist Clerk cookies, bearer tokens, TOTP
+secrets, or backup codes merely to automate the schedule, and do not interpret
+empty nested `loans` arrays as zero liabilities. ChatGPT must never receive
+Finary credentials or raw private API payloads.
 
 The Google Sheets schema is documented in
 [`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,
@@ -188,12 +192,14 @@ unique keys, and enum values without calling Google APIs.
 - The adapter retrieves holding accounts and the verified asset collections
   for securities, crypto, euro funds, crowdlending, generic assets, precious
   metals, real estate, SCPI, and startups.
-- The verified upstream client surface does not provide a callable liability
-  endpoint. Live account, real-estate, and SCPI payloads exposed nested `loans`
-  arrays, but all observed arrays were empty, so their element schema and
-  duplication behavior remain unverified. The adapter therefore reports
-  liabilities through an explicit unavailable-feature exception instead of
-  fabricating an extraction rule.
+- Phase 7 inspected `finary_uapi` 0.2.3 at its exact upstream revision and
+  current organization-scoped traffic evidence. A credits category and loan
+  status flags exist in the latter evidence, but their completeness, dedicated
+  liability shape, identity, lifecycle, and EUR semantics are not proven. See
+  [`docs/liability-coverage-investigation.md`](docs/liability-coverage-investigation.md).
+- Raw liability results carry an explicit completeness state. Only a verified
+  `COMPLETE` source can make an empty collection mean zero; `PARTIAL` and
+  `UNAVAILABLE` remain `FINARY_FEATURE_UNAVAILABLE`.
 - Gross assets use non-collection account balances only. Position values are
   never added to account balances, preventing double counting.
 - EUR fields are populated only from amounts whose associated currency is

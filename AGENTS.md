@@ -669,9 +669,11 @@ Definition of done:
 The user explicitly approved a post-Phase-6 roadmap. Roadmap ordinals 07–13 map
 to GitHub issues #13–#19 and are the authoritative next work:
 
-1. #13 — resolve liability coverage and snapshot completeness.
-2. #14 — implement or conclusively rule out secure non-interactive Finary
-   authentication.
+1. #13 — Outcome B completed: no verified complete liability source; schema
+   `1.0` remains fail-safe and a future schema `2.0` coverage design is
+   documented in `docs/liability-coverage-investigation.md`.
+2. #14 — next gate: implement or conclusively rule out secure non-interactive
+   Finary authentication.
 3. #15 — complete a live snapshot and inactive end-to-end acceptance; blocked
    by #13 and #14.
 4. #16 — migrate the existing live containers to the repository Compose stack.
@@ -689,6 +691,11 @@ the existing contracts. Preserve these gates:
   until the activation gates pass.
 - Investigate liabilities only against a callable, observed upstream surface.
   Never infer completeness or zero liabilities from empty nested `loans` arrays.
+- Preserve the Phase 7 `FinaryRawLiabilities.coverage` distinction. Only
+  `COMPLETE` can make an empty collection a known zero; `PARTIAL` and
+  `UNAVAILABLE` must remain fail-safe in schema `1.0`.
+- Do not implement the proposed schema `2.0` coverage contract without explicit
+  approval and a coordinated Sheets/n8n migration.
 - Preserve the stable downstream schema and isolate upstream changes inside the
   adapter/normalizer wherever possible.
 - Before scheduling, verify repeatable non-interactive authentication without

@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Final
 
 from app.finary_client import (
+    FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryPositionKind,
     FinaryRawAccounts,
     FinaryRawLiabilities,
@@ -143,6 +145,10 @@ def normalize_liabilities(
 ) -> tuple[Liability, ...]:
     """Accept a verified-complete empty collection without inventing a schema."""
 
+    if raw_liabilities.coverage is not FinaryLiabilityCoverage.COMPLETE:
+        raise FinaryFeatureUnavailableError(
+            "Liability coverage is not verified complete"
+        )
     if raw_liabilities.records:
         raise SnapshotNormalizationError(
             "non-empty liabilities have no verified normalization rule"
