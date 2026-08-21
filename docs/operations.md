@@ -12,6 +12,17 @@ That structured failure is expected and must not overwrite the last valid
 current portfolio state. Enable the schedule only after the bridge can produce
 a complete snapshot and a manual run has been reviewed.
 
+The activation path is tracked in GitHub: liability completeness
+[#13](https://github.com/notflorian/finary-chatgpt/issues/13) and unattended
+authentication [#14](https://github.com/notflorian/finary-chatgpt/issues/14)
+block live acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15).
+Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
+and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) are also
+required before production activation
+[#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
+[#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
+activation has produced a validated workbook state.
+
 ## Start and verify the local stack
 
 1. Copy `.env.example` to an ignored `.env` and set strong values for
