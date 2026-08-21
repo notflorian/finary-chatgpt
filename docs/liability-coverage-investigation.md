@@ -1,8 +1,66 @@
 # Liability coverage investigation
 
+## Phase 9 live organization-scoped verification
+
+On 2026-08-21, Phase 9 closed the live-call evidence gap left by Phase 7. The
+probe reused the protected Phase 8 Clerk session and called only the
+source-evidenced read surfaces:
+
+- `GET /users/me/organizations`;
+- `GET /organizations/{organization_id}/memberships/{membership_id}/portfolio?new_format=true&period=all`;
+- `GET /organizations/{organization_id}/memberships/{membership_id}/portfolio/credits/accounts?period=all`.
+
+The identifiers remained in memory and were never printed or stored. The
+portfolio and credits calls were made for every discovered membership so that
+an owner-only selection could not silently omit a separate profile.
+
+Sanitized structural findings:
+
+| Question | Live finding | Completeness consequence |
+| --- | --- | --- |
+| Authentication | The protected Clerk session refreshed and authenticated without a new factor. | Phase 8 restart reuse remains verified. |
+| Context discovery | The organizations result was a non-empty list with stable organization and membership IDs. Exactly one owner context was discoverable, and multiple memberships existed. | A single owner context is not automatically portfolio-wide across every accessible profile. Aggregation and shared-liability rules remain necessary. |
+| Portfolio overview | Callable for every discovered membership. The result was an object with `gross`, `net`, and `finary` sections, nested `total`, `assets`, and `liabilities` objects, plus `has_unqualified_loans` and `has_unlinked_loans`. | The flag names are UI-status evidence, not a documented completeness guarantee. |
+| Credits accounts | Callable for every discovered membership and returned a list in the standard envelope. Every list was `EMPTY`. | No representative liability record exists from which to verify identity, balance, currency, lifecycle, category, ownership, or linked-loan semantics. |
+| Reconciliation | For every membership, `gross.total.amount - net.total.amount` matched both the empty credits sum and the zero debt implied by the observed overview, within an absolute EUR tolerance of `0.01`. | This supports that the current displayed contexts contain no recognized debt, but does not prove that an empty credits list is an authoritative complete-zero contract. |
+| Pagination | No pagination fields or link header were present on the observed overview or credits responses. | An empty single response cannot prove that the endpoint is intrinsically unpaginated or complete for a non-empty portfolio. |
+| Duplication | No cross-membership credit ID collision was observable because every collection was empty. | Deduplication semantics remain unverified. |
+
+The probe printed field names, JSON types, `EMPTY`/`NON_EMPTY`, and
+`MATCH`/`NO_MATCH` statuses only. It did not print or persist identifiers,
+names, institutions, addresses, amounts, raw JSON, authentication material, or
+portfolio values.
+
+### Phase 9 completeness matrix
+
+| Requirement | Result |
+| --- | --- |
+| Callable live source | Proven |
+| Portfolio-wide relevant scope | Not proven across multiple memberships |
+| Manual and synchronized liabilities | Not distinguishable in the empty result |
+| Mortgage, consumer, revolving, unlinked, real-estate, and SCPI coverage | Not evidenced by a representative record or completeness contract |
+| Stable liability identity | Not observed |
+| Outstanding-balance and sign semantics | Not observed |
+| Explicit EUR provenance | Not observed |
+| Active/closed/deleted lifecycle | Not observed |
+| Cross-surface and cross-membership deduplication | Not observed |
+| Pagination completeness | Not proven |
+| Known-empty semantics | Not guaranteed, despite current-value reconciliation |
+| Authoritative total reconciliation | Current empty state reconciled exactly within `0.01` EUR |
+| No unresolved category outside the collection | Not proven |
+
+The official Finary loan documentation confirms that loans may be synchronized
+or manually entered and may be linked to real estate or SCPI. The live empty
+list gives no evidence that all of those paths converge into this collection,
+nor that `false` UI warning flags would mean complete coverage rather than the
+absence of those particular warnings.
+
 ## Decision
 
-Phase 7 concludes with **Outcome B: no verified complete liability source**.
+Phase 7 and the authorized Phase 9 follow-up conclude with **Outcome B: no
+verified complete liability source**. The live organization-scoped surface is
+callable, but its empty result cannot establish the missing identity, value,
+currency, lifecycle, duplication, pagination, and known-empty semantics.
 Schema `1.0` remains fail-safe: the production adapter raises
 `FinaryFeatureUnavailableError`, and `GET /v1/snapshot` returns
 `FINARY_FEATURE_UNAVAILABLE`. It does not emit a zero liability total or net
@@ -127,9 +185,10 @@ Only `COMPLETE` may reach schema `1.0` liability normalization. Consequently:
 
 No endpoint was added based on a guessed name. No nested `loans` array is read.
 
-## Proposed versioned incomplete-coverage contract
+## Recommended versioned incomplete-coverage contract
 
-If incomplete snapshots are approved later, implement them as a new schema
+The Phase 9 result recommends adopting the separately approved migration in
+[`schema-v2-migration-plan.md`](schema-v2-migration-plan.md). Implement it as a new schema
 major version and endpoint, for example `GET /v2/snapshot`. Do not change the
 meaning of `GET /v1/snapshot`.
 
@@ -174,9 +233,9 @@ It never prints endpoint payloads, values, IDs, names, addresses, or
 authentication material. A fresh session may still require an interactive TOTP
 or prepared email code; Phase 7 does not change that authentication behavior.
 
-The Phase 7 automated run did not call the candidate organization-scoped
-surfaces with the local account because a fresh interactive MFA code was not
-available to the unattended process. That limitation does not turn the
-source-only evidence into a completeness guarantee. A future sanitized live
-probe may strengthen structural evidence, but it must still answer every
-completeness question above before Outcome A is possible.
+The Phase 9 probe called the candidate organization-scoped surfaces using the
+protected Phase 8 session. It closed the prior callability gap but produced no
+representative liability record and no completeness guarantee. Repeating the
+same empty calls is unlikely to add material evidence. A future non-empty
+response could establish record shape, but would still need an upstream-backed
+scope and known-empty contract before schema `1.0` could claim `COMPLETE`.
