@@ -25,8 +25,11 @@ Before importing the workflow:
    Publishing this Error Trigger workflow creates no schedule or external
    endpoint.
 9. Keep the daily workflow unpublished/inactive while verified liability
-   coverage is unavailable. Activate its schedule only after a complete manual
-   snapshot succeeds.
+   coverage is unavailable. Phase 8 documents the protected Clerk-session
+   Outcome A in `docs/finary-authentication-investigation.md`; routine bridge
+   restarts can reuse it, but this does not resolve snapshot completeness.
+   Activate the schedule only after the liability blocker is resolved and a
+   complete manual snapshot succeeds.
 
 The workflow does not create, clear, reformat, or repair the workbook. A missing
 sheet or shifted header aborts before portfolio writes.

@@ -16,10 +16,12 @@ snapshot and a manual run has been reviewed.
 The activation path is tracked in GitHub. Liability investigation
 [#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
 [Outcome B evidence and versioned proposal](liability-coverage-investigation.md),
-but schema `1.0` completeness remains unavailable. Unattended authentication
-[#14](https://github.com/notflorian/finary-chatgpt/issues/14) is the next
-roadmap gate. Both liability completeness and authentication must be resolved
-before live acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15).
+but schema `1.0` completeness remains unavailable. Authentication
+[#14](https://github.com/notflorian/finary-chatgpt/issues/14) concluded with
+Outcome A: the protected bridge-only Clerk session survives routine restarts
+without persisting MFA material or bearer JWTs. Complete liability coverage
+remains unresolved before live acceptance
+[#15](https://github.com/notflorian/finary-chatgpt/issues/15).
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) are also
 required before production activation
@@ -39,9 +41,10 @@ activation has produced a validated workbook state.
 5. From the n8n container, the schema is available at
    `http://schema-server/google-sheets-schema.json`.
 
-The n8n database and encrypted credentials persist in the named `n8n_data`
-volume. The Compose ports bind to localhost only. The schema service has no
-host port and mounts the canonical JSON read-only.
+The n8n database and encrypted credentials persist in `n8n_data`. Sensitive
+Clerk restart state persists separately in `finary_session_data`, mounted only
+into the bridge. The Compose ports bind to localhost only. The schema service
+has no host port and mounts the canonical JSON read-only.
 
 Open n8n at `http://127.0.0.1:5678`. View bounded recent logs with
 `docker compose logs --tail=200 finary-bridge n8n schema-server`; review them
@@ -126,20 +129,37 @@ a second run while the first is still stopping.
 
 ### Finary authentication or MFA
 
-The bridge keeps Clerk session data in memory only. A fresh container can need
-a new prepared TOTP/email challenge. Put the current one-time code in the local
-environment only, recreate `finary-bridge`, verify `/health`, run once, then
-remove the code from the shell/environment file. Never persist Clerk cookies,
-tokens, backup codes, or TOTP secrets. Authentication failure must leave all
-portfolio sheets unchanged.
+Phase 8 accepts only the minimum verified Clerk restart state: the session ID
+and production `__client` cookie. Compose stores them in the bridge-only
+`finary_session_data` volume as versioned JSON under `0700` directory and
+`0600` file permissions. The state is bearer-equivalent while valid. It must
+never reach n8n, Sheets, ChatGPT, Git, logs, workflow exports, or backups.
+Bearer JWTs remain in memory; TOTP secrets, backup codes, and one-time codes
+must never be persisted. Authentication failure must leave all portfolio
+sheets unchanged.
 
-Live verification confirmed that interactive authentication succeeds when the
-TOTP is requested after Clerk returns its challenge. The HTTP bridge cannot
-prompt, so its code must be preloaded: wait for a newly rotated TOTP, recreate
-the bridge immediately, and start the manual workflow within the same validity
-window. A healthy `/health` response does not prove that a preloaded TOTP is
-still valid. An expired code produces the sanitized `FINARY_AUTH_FAILED` result
-and must not trigger portfolio writes.
+Normal startup remains lazy: start the bridge without authenticating and verify
+`/health`. This proves only process readiness. Do not publish or activate the
+daily workflow.
+
+If the protected store is empty, expired, or revoked, bootstrap it once with a
+current one-time code. Recreate the bridge, make an authenticated request
+promptly, then remove the code from the shell environment:
+
+```bash
+read -s "FINARY_MFA_CODE?Enter the current Finary TOTP code: "
+echo
+export FINARY_MFA_CODE
+docker compose up -d --force-recreate finary-bridge
+unset FINARY_MFA_CODE
+```
+
+The first request stores only the allowed Clerk state. A schema `1.0`
+`FINARY_FEATURE_UNAVAILABLE` response proves authentication succeeded and then
+reached the independent liability gate. Recreate the bridge again without
+`FINARY_MFA_CODE` and repeat the request; the protected session should refresh
+without prompting. `/health` proves process readiness only and never touches
+the session file.
 
 For diagnostics, `/health` proves only that the bridge process is ready and
 never contacts Finary. Call `/v1/snapshot` manually with the configured API key
@@ -160,6 +180,38 @@ institution, address, token, cookie, or MFA value. A successful authentication
 and empty nested `loans` arrays do not alter the conclusion. Operators must not
 create zero liability rows, calculate net worth, clear prior liabilities, or
 publish the daily schedule from that observation.
+
+To repeat the Phase 8 restart test, first configure an absolute empty
+`FINARY_SESSION_PATH` outside the repository, then run:
+
+```bash
+FINARY_LIVE_SESSION_TEST=1 \
+  python -m pytest -m live tests/live/test_finary_session_live.py -vv -s --tb=no
+```
+
+It prompts for one factor, then verifies two fresh clients without another
+factor and prints sanitized status only. The 2026-08-21 acceptance run also
+verified the same state from an independent Python process. It never prints
+cookies, tokens, session identifiers, factors, identities, or portfolio values.
+
+Expiry and revocation are terminal for the persisted session. A definitive
+refresh rejection clears local state and returns sanitized
+`FINARY_AUTH_FAILED`; a fresh manual bootstrap is then required. Temporary
+network/service failures preserve the prior state for a later bounded request.
+Password and MFA changes are not assumed to revoke every existing session:
+explicitly sign out/revoke upstream sessions and clear the local state during
+rotation or suspected compromise.
+
+To clear the Compose store without displaying it:
+
+```bash
+docker compose stop finary-bridge
+docker compose run --rm finary-bridge \
+  python -c 'import os; from app.finary_session_store import FileFinarySessionStore; FileFinarySessionStore(os.environ["FINARY_SESSION_PATH"]).clear()'
+```
+
+Clearing local state does not revoke a stolen copy. Use Finary's sign-out-all
+or session controls as well, then restart and bootstrap with MFA.
 
 ### Google authentication
 
@@ -207,6 +259,10 @@ Before upgrades or credential rotation:
 5. Preserve the exact `N8N_ENCRYPTION_KEY` separately in a secret manager. A
    volume backup without that key cannot decrypt stored credentials.
 
+Do **not** back up `finary_session_data`. It contains bearer-equivalent Clerk
+state and is intentionally recoverable only by a fresh MFA bootstrap after a
+host loss. Do not include it in generic Docker-volume backup jobs.
+
 To restore, create an empty replacement volume, restore the backup while n8n is
 stopped, provide the original encryption key, start the stack, and verify both
 workflows and credentials before any manual execution. Restore the workbook
@@ -215,8 +271,14 @@ verified target.
 
 ## Rotation and upgrades
 
-- Finary password: update the ignored environment, recreate only the bridge,
-  and manually verify authentication.
+- Finary password: explicitly sign out/revoke upstream sessions, stop the
+  bridge, clear its session store, update the ignored environment, recreate the
+  bridge, and complete a new manual factor challenge. Password change alone is
+  not assumed to revoke every existing Clerk session.
+- Finary MFA factor: explicitly sign out/revoke upstream sessions, clear the
+  bridge store, rotate the factor in Finary, discard any pending one-time code,
+  and bootstrap with the new factor. Never copy the TOTP seed or backup codes
+  into bridge configuration.
 - Bridge API key: rotate the same value in bridge and n8n environments, recreate
   both services, and verify `/health` plus a manual structured snapshot call.
 - Google OAuth: reconnect inside n8n and reassign every Sheets node.
@@ -226,5 +288,5 @@ verified target.
   both workflows in an isolated instance, run the repository tests and Compose
   validation, then perform one inactive manual run.
 
-Never use `docker compose down -v` during routine operations: it deletes the
-persistent n8n volume.
+Never use `docker compose down -v` during routine operations: it deletes both
+the persistent n8n state and the protected Clerk session volume.

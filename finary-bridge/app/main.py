@@ -1,5 +1,6 @@
 """FastAPI boundary for local diagnostics and normalized snapshots."""
 
+from functools import lru_cache
 from typing import Annotated, Final, Literal, NamedTuple
 
 from fastapi import Depends, FastAPI, Request, status
@@ -95,8 +96,9 @@ _UPSTREAM_ERROR_SPECS: Final[tuple[tuple[type[FinaryClientError], _ApiErrorSpec]
 )
 
 
+@lru_cache(maxsize=1)
 def get_finary_client() -> FinaryClient:
-    """Create a non-interactive adapter dependency from local environment state."""
+    """Reuse one non-interactive adapter and refresh lock for the process lifetime."""
 
     return FinaryApiClient.from_environment()
 
@@ -121,9 +123,7 @@ def _error_response(spec: _ApiErrorSpec) -> JSONResponse:
 
 
 @app.exception_handler(FinaryClientError)
-async def handle_finary_error(
-    request: Request, exception: FinaryClientError
-) -> JSONResponse:
+async def handle_finary_error(request: Request, exception: FinaryClientError) -> JSONResponse:
     """Translate adapter exceptions without exposing upstream messages."""
 
     del request

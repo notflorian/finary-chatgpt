@@ -126,7 +126,7 @@ ChatGPT reads the Google Sheet through Google Drive integration.
 ChatGPT should not receive:
 
 - Finary password
-- Finary session cookies
+- Finary session cookies or session identifiers
 - private Finary API tokens
 - raw authentication payloads
 
@@ -165,6 +165,8 @@ services:
       context: ./finary-bridge
     env_file:
       - .env
+    volumes:
+      - finary_session_data:/var/lib/finary-session
     networks:
       - finary-stack
 
@@ -1109,20 +1111,39 @@ Bridge environment variables:
 FINARY_EMAIL
 FINARY_PASSWORD
 FINARY_MFA_CODE
+FINARY_SESSION_PATH
 FINARY_BRIDGE_API_KEY
 ```
 
-If the private Finary authentication requires interactive MFA or session bootstrap, Codex must adapt the implementation based on observed behavior rather than inventing an unsupported flow.
-
-Prefer reusing a valid session mechanism when supported by the chosen upstream client.
-
 Never expose these values downstream.
 
-Phase 3 creates the production adapter without an interactive code provider.
-`GET /v1/snapshot` therefore never prompts. A fresh bridge process may require
-a current `FINARY_MFA_CODE`; missing or expired verification state returns
-`FINARY_AUTH_FAILED`. Cookies, bearer tokens, TOTP secrets, backup codes, and
-session state remain in memory only and are not persisted.
+Phase 8 concludes with Outcome A: the normal Clerk session-token refresh model
+is accepted through a narrow protected persistence boundary. The bridge stores
+only the current Clerk session ID and production `__client` cookie value. It
+uses those values with `POST /v1/client/sessions/{session_id}/tokens` to mint a
+new short-lived JWT; bearer JWTs remain in memory. Live verification proved
+reuse across fresh clients and a separate process without another MFA code.
+
+The adapter starts password sign-in and completes a challenge only from an
+explicit one-time `FINARY_MFA_CODE` or injected interactive provider. HTTP
+routes never prompt. FastAPI reuses one process-local client, whose lock avoids
+duplicate refresh/bootstrap flows and whose JWT is refreshed after 45 seconds.
+On restart, the client loads the protected session store. Definitive Clerk
+rejection clears it and returns sanitized `FINARY_AUTH_FAILED`; expiry or
+revocation therefore requires a new explicit MFA bootstrap.
+
+Compose mounts `finary_session_data` only at `/var/lib/finary-session` in the
+bridge. Versioned JSON is written atomically under owner-only directory/file
+permissions. The store is not mounted into n8n or `schema-server`, is not
+backed up, and never contains TOTP secrets, backup codes, one-time codes,
+passwords, bearer JWTs, browser profiles, or raw authentication responses.
+`/health` neither creates the dependency nor reads the session file.
+
+Authentication success and snapshot completeness are separate. After a manual
+authentication succeeds, the Phase 7 liability decision still causes schema
+`1.0` to return `FINARY_FEATURE_UNAVAILABLE`. See
+[`finary-authentication-investigation.md`](finary-authentication-investigation.md)
+for the upstream evidence, threat model, lifecycle, and revocation procedure.
 
 ## 25. Google authentication
 
@@ -1323,8 +1344,10 @@ Do not build downstream automation around unverified Finary assumptions.
 
 ## 33. Implemented phase sequence and next gates
 
-Phases 1 through 6 are implemented. The prompts below are retained as the
-historical incremental delivery sequence, not as pending work.
+Phases 1 through 8 are implemented. The prompts below retain the first six
+implementation phases as historical incremental delivery context, not as
+pending work. Phases 7 and 8 are recorded in the roadmap table and their
+investigation documents.
 
 Prompt 1:
 
@@ -1382,8 +1405,8 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | Order | GitHub issue | Milestone | Dependency |
 | --- | --- | --- | --- |
 | 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Outcome B: no verified complete liability source; versioned alternative documented | Investigation complete; schema `1.0` blocker remains |
-| 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Secure non-interactive Finary authentication | Next roadmap gate |
-| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | #13, #14 |
+| 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Outcome A: protected Clerk session persistence | Restart reuse live-verified; periodic MFA remains after expiry/revocation |
+| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Blocked by unresolved complete liability coverage from #13 |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Before activation |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
 | 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #15, #16, #17 |
@@ -1393,10 +1416,12 @@ Issue #13 produced the explicit versioned completeness design because no
 complete source could be proven. Schema `1.0` was not weakened, and empty
 nested arrays still cannot infer zero liabilities. Any future schema `2.0`
 migration requires separate approval and coordinated Sheets/n8n changes. Issue
-#14 must use a real supported authentication mechanism and may not persist
-Clerk/TOTP material merely to make scheduling work. Until #15 passes,
-`FINARY_FEATURE_UNAVAILABLE` is the correct live result and the daily production
-schedule must remain disabled.
+#14 implemented and verified routine restart session reuse without persisting
+MFA material or bearer JWTs. Authentication no longer blocks routine restarts,
+but the Phase 7 liability Outcome B remains a production blocker. Until a
+separately approved path resolves liability completeness and #15 passes,
+`FINARY_FEATURE_UNAVAILABLE` is the correct post-authentication live result and
+the daily production schedule must remain disabled.
 
 ## 34. Final acceptance checklist
 

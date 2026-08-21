@@ -51,9 +51,7 @@ class _FakeClient:
     def get_liabilities(self) -> FinaryRawLiabilities:
         if self.liabilities_unavailable:
             raise FinaryFeatureUnavailableError("synthetic private detail")
-        return FinaryRawLiabilities(
-            records=(), coverage=FinaryLiabilityCoverage.COMPLETE
-        )
+        return FinaryRawLiabilities(records=(), coverage=FinaryLiabilityCoverage.COMPLETE)
 
 
 def _request(path: str, client: _FakeClient) -> Response:
@@ -66,6 +64,16 @@ def _request(path: str, client: _FakeClient) -> Response:
                 return await http_client.get(path)
         finally:
             app.dependency_overrides.clear()
+
+    return asyncio.run(send_request())
+
+
+def _request_without_override(path: str) -> Response:
+    async def send_request() -> Response:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as http_client:
+            return await http_client.get(path)
 
     return asyncio.run(send_request())
 
@@ -146,6 +154,27 @@ def test_snapshot_endpoint_maps_upstream_errors_without_raw_details(
     assert response.json()["error"]["code"] == error_code
     assert response.json()["error"]["retryable"] is retryable
     assert "private" not in response.text
+
+
+def test_snapshot_endpoint_maps_missing_credentials_safely(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_finary_client.cache_clear()
+    monkeypatch.delenv("FINARY_EMAIL", raising=False)
+    monkeypatch.delenv("FINARY_PASSWORD", raising=False)
+    monkeypatch.delenv("FINARY_MFA_CODE", raising=False)
+
+    response = _request_without_override("/v1/snapshot")
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "FINARY_AUTH_FAILED",
+            "message": "Unable to authenticate with Finary",
+            "retryable": False,
+        }
+    }
+    get_finary_client.cache_clear()
 
 
 def test_snapshot_endpoint_maps_unavailable_liabilities_explicitly(

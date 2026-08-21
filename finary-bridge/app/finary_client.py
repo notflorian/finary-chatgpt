@@ -14,10 +14,19 @@ from collections.abc import Callable, Mapping, MutableMapping
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import StrEnum
+from threading import Lock
+from time import monotonic
 from typing import Final, Protocol, cast
 
 from curl_cffi.requests import Session
 from curl_cffi.requests import exceptions as curl_exceptions
+
+from app.finary_session_store import (
+    FileFinarySessionStore,
+    FinarySessionState,
+    FinarySessionStore,
+    FinarySessionStoreError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +34,11 @@ _API_ROOT: Final = "https://api.finary.com"
 _APP_ROOT: Final = "https://app.finary.com"
 _CLERK_ROOT: Final = "https://clerk.finary.com"
 _SIGN_IN_URL: Final = f"{_CLERK_ROOT}/v1/client/sign_ins"
+_CLERK_CLIENT_COOKIE_NAME: Final = "__client"
+_CLERK_CLIENT_COOKIE_DOMAIN: Final = ".clerk.finary.com"
 _IMPERSONATE_BROWSER: Final = "chrome110"
 _DEFAULT_TIMEOUT_SECONDS: Final = 20.0
+_DEFAULT_TOKEN_REFRESH_INTERVAL_SECONDS: Final = 45.0
 
 
 class FinaryClientError(Exception):
@@ -76,9 +88,7 @@ class FinaryCredentials:
     mfa_code: str | None = field(default=None, repr=False)
 
     @classmethod
-    def from_environment(
-        cls, environment: Mapping[str, str] | None = None
-    ) -> FinaryCredentials:
+    def from_environment(cls, environment: Mapping[str, str] | None = None) -> FinaryCredentials:
         """Load credentials without reading or logging any credential value."""
 
         source = os.environ if environment is None else environment
@@ -170,9 +180,34 @@ class _HttpResponse(Protocol):
         """Decode an HTTP response body."""
 
 
+class _HttpCookies(Protocol):
+    def get(
+        self,
+        name: str,
+        default: str | None = None,
+        domain: str | None = None,
+        path: str | None = None,
+    ) -> str | None:
+        """Return one cookie value."""
+
+    def set(
+        self,
+        name: str,
+        value: str,
+        domain: str = "",
+        path: str = "/",
+        secure: bool = False,
+    ) -> None:
+        """Set one cookie value."""
+
+
 class _HttpSession(Protocol):
     headers: MutableMapping[str, str]
     impersonate: str
+
+    @property
+    def cookies(self) -> _HttpCookies:
+        """Expose the session cookie jar through its narrow adapter protocol."""
 
     def get(self, url: str, *, timeout: float) -> _HttpResponse:
         """Issue a GET request."""
@@ -191,6 +226,7 @@ class _HttpSession(Protocol):
 
 _SessionFactory = Callable[[], _HttpSession]
 _SecondFactorCodeProvider = Callable[[str], str]
+_MonotonicClock = Callable[[], float]
 
 
 def _create_session() -> _HttpSession:
@@ -220,13 +256,28 @@ class FinaryApiClient:
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
         session_factory: _SessionFactory = _create_session,
         second_factor_code_provider: _SecondFactorCodeProvider | None = None,
+        session_store: FinarySessionStore | None = None,
+        token_refresh_interval_seconds: float = _DEFAULT_TOKEN_REFRESH_INTERVAL_SECONDS,
+        monotonic_clock: _MonotonicClock = monotonic,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero")
-        self._credentials = credentials
+        if token_refresh_interval_seconds <= 0:
+            raise ValueError("token_refresh_interval_seconds must be greater than zero")
+        self._credentials = FinaryCredentials(
+            email=credentials.email,
+            password=credentials.password,
+        )
+        self._mfa_code = credentials.mfa_code
         self._timeout_seconds = timeout_seconds
         self._session = session_factory()
         self._second_factor_code_provider = second_factor_code_provider
+        self._session_store = session_store
+        self._token_refresh_interval_seconds = token_refresh_interval_seconds
+        self._monotonic_clock = monotonic_clock
+        self._authentication_lock = Lock()
+        self._session_state: FinarySessionState | None = None
+        self._token_obtained_at: float | None = None
         self._authenticated = False
 
     @classmethod
@@ -239,10 +290,14 @@ class FinaryApiClient:
     ) -> FinaryApiClient:
         """Build the adapter from the documented Finary environment variables."""
 
+        source = os.environ if environment is None else environment
+        session_path = source.get("FINARY_SESSION_PATH", "").strip()
+        session_store = FileFinarySessionStore(session_path) if session_path else None
         return cls(
-            FinaryCredentials.from_environment(environment),
+            FinaryCredentials.from_environment(source),
             timeout_seconds=timeout_seconds,
             second_factor_code_provider=second_factor_code_provider,
+            session_store=session_store,
         )
 
     def authenticate(self) -> None:
@@ -250,27 +305,60 @@ class FinaryApiClient:
 
         __tracebackhide__ = True
 
-        if self._authenticated:
+        with self._authentication_lock:
+            self._authenticate_locked()
+
+    def _authenticate_locked(self) -> None:
+        now = self._monotonic_clock()
+        if (
+            self._authenticated
+            and self._token_obtained_at is not None
+            and now - self._token_obtained_at < self._token_refresh_interval_seconds
+        ):
             return
 
         logger.info(
             "Finary authentication started",
             extra={"event": "finary.authentication.started"},
         )
-        payload = self._post_authentication(
-            _SIGN_IN_URL,
-            {
-                "identifier": self._credentials.email,
-                "password": self._credentials.password,
-            },
-        )
-        payload = self._complete_second_factor_if_needed(payload)
-        self._raise_for_authentication_errors(payload)
-        session_token = self._extract_session_token(payload)
+        state = self._session_state
+        if state is None and self._session_store is not None:
+            try:
+                state = self._session_store.load()
+            except FinarySessionStoreError:
+                self._clear_persisted_session()
+                logger.warning(
+                    "Stored Finary session is unusable",
+                    extra={"event": "finary.authentication.session_rejected"},
+                )
+                raise FinaryAuthenticationError("Stored Finary session is unusable") from None
+            if state is not None:
+                logger.info(
+                    "Stored Finary session loaded",
+                    extra={"event": "finary.authentication.session_loaded"},
+                )
 
-        self._session.headers.update({"authorization": f"Bearer {session_token}"})
-        self._session.impersonate = _IMPERSONATE_BROWSER
-        self._authenticated = True
+        if state is not None:
+            self._refresh_session(state)
+            return
+
+        try:
+            payload = self._post_authentication(
+                _SIGN_IN_URL,
+                {
+                    "identifier": self._credentials.email,
+                    "password": self._credentials.password,
+                },
+            )
+            payload = self._complete_second_factor_if_needed(payload)
+            self._raise_for_authentication_errors(payload)
+            session_id, session_token = self._extract_session(payload)
+            self._complete_authentication(session_token)
+            if self._session_store is not None:
+                self._persist_current_session(session_id)
+        finally:
+            self._mfa_code = None
+
         logger.info(
             "Finary authentication completed",
             extra={"event": "finary.authentication.succeeded"},
@@ -337,10 +425,8 @@ class FinaryApiClient:
             )
 
         strategies = _extract_factor_strategies(response)
-        if "totp" in strategies and self._credentials.mfa_code:
-            return self._attempt_second_factor(
-                sign_in_id, strategy="totp", code=self._credentials.mfa_code
-            )
+        if "totp" in strategies and self._mfa_code:
+            return self._attempt_second_factor(sign_in_id, strategy="totp", code=self._mfa_code)
         if "email_code" in strategies and self._second_factor_code_provider:
             return self._complete_email_code_factor(response, sign_in_id)
         if "totp" in strategies and self._second_factor_code_provider:
@@ -348,9 +434,12 @@ class FinaryApiClient:
             return self._attempt_second_factor(sign_in_id, strategy="totp", code=code)
 
         strategy_summary = ", ".join(strategies) if strategies else "unknown"
+        logger.warning(
+            "Manual Finary authentication bootstrap is required",
+            extra={"event": "finary.authentication.manual_bootstrap_required"},
+        )
         raise FinaryAuthenticationError(
-            "Finary MFA is required but not configured "
-            f"(supported strategies: {strategy_summary})"
+            f"Finary MFA is required but not configured (supported strategies: {strategy_summary})"
         )
 
     def _complete_email_code_factor(
@@ -367,25 +456,19 @@ class FinaryApiClient:
                 "Finary email-code factor is missing its email address identifier"
             )
 
-        prepare_url = (
-            f"{_CLERK_ROOT}/v1/client/sign_ins/{sign_in_id}/prepare_second_factor"
-        )
+        prepare_url = f"{_CLERK_ROOT}/v1/client/sign_ins/{sign_in_id}/prepare_second_factor"
         prepared_payload = self._post_authentication(
             prepare_url,
             {"strategy": "email_code", "email_address_id": email_address_id},
         )
         self._raise_for_authentication_errors(prepared_payload)
         code = self._request_second_factor_code("email_code")
-        return self._attempt_second_factor(
-            sign_in_id, strategy="email_code", code=code
-        )
+        return self._attempt_second_factor(sign_in_id, strategy="email_code", code=code)
 
     def _request_second_factor_code(self, strategy: str) -> str:
         provider = self._second_factor_code_provider
         if provider is None:
-            raise FinaryAuthenticationError(
-                f"Finary {strategy} verification code is required"
-            )
+            raise FinaryAuthenticationError(f"Finary {strategy} verification code is required")
         try:
             code = provider(strategy).strip()
         except (EOFError, OSError):
@@ -393,25 +476,19 @@ class FinaryApiClient:
                 f"Finary {strategy} verification code could not be read"
             ) from None
         if not code:
-            raise FinaryAuthenticationError(
-                f"Finary {strategy} verification code was not provided"
-            )
+            raise FinaryAuthenticationError(f"Finary {strategy} verification code was not provided")
         return code
 
     def _attempt_second_factor(
         self, sign_in_id: str, *, strategy: str, code: str
     ) -> Mapping[str, object]:
-        second_factor_url = (
-            f"{_CLERK_ROOT}/v1/client/sign_ins/{sign_in_id}/attempt_second_factor"
-        )
+        second_factor_url = f"{_CLERK_ROOT}/v1/client/sign_ins/{sign_in_id}/attempt_second_factor"
         return self._post_authentication(
             second_factor_url,
             {"strategy": strategy, "code": code},
         )
 
-    def _post_authentication(
-        self, url: str, data: Mapping[str, str]
-    ) -> Mapping[str, object]:
+    def _post_authentication(self, url: str, data: Mapping[str, str]) -> Mapping[str, object]:
         __tracebackhide__ = True
         headers = {
             "Accept-Encoding": "identity",
@@ -428,23 +505,17 @@ class FinaryApiClient:
                 timeout=self._timeout_seconds,
             )
         except curl_exceptions.Timeout:
-            raise FinaryUpstreamTimeoutError(
-                "Finary authentication request timed out"
-            ) from None
+            raise FinaryUpstreamTimeoutError("Finary authentication request timed out") from None
         except curl_exceptions.RequestException:
             raise FinaryUpstreamError("Finary authentication request failed") from None
         return self._decode_response(response, authentication=True)
 
-    def _get_entity_records(
-        self, url: str, *, operation: str
-    ) -> tuple[Mapping[str, object], ...]:
+    def _get_entity_records(self, url: str, *, operation: str) -> tuple[Mapping[str, object], ...]:
         __tracebackhide__ = True
         try:
             response = self._session.get(url, timeout=self._timeout_seconds)
         except curl_exceptions.Timeout:
-            raise FinaryUpstreamTimeoutError(
-                f"Finary {operation} request timed out"
-            ) from None
+            raise FinaryUpstreamTimeoutError(f"Finary {operation} request timed out") from None
         except curl_exceptions.RequestException:
             raise FinaryUpstreamError(f"Finary {operation} request failed") from None
 
@@ -461,9 +532,7 @@ class FinaryApiClient:
             )
         result = payload["result"]
         if not isinstance(result, list):
-            raise FinaryMalformedResponseError(
-                f"Finary {operation} result must be a list"
-            )
+            raise FinaryMalformedResponseError(f"Finary {operation} result must be a list")
 
         records: list[Mapping[str, object]] = []
         for item in result:
@@ -499,7 +568,7 @@ class FinaryApiClient:
         if isinstance(errors, list) and errors:
             raise FinaryAuthenticationError("Finary authentication failed")
 
-    def _extract_session_token(self, payload: Mapping[str, object]) -> str:
+    def _extract_session(self, payload: Mapping[str, object]) -> tuple[str, str]:
         self._raise_for_authentication_errors(payload)
         response = _require_mapping(payload.get("response"), "authentication response")
         if response.get("status") != "complete":
@@ -512,6 +581,11 @@ class FinaryApiClient:
                 "Finary authentication response is missing its session"
             )
         session = _require_mapping(sessions[0], "authentication session")
+        session_id = session.get("id")
+        if not isinstance(session_id, str) or not session_id:
+            raise FinaryMalformedResponseError(
+                "Finary authentication response is missing its session identifier"
+            )
         active_token = _require_mapping(
             session.get("last_active_token"), "authentication session token"
         )
@@ -520,7 +594,108 @@ class FinaryApiClient:
             raise FinaryMalformedResponseError(
                 "Finary authentication response is missing its session token"
             )
-        return session_token
+        return session_id, session_token
+
+    def _refresh_session(self, state: FinarySessionState) -> None:
+        self._session.cookies.set(
+            _CLERK_CLIENT_COOKIE_NAME,
+            state.client_cookie,
+            domain=_CLERK_CLIENT_COOKIE_DOMAIN,
+            path="/",
+            secure=True,
+        )
+        refresh_url = f"{_CLERK_ROOT}/v1/client/sessions/{state.session_id}/tokens"
+        headers = {
+            "Accept-Encoding": "identity",
+            "Origin": _APP_ROOT,
+            "Referer": _APP_ROOT,
+            "User-Agent": "finary-bridge/0.1.0",
+        }
+        try:
+            response = self._session.post(
+                refresh_url,
+                data={},
+                headers=headers,
+                impersonate=_IMPERSONATE_BROWSER,
+                timeout=self._timeout_seconds,
+            )
+            if response.status_code in (401, 403):
+                raise FinaryAuthenticationError("Finary rejected the stored session")
+            if response.status_code != 200:
+                raise FinaryUpstreamError("Finary session refresh returned an unexpected status")
+            payload = self._decode_response(response, authentication=False)
+        except FinaryAuthenticationError:
+            self._clear_persisted_session()
+            logger.warning(
+                "Stored Finary session was rejected",
+                extra={"event": "finary.authentication.session_rejected"},
+            )
+            raise
+        except curl_exceptions.Timeout:
+            raise FinaryUpstreamTimeoutError("Finary session refresh request timed out") from None
+        except curl_exceptions.RequestException:
+            raise FinaryUpstreamError("Finary session refresh request failed") from None
+
+        session_token = payload.get("jwt")
+        if not isinstance(session_token, str) or not session_token:
+            raise FinaryMalformedResponseError(
+                "Finary session refresh response is missing its token"
+            )
+        self._complete_authentication(session_token)
+        self._persist_current_session(state.session_id)
+        logger.info(
+            "Stored Finary session refreshed",
+            extra={"event": "finary.authentication.session_refreshed"},
+        )
+
+    def _complete_authentication(self, session_token: str) -> None:
+        self._session.headers.update({"authorization": f"Bearer {session_token}"})
+        self._session.impersonate = _IMPERSONATE_BROWSER
+        self._authenticated = True
+        self._token_obtained_at = self._monotonic_clock()
+
+    def _persist_current_session(self, session_id: str) -> None:
+        store = self._session_store
+        if store is None:
+            return
+        client_cookie = self._session.cookies.get(
+            _CLERK_CLIENT_COOKIE_NAME,
+            domain=_CLERK_CLIENT_COOKIE_DOMAIN,
+            path="/",
+        )
+        if not isinstance(client_cookie, str) or not client_cookie:
+            raise FinaryAuthenticationError(
+                "Finary authentication did not establish refreshable state"
+            )
+        state = FinarySessionState(
+            session_id=session_id,
+            client_cookie=client_cookie,
+        )
+        try:
+            store.save(state)
+        except FinarySessionStoreError:
+            self._authenticated = False
+            self._token_obtained_at = None
+            self._session.headers.pop("authorization", None)
+            raise FinaryAuthenticationError(
+                "Finary session state could not be stored safely"
+            ) from None
+        self._session_state = state
+
+    def _clear_persisted_session(self) -> None:
+        self._authenticated = False
+        self._token_obtained_at = None
+        self._session_state = None
+        self._session.headers.pop("authorization", None)
+        if self._session_store is None:
+            return
+        try:
+            self._session_store.clear()
+        except FinarySessionStoreError:
+            logger.warning(
+                "Stored Finary session could not be cleared",
+                extra={"event": "finary.authentication.session_clear_failed"},
+            )
 
     def _require_authenticated(self) -> None:
         if not self._authenticated:
@@ -550,9 +725,7 @@ def _extract_factor_strategies(response: Mapping[str, object]) -> tuple[str, ...
     return tuple(strategies)
 
 
-def _find_factor(
-    response: Mapping[str, object], strategy: str
-) -> Mapping[str, object] | None:
+def _find_factor(response: Mapping[str, object], strategy: str) -> Mapping[str, object] | None:
     factors = response.get("supported_second_factors")
     if not isinstance(factors, list):
         return None

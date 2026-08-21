@@ -7,11 +7,13 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phases 1 through 6 implement the bridge and operational pipeline. Phase 7
-concludes that no complete liability source is currently verified, so the
-fail-safe schema `1.0` contract at `GET /v1/snapshot` and the canonical Phase 4
-workbook schema remain unchanged. Private Finary response fields remain
-confined to the adapter and normalizer.
+Phases 1 through 8 implement the bridge, operational pipeline, and the two
+upstream capability investigations. Phase 7 concludes that no complete
+liability source is currently verified. Phase 8 accepts a narrowly scoped,
+bridge-only persisted Clerk session after live restart verification. The
+fail-safe schema `1.0` contract at
+`GET /v1/snapshot` and the canonical Phase 4 workbook schema remain unchanged.
+Private Finary response fields remain confined to the adapter and normalizer.
 
 ## Prerequisites
 
@@ -68,9 +70,10 @@ docker compose up --build
 ```
 
 The bridge and n8n are bound to `127.0.0.1:8000` and `127.0.0.1:5678`. The
-canonical schema service is private to the Compose network, and n8n data is
-stored in the `n8n_data` named volume. Stop the stack without deleting that
-volume with:
+canonical schema service is private to the Compose network. n8n data is stored
+in `n8n_data`; the sensitive Clerk restart state is isolated in the separate
+bridge-only `finary_session_data` named volume. Stop the stack without deleting
+either volume with:
 
 ```bash
 docker compose down
@@ -142,30 +145,39 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 7 are implemented. Phase 7 reached
+Phases 1 through 8 are implemented. Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
 liability collection. The daily production schedule therefore remains disabled,
 and the live bridge correctly refuses to publish a misleading snapshot.
 
+Phase 8 reached
+[Outcome A](docs/finary-authentication-investigation.md). After one explicit
+MFA bootstrap, the bridge persists only Clerk's session ID and `__client`
+cookie in a protected bridge-only store. Live verification proved that fresh
+clients and a separate process can mint new short-lived JWTs without another
+MFA code while that upstream session remains valid. TOTP secrets, backup codes,
+one-time codes, bearer JWTs, and raw authentication responses remain prohibited.
+
 The post-Phase-6 roadmap uses ordinal titles 07–13; the corresponding GitHub
 issue numbers are #13–#19:
 
 1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13): Outcome B documented; schema `1.0` remains fail-safe.
-2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): next roadmap gate.
-3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15), blocked by #13 and #14.
+2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): Outcome A implemented and restart-verified; periodic human MFA remains necessary after expiry or revocation.
+3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15), still blocked by unresolved complete liability coverage.
 4. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
 5. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
 6. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
 7. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
-Issue #13 resolves the investigation but not the live schema `1.0` completeness
-blocker. Its proposed schema `2.0` coverage model is documentation only and
-requires separate approval and downstream migration before use. Issue #14 is
-the next roadmap gate. Do not persist Clerk cookies, bearer tokens, TOTP
-secrets, or backup codes merely to automate the schedule, and do not interpret
-empty nested `loans` arrays as zero liabilities. ChatGPT must never receive
-Finary credentials or raw private API payloads.
+Issue #13 remains an evidence-backed Outcome B and production blocker. Issue
+#14 resolves the routine restart-authentication blocker without enabling the
+schedule. The proposed schema `2.0` liability coverage model remains
+documentation only and requires separate approval and downstream migration.
+Persisted Clerk state is allowed only in the minimal protected bridge store;
+never persist TOTP secrets, backup codes, one-time MFA codes, or bearer JWTs,
+and never interpret empty nested `loans` arrays as zero liabilities. ChatGPT
+must never receive Finary credentials or raw private API payloads.
 
 The Google Sheets schema is documented in
 [`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,
@@ -188,7 +200,12 @@ unique keys, and enum values without calling Google APIs.
   files and may debug-log complete entity payloads; neither behavior is suitable
   for this service boundary.
 - Authentication uses the verified Clerk password flow with TOTP or prepared
-  email-code challenges and retains cookies and the bearer token in memory only.
+  email-code challenges. It persists only the Clerk session ID and `__client`
+  cookie in the configured protected store and keeps bearer JWTs in memory.
+- Phase 8 inspected the current Finary Clerk configuration, Clerk lifecycle
+  documentation, and `finary_uapi` refresh implementation. Live tests verified
+  supported refresh across fresh clients and a separate process. See
+  [`docs/finary-authentication-investigation.md`](docs/finary-authentication-investigation.md).
 - The adapter retrieves holding accounts and the verified asset collections
   for securities, crypto, euro funds, crowdlending, generic assets, precious
   metals, real estate, SCPI, and startups.
@@ -232,3 +249,16 @@ record counts, top-level field names, and JSON types. It never prints field
 values or raw payloads.
 
 The smoke test does not print upstream payloads or financial values.
+
+To verify protected restart reuse, set an absolute empty `FINARY_SESSION_PATH`
+outside the repository and run the separate sanitized diagnostic:
+
+```bash
+FINARY_LIVE_SESSION_TEST=1 \
+  python -m pytest -m live tests/live/test_finary_session_live.py -vv -s --tb=no
+```
+
+The test prompts once, persists no bearer JWT or MFA material, and verifies two
+fresh-client refreshes without printing cookie, token, session, identity, or
+portfolio values. Manual MFA is required again after session expiry or
+revocation.

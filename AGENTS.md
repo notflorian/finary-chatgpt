@@ -151,6 +151,7 @@ Use environment variables:
 FINARY_EMAIL=
 FINARY_PASSWORD=
 FINARY_MFA_CODE=
+FINARY_SESSION_PATH=
 FINARY_BRIDGE_API_KEY=
 FINARY_BRIDGE_URL=
 FINARY_GOOGLE_SHEET_ID=
@@ -160,6 +161,13 @@ TZ=Europe/Paris
 ```
 
 `FINARY_MFA_CODE` should only be used if required by the upstream authentication flow.
+
+Persisted Clerk session state is permitted only for the verified refresh
+mechanism. It must contain exactly the minimum session ID and `__client` cookie
+value in a protected bridge-only local store. Never persist TOTP secrets,
+backup codes, one-time MFA codes, bearer JWTs, browser profiles, or raw
+authentication responses. Never expose the session store to n8n, Google Sheets,
+ChatGPT, Git, workflow exports, logs, diagnostics, or normal backups.
 
 Provide `.env.example` with empty values.
 
@@ -468,11 +476,11 @@ Phase 2 live verification established these mandatory normalization constraints:
   adapter's unavailable-feature error to a structured API error; do not publish
   `liabilities_eur = 0` or a net-worth figure as if liability coverage were
   complete.
-- Live authentication requires a fresh TOTP or email-code challenge for a new
-  in-memory Clerk session. `/v1/snapshot` must never prompt interactively.
-  Authentication/session lifetime must be dependency-injected and documented;
-  do not persist cookies, bearer tokens, backup codes, or TOTP secrets as part
-  of Phase 3.
+- Live authentication requires a fresh TOTP or email-code challenge to create a
+  new Clerk session. `/v1/snapshot` must never prompt interactively. Phase 3
+  added no persistence; the later approved Phase 8 store may reuse the minimum
+  verified session state but must never persist bearer JWTs, backup codes,
+  one-time MFA codes, or TOTP secrets.
 
 Definition of done:
 
@@ -635,9 +643,8 @@ operational constraints, now preserved by Phase 6:
   persistent data volume and a network-reachable canonical schema source. Do
   not embed Google OAuth credentials or n8n credential IDs in repository files.
 - A new bridge process may require a fresh TOTP or prepared email-code challenge
-  before it has an authenticated in-memory Clerk session. Document the exact
-  non-interactive bootstrap and restart procedure. Do not add persistent Clerk
-  cookies, bearer tokens, TOTP storage, or interactive prompting to HTTP routes.
+  when no valid protected Clerk session exists. Document the exact bootstrap,
+  restart, expiry, and revocation procedure. HTTP routes must never prompt.
 - The verified adapter still has no complete liability feature. Keep the daily
   workflow inactive for production while `/v1/snapshot` returns
   `FINARY_FEATURE_UNAVAILABLE`; Phase 6 must not weaken the contract by treating
@@ -672,10 +679,11 @@ to GitHub issues #13–#19 and are the authoritative next work:
 1. #13 — Outcome B completed: no verified complete liability source; schema
    `1.0` remains fail-safe and a future schema `2.0` coverage design is
    documented in `docs/liability-coverage-investigation.md`.
-2. #14 — next gate: implement or conclusively rule out secure non-interactive
-   Finary authentication.
-3. #15 — complete a live snapshot and inactive end-to-end acceptance; blocked
-   by #13 and #14.
+2. #14 — Outcome A completed: a minimal protected Clerk session store was
+   implemented and live-verified across fresh clients and a separate process;
+   the evidence is documented in `docs/finary-authentication-investigation.md`.
+3. #15 — complete a live snapshot and inactive end-to-end acceptance; still
+   blocked by unresolved complete liability coverage from #13.
 4. #16 — migrate the existing live containers to the repository Compose stack.
 5. #17 — add credential-free CI quality gates.
 6. #18 — activate production synchronization; blocked by #15, #16, and #17.
@@ -698,8 +706,13 @@ the existing contracts. Preserve these gates:
   approval and a coordinated Sheets/n8n migration.
 - Preserve the stable downstream schema and isolate upstream changes inside the
   adapter/normalizer wherever possible.
-- Before scheduling, verify repeatable non-interactive authentication without
-  persisting Clerk sessions, bearer tokens, TOTP secrets, or backup codes.
+- Preserve the Phase 8 Outcome A boundary. Persist only the verified Clerk
+  session ID and `__client` cookie in the bridge-only protected store; keep
+  bearer JWTs in memory and never persist TOTP seeds, backup codes, one-time
+  factors, browser profiles, mailbox credentials, or raw auth payloads.
+- Treat the persisted session as bearer-equivalent, server-revocable, and
+  bounded by upstream session expiry. Rejected state must be cleared and return
+  `FINARY_AUTH_FAILED`; manual MFA is then required again.
 - Require a complete live snapshot and an inactive manual synchronization that
   passes idempotency, totals, history, inactive-row, telemetry, and recovery
   checks before enabling the daily trigger.
