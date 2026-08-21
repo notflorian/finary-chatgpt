@@ -1437,8 +1437,8 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | v2 migration | [#23](https://github.com/notflorian/finary-chatgpt/issues/23) | Explicit liability coverage API, canonical Sheets schema, and inactive workflows | Protected workbook migration and same-day acceptance passed |
 | 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Accepted under schema 2.0; sanitized evidence recorded |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Accepted; protected restore and restart persistence verified |
-| 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
-| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #17 |
+| 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented locally; remote observation pending publication |
+| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Published green Phase 11 CI and explicit approval |
 | 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 
 Issue #13 produced the explicit versioned completeness design because no
@@ -1452,8 +1452,28 @@ artifacts were removed after protected live migration and same-day idempotency
 acceptance. Issue #14 verified routine restart session reuse without persisting
 MFA material or bearer JWTs. Issue #15 accepted the inactive canonical
 end-to-end path; see `docs/end-to-end-acceptance.md`. Phase 10 Compose migration
-evidence is in `docs/compose-migration.md`. Production remains gated on CI
-readiness and explicit activation; the daily schedule remains disabled.
+evidence is in `docs/compose-migration.md`. Phase 11 adds four credential-free
+GitHub-hosted checks: tests, static analysis, repository contracts, and import
+validation against the Compose-pinned n8n runtime. This CI has no path to
+Finary, Clerk state, Google Sheets, the live n8n instance, or the live Docker
+host. Production remains gated on successful published CI and explicit
+activation; the daily schedule remains disabled.
+
+### Phase 11 CI boundary
+
+```text
+GitHub-hosted credential-free CI
+  +-- tests (Python 3.12 + Node.js Code-node execution)
+  +-- static-analysis (Ruff + mypy)
+  +-- repository-contracts (canonical JSON + Compose config)
+  +-- n8n-import (Compose-pinned n8n 2.35.5, network disabled)
+```
+
+The workflow runs on pull requests and pushes to `main` with read-only contents
+permission. It receives no production secrets, explicitly excludes all live
+tests, starts no Compose application services, and never connects to the live
+local stack. Import containers receive only one workflow mounted read-only and
+ephemeral synthetic state; they do not execute or activate workflows.
 
 ## 34. Final acceptance checklist
 
