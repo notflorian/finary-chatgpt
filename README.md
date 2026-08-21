@@ -7,10 +7,10 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phase 4 defines the downstream Google Sheets data model while preserving the
-stable Phase 3 contract at `GET /v1/snapshot`. Private Finary response fields
-remain confined to the adapter and normalizer; live Google access and n8n
-synchronization remain deferred.
+Phase 5 implements the importable n8n daily synchronization workflow while
+preserving the stable Phase 3 contract at `GET /v1/snapshot` and the canonical
+Phase 4 workbook schema. Private Finary response fields remain confined to the
+adapter and normalizer.
 
 ## Prerequisites
 
@@ -87,9 +87,27 @@ python -m mypy app
 
 ```text
 finary-bridge/   Local FastAPI bridge and its tests
-n8n/workflows/   Reserved for Phase 5 synchronization workflows
+n8n/workflows/   Importable Phase 5 synchronization workflow
 docs/            Architecture and future operational documentation
 ```
+
+## n8n daily synchronization
+
+Import [`n8n/workflows/finary-daily-sync.json`](n8n/workflows/finary-daily-sync.json)
+into n8n, assign one Google Sheets OAuth2 credential to every Google Sheets
+node, and set these environment variables on the n8n service:
+
+```text
+FINARY_GOOGLE_SHEET_ID=<workbook spreadsheet ID>
+FINARY_BRIDGE_URL=http://finary-bridge:8000
+FINARY_SCHEMA_URL=https://raw.githubusercontent.com/notflorian/finary-chatgpt/main/docs/google-sheets-schema.json
+```
+
+The workflow was import-validated with n8n 2.35.5. It supports a manual trigger
+and a daily 07:30 schedule in `Europe/Paris`. The workbook and all ten sheets
+must already exist with headers matching the canonical JSON schema. See
+[`docs/n8n-daily-sync.md`](docs/n8n-daily-sync.md) for setup, safety semantics,
+status meanings, and recovery guidance.
 
 The Google Sheets schema is documented in
 [`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,
@@ -129,8 +147,11 @@ unique keys, and enum values without calling Google APIs.
 - Downstream `metadata` is currently an empty allowlist. No raw institution,
   account, valuable, address, description, or correlation data is copied.
 - The Google Sheets schema and safe initialization definition are implemented.
-  Google credentials, live workbook creation, and n8n workflows remain
-  intentionally deferred.
+- The n8n workflow validates the complete snapshot, live workbook headers,
+  overrides, and every target row before its first portfolio upsert. It never
+  writes `allocation_targets`, `asset_overrides`, or `cashflows`.
+- Google credentials and live workbook creation remain intentionally external;
+  no OAuth token or spreadsheet content is stored in this repository.
 
 ## Optional live adapter smoke test
 
