@@ -167,6 +167,80 @@ def test_complete_coverage_can_update_liabilities(
     assert result["daily_rows"][0]["net_worth_eur"] == 140.0
 
 
+def test_complete_known_empty_coverage_inactivates_last_known_liability(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    snapshot = _v2_snapshot("COMPLETE")
+    snapshot["liabilities"] = []
+    snapshot["liabilities_eur"] = 0.0
+    snapshot["net_worth_eur"] = snapshot["gross_assets_eur"]
+    named = _prepare_named_rows(schema, snapshot)
+    named["Read Current Liabilities"] = [
+        {
+            **_headers(schema, "liabilities_current"),
+            "liability_key": "finary:liability:last-known",
+            "source": "finary",
+            "source_liability_id": "last-known",
+            "outstanding_eur": 10.0,
+            "is_active": True,
+        }
+    ]
+
+    result = _run_code_node(
+        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
+    )[0]["json"]
+
+    assert len(result["liability_rows"]) == 1
+    assert result["liability_rows"][0]["is_active"] is False
+    assert result["daily_rows"][0]["liability_coverage"] == "COMPLETE"
+
+
+@pytest.mark.parametrize("coverage", ["PARTIAL", "UNAVAILABLE"])
+def test_incomplete_partial_write_rerun_repairs_by_deterministic_upsert(
+    coverage: str, workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    prepared = _run_code_node(
+        workflow,
+        "Prepare Validated Rows",
+        named_rows=_prepare_named_rows(schema, _v2_snapshot(coverage)),
+        input_rows=[{}],
+    )[0]["json"]
+
+    def upsert(
+        existing: list[dict[str, Any]],
+        incoming: list[dict[str, Any]],
+        key: str,
+    ) -> list[dict[str, Any]]:
+        by_key = {row[key]: deepcopy(row) for row in existing}
+        for row in incoming:
+            by_key[row[key]] = deepcopy(row)
+        return list(by_key.values())
+
+    # Simulate a failure after the current-state writes but before history and
+    # daily writes. The liability sheet represents prior complete state and is
+    # deliberately outside the incomplete-coverage write set.
+    accounts = upsert([], prepared["account_rows"], "account_key")
+    positions = upsert([], prepared["position_rows"], "position_key")
+    liabilities = [{"liability_key": "finary:liability:last-known", "is_active": True}]
+    history: list[dict[str, Any]] = []
+    daily: list[dict[str, Any]] = []
+
+    # A same-snapshot rerun repairs the missing suffix and replaces, rather
+    # than duplicates, the already-written deterministic rows.
+    accounts = upsert(accounts, prepared["account_rows"], "account_key")
+    positions = upsert(positions, prepared["position_rows"], "position_key")
+    history = upsert(history, prepared["history_rows"], "history_key")
+    daily = upsert(daily, prepared["daily_rows"], "snapshot_date")
+
+    assert len(accounts) == len(prepared["account_rows"])
+    assert len(positions) == len(prepared["position_rows"])
+    assert len(history) == len(prepared["history_rows"])
+    assert len(daily) == 1
+    assert liabilities == [
+        {"liability_key": "finary:liability:last-known", "is_active": True}
+    ]
+
+
 def test_v2_same_day_rerun_is_deterministic(
     workflow: dict[str, Any], schema: dict[str, Any]
 ) -> None:

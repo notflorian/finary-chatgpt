@@ -32,6 +32,13 @@ Before importing the workflow:
 The workflow does not create, clear, reformat, or repair the workbook. A missing
 sheet or shifted header aborts before portfolio writes.
 
+Phase 9 accepted this canonical workflow through one inactive live Manual
+Trigger execution. It completed with `SUCCESS_WITH_WARNINGS` under explicit
+`UNAVAILABLE` liability coverage, preserved null dependent totals, skipped the
+liability write path, retained deterministic keys, and left every manual sheet
+unchanged. See `end-to-end-acceptance.md` for sanitized evidence. The
+Schedule Trigger remains unpublished and inactive.
+
 ## Schema 2.0 coverage behavior
 
 The canonical daily workflow calls `/v2/snapshot`. All three liability coverage states

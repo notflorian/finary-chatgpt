@@ -8,8 +8,8 @@ does not change the Phase 5 synchronization semantics.
 
 Keep the canonical daily workflow **inactive** until the production activation
 gate is approved. Schema `2.0` returns truthful asset state with explicit
-`PARTIAL`/`UNAVAILABLE` coverage. Its workbook and inactive workflow passed
-protected live acceptance; no implementation step enables scheduling.
+`PARTIAL`/`UNAVAILABLE` coverage. Phase 9 accepted its workbook and inactive
+workflow end to end; no implementation step enables scheduling.
 
 The activation path is tracked in GitHub. Liability investigation
 [#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
@@ -19,11 +19,11 @@ but schema `1.0` completeness remains unavailable. Authentication
 Outcome A: the protected bridge-only Clerk session survives routine restarts
 without persisting MFA material or bearer JWTs. Complete liability coverage
 Issue [#23](https://github.com/notflorian/finary-chatgpt/issues/23) implements
-the canonical schema-2.0 contract and inactive migration artifacts. Protected
-workbook acceptance passed; the remaining end-to-end gate is tracked in
-[#15](https://github.com/notflorian/finary-chatgpt/issues/15).
+the canonical schema-2.0 contract and inactive migration artifacts. End-to-end
+acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15) passed;
+sanitized evidence is recorded in `end-to-end-acceptance.md`.
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
-and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) are also
+and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) remain
 required before production activation
 [#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
 [#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
