@@ -3,12 +3,13 @@ services:
     build:
       context: ./finary-bridge
     environment:
+      FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
       FINARY_EMAIL: ${FINARY_EMAIL:-}
       FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
       FINARY_PASSWORD: ${FINARY_PASSWORD:-}
       TZ: ${TZ:-Europe/Paris}
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${FINARY_BRIDGE_PORT:-8000}:8000"
     healthcheck:
       test:
         [
@@ -24,6 +25,71 @@ services:
     networks:
       - finary-stack
 
+  schema-server:
+    image: nginx:1.31.4@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
+    restart: unless-stopped
+    volumes:
+      - ./docs/google-sheets-schema.json:/usr/share/nginx/html/google-sheets-schema.json:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--spider",
+          "http://127.0.0.1/google-sheets-schema.json",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - finary-stack
+
+  n8n:
+    image: n8nio/n8n:2.35.5@sha256:c5861e6016c8f283142584190e3874e6aa6f322eca8771ceead09d08b4766a1e
+    restart: unless-stopped
+    environment:
+      EXECUTIONS_TIMEOUT: ${N8N_EXECUTIONS_TIMEOUT:-300}
+      EXECUTIONS_TIMEOUT_MAX: ${N8N_EXECUTIONS_TIMEOUT_MAX:-300}
+      FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
+      FINARY_BRIDGE_URL: ${FINARY_BRIDGE_URL:-http://finary-bridge:8000}
+      FINARY_GOOGLE_SHEET_ID: ${FINARY_GOOGLE_SHEET_ID:-}
+      FINARY_SCHEMA_URL: ${FINARY_SCHEMA_URL:-http://schema-server/google-sheets-schema.json}
+      GENERIC_TIMEZONE: ${TZ:-Europe/Paris}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      TZ: ${TZ:-Europe/Paris}
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      finary-bridge:
+        condition: service_healthy
+      schema-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--spider",
+          "http://127.0.0.1:5678/healthz",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    networks:
+      - finary-stack
+
 networks:
   finary-stack:
     driver: bridge
+
+volumes:
+  n8n_data:
