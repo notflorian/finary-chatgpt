@@ -142,28 +142,26 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 6 are implemented; no Phase 7 is currently defined. The daily
-production schedule remains disabled because the verified Finary surface does
-not provide complete liability coverage, so the live bridge correctly refuses
-to publish a misleading snapshot.
+Phases 1 through 6 are implemented. The daily production schedule remains
+disabled because the verified Finary surface does not provide complete
+liability coverage, so the live bridge correctly refuses to publish a
+misleading snapshot.
 
-Before enabling scheduled synchronization:
+The post-Phase-6 roadmap uses ordinal titles 07–13; the corresponding GitHub
+issue numbers are #13–#19:
 
-1. Verify a supported, structurally understood liability source without
-   interpreting empty nested `loans` arrays as zero liabilities.
-2. Adapt only the Finary adapter/normalizer and fixtures while preserving schema
-   version `1.0`, or explicitly version any unavoidable breaking contract change.
-3. Demonstrate repeatable non-interactive authentication using only an upstream-
-   supported mechanism; do not persist Clerk cookies, bearer tokens, TOTP
-   secrets, or backup codes merely to automate the schedule.
-4. Obtain a complete live `/v1/snapshot`, run the inactive workflow manually,
-   and verify idempotency, totals, history, inactive-row behavior, and telemetry.
-5. Back up n8n and the workbook, then publish the daily schedule only after the
-   manual acceptance run succeeds.
+1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13).
+2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14).
+3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15), blocked by #13 and #14.
+4. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
+5. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
+6. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
+7. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
-ChatGPT/Google Drive access can be configured independently after the workbook
-contains a valid synchronized state. It must never receive Finary credentials
-or raw private API payloads.
+Issues #13 and #14 are the hard blockers. Do not persist Clerk cookies, bearer
+tokens, TOTP secrets, or backup codes merely to automate the schedule, and do
+not interpret empty nested `loans` arrays as zero liabilities. ChatGPT must
+never receive Finary credentials or raw private API payloads.
 
 The Google Sheets schema is documented in
 [`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,

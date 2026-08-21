@@ -666,8 +666,21 @@ Definition of done:
 
 ### Post-Phase-6 operational gates
 
-There is no numbered Phase 7. Do not invent one without an explicit issue or
-user request. The next work is gated by verified upstream capability:
+The user explicitly approved a post-Phase-6 roadmap. Roadmap ordinals 07–13 map
+to GitHub issues #13–#19 and are the authoritative next work:
+
+1. #13 — resolve liability coverage and snapshot completeness.
+2. #14 — implement or conclusively rule out secure non-interactive Finary
+   authentication.
+3. #15 — complete a live snapshot and inactive end-to-end acceptance; blocked
+   by #13 and #14.
+4. #16 — migrate the existing live containers to the repository Compose stack.
+5. #17 — add credential-free CI quality gates.
+6. #18 — activate production synchronization; blocked by #15, #16, and #17.
+7. #19 — connect ChatGPT to the validated workbook; blocked by #18.
+
+These cross-cutting issues are operational milestones, not permission to weaken
+the existing contracts. Preserve these gates:
 
 - Keep the production daily workflow inactive while live snapshots fail with
   `FINARY_FEATURE_UNAVAILABLE` because liability coverage is incomplete.
@@ -782,6 +795,6 @@ Before changing code:
    - files changed
    - tests run
    - unresolved assumptions
-   - next operational gate; do not invent a new phase
+   - next roadmap issue and its unmet dependencies
 
 If real Finary behavior conflicts with the documentation, preserve the downstream contract and adapt the bridge.

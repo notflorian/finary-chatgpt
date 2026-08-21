@@ -1357,22 +1357,25 @@ Implement Phase 6 only.
 Add failure handling, diagnostics, operational documentation and recovery procedures.
 ```
 
-No Phase 7 is defined. The next operational milestone is conditional activation,
-not another downstream feature phase:
+The approved post-Phase-6 roadmap uses ordinal titles 07–13. GitHub issue
+numbers are global across issues and pull requests, so they map to #13–#19:
 
-1. verify a callable liability source and representative non-empty structure;
-2. adapt the bridge without fabricating liability completeness or weakening the
-   stable downstream contract;
-3. verify repeatable non-interactive authentication using only upstream-supported
-   behavior and without persistent Clerk/TOTP material;
-4. obtain a complete live snapshot and complete an inactive manual sync with
-   deterministic current/history/daily keys and safe telemetry;
-5. back up n8n and the workbook before publishing the daily schedule;
-6. connect ChatGPT through Google Drive only after valid normalized workbook data
-   exists, keeping Finary credentials and private payloads outside ChatGPT.
+| Order | GitHub issue | Milestone | Dependency |
+| --- | --- | --- | --- |
+| 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Resolve liability coverage and snapshot completeness | Hard blocker |
+| 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Secure non-interactive Finary authentication | Hard blocker |
+| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | #13, #14 |
+| 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Before activation |
+| 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
+| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #15, #16, #17 |
+| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 
-Until gates 1 through 4 pass, `FINARY_FEATURE_UNAVAILABLE` is the correct live
-result and the daily production schedule must remain disabled.
+Issue #13 must either establish a callable, structurally verified liability
+source or produce an explicit versioned completeness design; it may not infer
+zero liabilities from empty nested arrays. Issue #14 must use a real supported
+authentication mechanism and may not persist Clerk/TOTP material merely to
+make scheduling work. Until #15 passes, `FINARY_FEATURE_UNAVAILABLE` is the
+correct live result and the daily production schedule must remain disabled.
 
 ## 34. Final acceptance checklist
 
