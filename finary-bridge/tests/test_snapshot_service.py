@@ -9,6 +9,7 @@ import pytest
 from app.finary_client import (
     FinaryAuthenticationError,
     FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryRawAccounts,
     FinaryRawLiabilities,
     FinaryRawPositions,
@@ -28,7 +29,9 @@ class _FakeClient:
     ) -> None:
         self.accounts = accounts
         self.positions = positions
-        self.liabilities = liabilities or FinaryRawLiabilities(records=())
+        self.liabilities = liabilities or FinaryRawLiabilities(
+            records=(), coverage=FinaryLiabilityCoverage.COMPLETE
+        )
         self.failure = failure
         self.calls: list[str] = []
 
@@ -103,6 +106,22 @@ def test_service_does_not_convert_unavailable_liabilities_to_zero(
     client = _UnavailableLiabilityClient(raw_accounts, raw_positions)
 
     with pytest.raises(FinaryFeatureUnavailableError):
+        SnapshotService(client).get_snapshot()
+
+
+def test_service_does_not_convert_partial_empty_liabilities_to_zero(
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    client = _FakeClient(
+        raw_accounts,
+        raw_positions,
+        liabilities=FinaryRawLiabilities(
+            records=(), coverage=FinaryLiabilityCoverage.PARTIAL
+        ),
+    )
+
+    with pytest.raises(FinaryFeatureUnavailableError, match="not verified complete"):
         SnapshotService(client).get_snapshot()
 
 

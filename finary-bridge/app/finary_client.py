@@ -104,6 +104,14 @@ class FinaryPositionKind(StrEnum):
     STARTUPS = "startups"
 
 
+class FinaryLiabilityCoverage(StrEnum):
+    """Adapter-owned evidence state for upstream liability completeness."""
+
+    COMPLETE = "COMPLETE"
+    PARTIAL = "PARTIAL"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 @dataclass(frozen=True, slots=True)
 class FinaryRawAccounts:
     """Adapter-owned raw account records from the verified accounts endpoint."""
@@ -128,9 +136,15 @@ class FinaryRawPositions:
 
 @dataclass(frozen=True, slots=True)
 class FinaryRawLiabilities:
-    """Reserved adapter result for a future verified liability collection."""
+    """Liability records plus an explicit upstream completeness decision.
+
+    An empty record tuple is meaningful only when ``coverage`` is ``COMPLETE``.
+    This prevents an empty nested or partially retrieved loan collection from
+    being silently interpreted as proof of zero liabilities.
+    """
 
     records: tuple[Mapping[str, object], ...]
+    coverage: FinaryLiabilityCoverage
 
 
 class FinaryClient(Protocol):

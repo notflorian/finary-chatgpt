@@ -7,7 +7,12 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from app.finary_client import FinaryApiClient, FinaryClientError, FinaryPositionKind
+from app.finary_client import (
+    FinaryApiClient,
+    FinaryClientError,
+    FinaryFeatureUnavailableError,
+    FinaryPositionKind,
+)
 
 pytestmark = [
     pytest.mark.live,
@@ -33,6 +38,13 @@ def test_live_finary_entities_have_adapter_owned_structure() -> None:
     assert {group.kind for group in positions.groups} == set(FinaryPositionKind)
     assert all(isinstance(group.records, tuple) for group in positions.groups)
 
+    try:
+        client.get_liabilities()
+    except FinaryFeatureUnavailableError:
+        liability_status = "NO VERIFIED COMPLETE SOURCE"
+    else:
+        liability_status = "COMPLETE SOURCE VERIFIED"
+
     if os.environ.get("FINARY_LIVE_DESCRIBE") == "1":
         print(
             json.dumps(
@@ -48,7 +60,7 @@ def test_live_finary_entities_have_adapter_owned_structure() -> None:
                         }
                         for group in positions.groups
                     },
-                    "liabilities": {"availability": "unavailable"},
+                    "liabilities": {"status": liability_status},
                 },
                 indent=2,
                 sort_keys=True,

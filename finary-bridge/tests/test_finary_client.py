@@ -52,6 +52,7 @@ class _FakeSession:
         self.entity_payloads = dict(entity_payloads or {})
         self.get_error = get_error
         self.posted_data: list[Mapping[str, str]] = []
+        self.requested_urls: list[str] = []
 
     def post(
         self,
@@ -71,6 +72,7 @@ class _FakeSession:
 
     def get(self, url: str, *, timeout: float) -> _FakeResponse:
         del timeout
+        self.requested_urls.append(url)
         if self.get_error is not None:
             raise self.get_error
         entity_name = url.rsplit("/", maxsplit=1)[-1]
@@ -309,10 +311,13 @@ def test_position_retrieval_covers_verified_asset_collections() -> None:
 
 
 def test_liability_retrieval_is_explicitly_unavailable() -> None:
-    client = FinaryApiClient(_credentials(), session_factory=_FakeSession)
+    session = _FakeSession()
+    client = FinaryApiClient(_credentials(), session_factory=lambda: session)
 
     with pytest.raises(FinaryFeatureUnavailableError, match="Liability retrieval"):
         client.get_liabilities()
+
+    assert session.requested_urls == []
 
 
 @pytest.mark.parametrize(
