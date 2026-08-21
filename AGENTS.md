@@ -209,6 +209,19 @@ The endpoint may contact Finary.
 
 It must return normalized data only. Do not expose the raw upstream payload.
 
+### GET /v2/snapshot
+
+Returns the canonical coverage-aware normalized portfolio snapshot described in
+`docs/architecture.md`. It may contact Finary and must return normalized data
+only.
+
+`coverage.liabilities` is `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`.
+`liabilities_eur` and `net_worth_eur` are numeric only for `COMPLETE`; they are
+null for incomplete coverage. The canonical n8n workflow consumes this route.
+
+Before public release `1.0`, the retained `/v1/snapshot` route is fail-safe but
+is not a backward-compatibility promise.
+
 ### Error format
 
 Use a consistent error response:
@@ -544,7 +557,7 @@ The workflow must:
 
 1. support Manual Trigger
 2. support Schedule Trigger
-3. call `/v1/snapshot`
+3. call the canonical `/v2/snapshot`
 4. validate the snapshot
 5. read `asset_overrides`
 6. apply overrides
@@ -574,9 +587,10 @@ formats. It must preserve these Phase 4 rules:
   positions with known `market_value_eur`. Treat the result as known-EUR
   coverage, not full gross-portfolio reconciliation, when any active position
   lacks a verified EUR value.
-- Do not write `portfolio_daily` or current/history portfolio rows from an
-  incomplete snapshot. Unavailable liability coverage is not zero liabilities
-  and must not create a synthetic net worth.
+- A valid schema `2.0` asset snapshot with `PARTIAL` or `UNAVAILABLE` liability
+  coverage may update asset current/history/daily rows with null liability and
+  net-worth totals. It must never write, clear, or inactivate
+  `liabilities_current`, and unavailable coverage is never zero liabilities.
 - Never overwrite the manual `allocation_targets`, `asset_overrides`, or
   `cashflows` sheets. Apply enabled overrides using the documented exact-match
   precedence and reject ambiguous matches.
@@ -638,17 +652,18 @@ operational constraints, now preserved by Phase 6:
 - A private GitHub repository cannot serve the canonical schema through an
   unauthenticated raw GitHub URL. Provide and document a local, credential-free
   schema-serving path reachable from n8n, and keep
-  `docs/google-sheets-schema.json` as the single canonical schema source.
+  the version-matched canonical JSON as the single source for each workflow.
 - `docker compose` must start the operational local stack, including n8n with a
   persistent data volume and a network-reachable canonical schema source. Do
   not embed Google OAuth credentials or n8n credential IDs in repository files.
 - A new bridge process may require a fresh TOTP or prepared email-code challenge
   when no valid protected Clerk session exists. Document the exact bootstrap,
   restart, expiry, and revocation procedure. HTTP routes must never prompt.
-- The verified adapter still has no complete liability feature. Keep the daily
-  workflow inactive for production while `/v1/snapshot` returns
-  `FINARY_FEATURE_UNAVAILABLE`; Phase 6 must not weaken the contract by treating
-  unavailable liabilities as zero merely to enable scheduling.
+- The verified adapter still has no complete liability feature. The canonical
+  `/v2/snapshot` returns truthful asset state with explicit incomplete coverage
+  and null liability-dependent totals. Keep the daily workflow inactive until
+  the remaining acceptance, Compose, and CI gates pass; never treat incomplete
+  coverage as zero merely to enable scheduling.
 - The Google Sheets credential must be assigned to every Sheets node on both
   success and failure branches after import. Operations documentation must
   include this check and distinguish credential errors from quota errors.
@@ -667,8 +682,8 @@ Definition of done:
   valid synchronization
 - restart, MFA bootstrap, Google credential assignment, quota recovery, and
   partial-write repair procedures are documented and tested where practical
-- the production schedule remains disabled until the bridge can return a
-  complete snapshot without fabricating liability coverage
+- the production schedule remains disabled until the remaining inactive
+  end-to-end, Compose, CI, and activation gates are approved
 - recovery steps are documented
 
 ### Post-Phase-6 operational gates
@@ -677,7 +692,7 @@ The user explicitly approved a post-Phase-6 roadmap. Roadmap ordinals 07–13 ma
 to GitHub issues #13–#19 and are the authoritative next work:
 
 1. #13 — Outcome B completed: no verified complete liability source; schema
-   `1.0` remains fail-safe and a future schema `2.0` coverage design is
+   `1.0` remains fail-safe and the schema `2.0` coverage design is
    documented in `docs/liability-coverage-investigation.md`.
 2. #14 — Outcome A completed: a minimal protected Clerk session store was
    implemented and live-verified across fresh clients and a separate process;
@@ -687,18 +702,25 @@ to GitHub issues #13–#19 and are the authoritative next work:
    every discovered membership. Credits were empty and current overview totals
    reconciled, but identity, amount, currency, lifecycle, deduplication,
    pagination, category scope, and authoritative empty semantics remain
-   unproven. The recommended next decision is the separately approved schema
-   `2.0` migration specified in `docs/schema-v2-migration-plan.md`.
-4. #16 — migrate the existing live containers to the repository Compose stack.
-5. #17 — add credential-free CI quality gates.
-6. #18 — activate production synchronization; blocked by #15, #16, and #17.
-7. #19 — connect ChatGPT to the validated workbook; blocked by #18.
+   unproven. Canonical schema `2.0` protected-workbook acceptance now permits
+   #15 to be reassessed under its explicit incomplete-coverage criteria.
+4. #23 — explicit schema `2.0` liability coverage is implemented in the v2 API
+   and promoted to the canonical pre-production workbook and inactive workflow
+   names after protected live migration and same-day idempotency acceptance.
+   `/v1/snapshot` remains temporarily available and fail-safe, but it is not a
+   pre-1.0 compatibility promise. Unused v1 workbook/workflow artifacts were
+   removed because they were never production.
+5. #16 — migrate the existing live containers to the repository Compose stack.
+6. #17 — add credential-free CI quality gates.
+7. #18 — activate production synchronization; blocked by #15, #16, and #17.
+8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
 
 These cross-cutting issues are operational milestones, not permission to weaken
 the existing contracts. Preserve these gates:
 
-- Keep the production daily workflow inactive while live snapshots fail with
-  `FINARY_FEATURE_UNAVAILABLE` because liability coverage is incomplete.
+- Keep the canonical production daily workflow inactive until the remaining
+  activation gates pass. Protected schema-2.0 workbook migration and inactive
+  same-day acceptance passed on 2026-08-21.
 - The error-handler workflow may be published so n8n can select it; it has no
   schedule or external trigger. Do not publish the daily scheduled workflow
   until the activation gates pass.
@@ -707,9 +729,10 @@ the existing contracts. Preserve these gates:
 - Preserve the Phase 7 `FinaryRawLiabilities.coverage` distinction. Only
   `COMPLETE` can make an empty collection a known zero; `PARTIAL` and
   `UNAVAILABLE` must remain fail-safe in schema `1.0`.
-- Do not implement the recommended schema `2.0` coverage contract without
-  explicit approval and a coordinated bridge, Sheets, n8n, telemetry, and
-  ChatGPT-semantics migration.
+- Preserve the implemented schema `2.0` contract: incomplete coverage keeps
+  liability/net-worth totals null, never modifies `liabilities_current`, and
+  writes explicit coverage to daily and telemetry rows. The unsuffixed Sheets
+  schema and workflow exports are the only canonical downstream artifacts.
 - Preserve the stable downstream schema and isolate upstream changes inside the
   adapter/normalizer wherever possible.
 - Preserve the Phase 8 Outcome A boundary. Persist only the verified Clerk
@@ -719,9 +742,8 @@ the existing contracts. Preserve these gates:
 - Treat the persisted session as bearer-equivalent, server-revocable, and
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
-- Require a complete live snapshot and an inactive manual synchronization that
-  passes idempotency, totals, history, inactive-row, telemetry, and recovery
-  checks before enabling the daily trigger.
+- Require the remaining inactive end-to-end and recovery checks, Compose/CI
+  readiness, and explicit activation approval before enabling the daily trigger.
 - Configure ChatGPT/Google Drive consumption only after a valid workbook state
   exists; never expose Finary credentials or private upstream payloads.
 

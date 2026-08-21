@@ -53,8 +53,8 @@ EXPECTED_HEADERS = {
         "market_value_eur", "cost_basis_eur",
     ),
     "portfolio_daily": (
-        "snapshot_date", "generated_at", "gross_assets_eur", "liabilities_eur",
-        "net_worth_eur", "financial_assets_eur", "equity_eur", "bond_eur",
+        "snapshot_date", "generated_at", "gross_assets_eur", "liability_coverage",
+        "liabilities_eur", "net_worth_eur", "financial_assets_eur", "equity_eur", "bond_eur",
         "cash_eur", "real_estate_eur", "scpi_eur", "private_equity_eur",
         "crypto_eur", "commodity_eur", "life_insurance_fund_eur", "other_eur",
         "equity_pct", "bond_pct", "cash_pct", "real_estate_pct", "scpi_pct",
@@ -77,7 +77,7 @@ EXPECTED_HEADERS = {
     ),
     "sync_runs": (
         "run_id", "started_at", "completed_at", "status", "accounts_count",
-        "positions_count", "liabilities_count", "gross_assets_eur",
+        "positions_count", "liabilities_count", "liability_coverage", "gross_assets_eur",
         "liabilities_eur", "net_worth_eur", "previous_net_worth_eur",
         "net_worth_change_pct", "duration_ms", "bridge_version", "schema_version",
         "warning_count", "error_code", "error_message",
@@ -144,6 +144,9 @@ def test_required_sheets_and_order_are_canonical() -> None:
         "gross_assets_rule",
         "failed_snapshot_rule",
         "liability_rule",
+        "partial_liability_rule",
+        "unavailable_liability_rule",
+        "last_known_liability_rule",
         "allocation_rule",
     ]
     for sheet_name, expected_headers in EXPECTED_HEADERS.items():

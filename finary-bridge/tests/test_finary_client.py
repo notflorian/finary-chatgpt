@@ -18,7 +18,7 @@ from app.finary_client import (
     FinaryApiClient,
     FinaryAuthenticationError,
     FinaryCredentials,
-    FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryMalformedResponseError,
     FinaryPositionKind,
     FinaryUpstreamError,
@@ -418,6 +418,53 @@ def test_restart_reuses_and_rotates_persisted_session_without_mfa(
     )
 
 
+def test_repeated_refreshes_use_fresh_http_sessions(tmp_path: Path) -> None:
+    private_directory = tmp_path / "session-state"
+    private_directory.mkdir(mode=0o700)
+    store = FileFinarySessionStore(private_directory / "session.json")
+    store.save(
+        FinarySessionState(
+            session_id="session-synthetic-001",
+            client_cookie="client-cookie-initial",
+        )
+    )
+    unused_initial_session = _FakeSession()
+    first_refresh_session = _FakeSession(
+        post_responses=[_FakeResponse({"jwt": "synthetic-refreshed-token-1"})],
+        post_cookie_values=["client-cookie-rotated-1"],
+    )
+    second_refresh_session = _FakeSession(
+        post_responses=[_FakeResponse({"jwt": "synthetic-refreshed-token-2"})],
+        post_cookie_values=["client-cookie-rotated-2"],
+    )
+    sessions = iter(
+        [unused_initial_session, first_refresh_session, second_refresh_session]
+    )
+    clock_values = iter([0.0, 0.0, 2.0, 2.0])
+    client = FinaryApiClient(
+        _credentials(),
+        session_factory=lambda: next(sessions),
+        session_store=store,
+        token_refresh_interval_seconds=1.0,
+        monotonic_clock=lambda: next(clock_values),
+    )
+
+    client.authenticate()
+    client.authenticate()
+
+    assert unused_initial_session.posted_urls == []
+    assert first_refresh_session.posted_urls == [
+        "https://clerk.finary.com/v1/client/sessions/session-synthetic-001/tokens"
+    ]
+    assert second_refresh_session.posted_urls == [
+        "https://clerk.finary.com/v1/client/sessions/session-synthetic-001/tokens"
+    ]
+    assert store.load() == FinarySessionState(
+        session_id="session-synthetic-001",
+        client_cookie="client-cookie-rotated-2",
+    )
+
+
 def test_rejected_persisted_session_is_cleared(tmp_path: Path) -> None:
     private_directory = tmp_path / "session-state"
     private_directory.mkdir(mode=0o700)
@@ -615,13 +662,14 @@ def test_position_retrieval_covers_verified_asset_collections() -> None:
     assert securities.records[0]["holdings_account_id"] == "account-synthetic-001"
 
 
-def test_liability_retrieval_is_explicitly_unavailable() -> None:
+def test_liability_retrieval_returns_explicit_unavailable_coverage() -> None:
     session = _FakeSession()
     client = FinaryApiClient(_credentials(), session_factory=lambda: session)
 
-    with pytest.raises(FinaryFeatureUnavailableError, match="Liability retrieval"):
-        client.get_liabilities()
+    liabilities = client.get_liabilities()
 
+    assert liabilities.records == ()
+    assert liabilities.coverage is FinaryLiabilityCoverage.UNAVAILABLE
     assert session.requested_urls == []
 
 

@@ -3,17 +3,19 @@
 ## Decision and objective
 
 The Phase 9 live organization-scoped investigation could not prove complete
-liability coverage. Schema `1.0` must therefore remain unchanged and fail-safe.
-The recommended next implementation is a coordinated schema `2.0` migration
+liability coverage. Issue #23 implements the coordinated schema `2.0` contract
 that makes liability coverage explicit while allowing truthful asset
-synchronization.
+synchronization. This document records the completed protected-workbook
+migration and promotion decision. The retained `/v1/snapshot` route remains
+fail-safe, but pre-1.0 development does not promise backward compatibility.
 
-This document is a migration specification, not an implementation. No `/v2`
-route, workbook column, n8n behavior, or production schedule is changed yet.
+The `/v2` route, canonical schema, and inactive n8n workflows exist. Protected
+live migration and same-day idempotency passed on 2026-08-21. Nothing here
+enables production scheduling.
 
 ## Bridge API
 
-Add `GET /v2/snapshot` and preserve `GET /v1/snapshot` exactly. The new response
+`GET /v2/snapshot` is implemented while `GET /v1/snapshot` remains unchanged. The response
 adds a required coverage object and makes liability-dependent totals nullable:
 
 ```json
@@ -60,8 +62,8 @@ objects.
 
 ## Google Sheets schema
 
-Create a versioned `2.0` canonical Sheets definition rather than silently
-editing the `1.0` file. The minimum new explicit columns are:
+The canonical Sheets definition is schema `2.0`. Its explicit coverage columns
+are:
 
 - `portfolio_daily.liability_coverage` (`ENUM`, non-null);
 - `sync_runs.liability_coverage` (`ENUM`, nullable for failures before a
@@ -111,28 +113,34 @@ Workbook documentation and ChatGPT instructions must state:
 - last-known complete liability rows must not be described as current after an
   incomplete snapshot without an explicit freshness warning.
 
-## Compatibility and migration order
+## Completed migration order
 
-1. Add strict v2 Pydantic models and deterministic bridge tests while retaining
-   every v1 test.
+1. Add strict v2 Pydantic models and deterministic bridge tests.
 2. Add `/v2/snapshot`; keep `/v1/snapshot` unchanged.
-3. Add a versioned `2.0` Sheets schema and schema-drift tests.
+3. Add the schema `2.0` Sheets definition and schema-drift tests.
 4. Migrate a protected workbook copy by adding the two coverage columns; do not
    rewrite historical blank totals as zero.
-5. Update a copied, inactive n8n workflow and its executable regression tests.
+5. Update a temporary copied, inactive n8n workflow and its executable
+   regression tests before promoting it to the canonical name.
 6. Run fixture acceptance for `COMPLETE`, `PARTIAL`, and `UNAVAILABLE`, including
    liability lifecycle protection.
-7. Run one inactive live v2 synchronization and inspect only sanitized
-   structural outcomes.
-8. Promote the workbook and workflow only after backup and rollback checks.
+7. Run inactive live v2 synchronization and inspect only sanitized structural
+   outcomes.
+8. Repeat the same-day run and verify deterministic history/current/daily keys,
+   manual-sheet preservation, coverage, null totals, and telemetry.
+9. Promote the verified workbook and workflow to the canonical unsuffixed names.
 
-Rollback keeps v1 and the existing inactive workflow available. Production
-scheduling remains a separate later gate.
+Because the system was not in production, the unused v1 workbook and n8n
+workflow exports were removed rather than retained as rollback artifacts. The
+`/v1/snapshot` bridge route remains temporarily available and fail-safe, but is
+not a pre-1.0 compatibility guarantee; production scheduling remains a separate
+later gate.
 
 ## Required test matrix
 
 - coverage/total model invariants for all three states;
-- v1 compatibility and unchanged fail-safe behavior;
+- retained `/v1/snapshot` fail-safe behavior while the route exists, without a
+  compatibility guarantee;
 - v2 HTTP success with incomplete coverage and null totals;
 - COMPLETE empty known-zero behavior;
 - PARTIAL/UNAVAILABLE cannot inactivate liability rows;
@@ -143,8 +151,7 @@ scheduling remains a separate later gate.
 
 ## Revised Phase 9 acceptance after migration
 
-After schema `2.0` is separately approved and implemented, Phase 9 may accept a
-live HTTP 200 with `PARTIAL` or `UNAVAILABLE` liability coverage when the state
-is explicit, liability and net-worth totals are null, asset synchronization is
-correct, and incomplete data cannot alter last-known complete liabilities.
-Those criteria do not apply to schema `1.0`.
+Schema `2.0` live acceptance observed HTTP 200 with `UNAVAILABLE` liability
+coverage, null liability and net-worth totals, correct asset synchronization,
+and same-day idempotency. Incomplete data cannot alter last-known complete
+liabilities. These criteria do not apply to the retained `/v1/snapshot` API.

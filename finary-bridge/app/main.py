@@ -18,7 +18,7 @@ from app.finary_client import (
     FinaryUpstreamError,
     FinaryUpstreamTimeoutError,
 )
-from app.models import ErrorDetail, ErrorResponse, PortfolioSnapshot
+from app.models import ErrorDetail, ErrorResponse, PortfolioSnapshot, PortfolioSnapshotV2
 from app.normalizer import SnapshotNormalizationError
 from app.services.snapshot_service import SnapshotService
 
@@ -175,3 +175,16 @@ def get_snapshot(
     """Return one validated snapshot containing no private upstream payloads."""
 
     return service.get_snapshot()
+
+
+@app.get(
+    "/v2/snapshot",
+    response_model=PortfolioSnapshotV2,
+    status_code=status.HTTP_200_OK,
+)
+def get_snapshot_v2(
+    service: Annotated[SnapshotService, Depends(get_snapshot_service)],
+) -> PortfolioSnapshotV2:
+    """Return a coverage-aware snapshot without private upstream payloads."""
+
+    return service.get_snapshot_v2()

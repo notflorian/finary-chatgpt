@@ -10,7 +10,7 @@ import pytest
 from app.finary_client import (
     FinaryApiClient,
     FinaryClientError,
-    FinaryFeatureUnavailableError,
+    FinaryLiabilityCoverage,
     FinaryPositionKind,
 )
 
@@ -38,12 +38,10 @@ def test_live_finary_entities_have_adapter_owned_structure() -> None:
     assert {group.kind for group in positions.groups} == set(FinaryPositionKind)
     assert all(isinstance(group.records, tuple) for group in positions.groups)
 
-    try:
-        client.get_liabilities()
-    except FinaryFeatureUnavailableError:
-        liability_status = "NO VERIFIED COMPLETE SOURCE"
-    else:
-        liability_status = "COMPLETE SOURCE VERIFIED"
+    liabilities = client.get_liabilities()
+    liability_status = liabilities.coverage.value
+    assert liabilities.coverage is FinaryLiabilityCoverage.UNAVAILABLE
+    assert liabilities.records == ()
 
     if os.environ.get("FINARY_LIVE_DESCRIBE") == "1":
         print(

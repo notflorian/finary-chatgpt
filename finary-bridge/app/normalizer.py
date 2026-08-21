@@ -156,6 +156,25 @@ def normalize_liabilities(
     return ()
 
 
+def normalize_liabilities_v2(
+    raw_liabilities: FinaryRawLiabilities,
+) -> tuple[Liability, ...]:
+    """Normalize liabilities under the explicit v2 coverage contract.
+
+    The verified adapter has no non-empty liability schema yet. Incomplete
+    coverage is represented truthfully by v2 instead of being converted to a
+    zero total. Any records that cannot be normalized remain a hard failure.
+    """
+
+    if raw_liabilities.coverage is FinaryLiabilityCoverage.COMPLETE:
+        return normalize_liabilities(raw_liabilities)
+    if raw_liabilities.records:
+        raise SnapshotNormalizationError(
+            "incomplete liability coverage cannot contain authoritative records"
+        )
+    return ()
+
+
 def calculate_gross_assets_eur(
     raw_accounts: FinaryRawAccounts,
     normalized_accounts: Sequence[Account],

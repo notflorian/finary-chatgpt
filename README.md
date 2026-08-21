@@ -7,14 +7,13 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phases 1 through 8 implement the bridge, operational pipeline, and the two
-upstream capability investigations. The authorized Phase 9 liability follow-up
-called the evidenced live organization-scoped surfaces but still could not
-prove complete coverage. Phase 8 accepts a narrowly scoped,
-bridge-only persisted Clerk session after live restart verification. The
-fail-safe schema `1.0` contract at
-`GET /v1/snapshot` and the canonical Phase 4 workbook schema remain unchanged.
-Private Finary response fields remain confined to the adapter and normalizer.
+Phases 1 through 8 implement the bridge and operational pipeline. The live
+liability investigation could not prove complete coverage, so issue #23 makes
+schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
+a narrowly scoped, bridge-only persisted Clerk session after live restart
+verification. Private Finary fields remain confined to the adapter and
+normalizer. The canonical daily workflow remains inactive pending the separate
+production activation gate.
 
 ## Prerequisites
 
@@ -54,12 +53,17 @@ The snapshot endpoint is:
 curl http://127.0.0.1:8000/v1/snapshot
 ```
 
-The current live adapter intentionally returns a structured
-`FINARY_FEATURE_UNAVAILABLE` error because Finary liability coverage has not
-been verified. It does not publish zero liabilities or a misleading net worth.
-A successful snapshot is available to deterministic injected clients that
-explicitly provide a complete liability collection, including a known-empty
-collection.
+Schema `1.0` remains fail-safe and returns `FINARY_FEATURE_UNAVAILABLE` when
+liability coverage is incomplete. Schema `2.0` returns valid assets with
+explicit coverage and nullable liability-dependent totals:
+
+```bash
+curl http://127.0.0.1:8000/v2/snapshot
+```
+
+The current live adapter reports `coverage.liabilities = UNAVAILABLE`, an empty
+liability list, and null `liabilities_eur`/`net_worth_eur`. It does not publish
+zero liabilities or a misleading net worth.
 
 ## Run with Docker Compose
 
@@ -114,9 +118,9 @@ FINARY_SCHEMA_URL=http://schema-server/google-sheets-schema.json
 ```
 
 The workflows target n8n 2.35.5. The daily workflow supports a manual trigger
-and a daily 07:30 schedule in `Europe/Paris`, but must remain inactive while the
-live bridge cannot provide verified liability coverage. The workbook and all
-ten sheets must already exist with headers matching the canonical JSON schema. See
+and a daily 07:30 schedule in `Europe/Paris`. It targets the canonical
+schema-2.0 workbook and remains inactive/unpublished until production
+activation. The workbook must contain headers matching the canonical JSON. See
 [`docs/n8n-daily-sync.md`](docs/n8n-daily-sync.md) for setup, safety semantics,
 and status meanings. See [`docs/operations.md`](docs/operations.md)
 for monitoring, backups, credential rotation, and recovery.
@@ -146,8 +150,10 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 8 are implemented. Phase 9 is blocked under schema `1.0` and
-the project recommends a separately approved schema `2.0` migration. Phase 7 reached
+Phases 1 through 8 are implemented. Issue #23 implements and live-verifies the
+canonical schema `2.0` contract, workbook, and inactive workflows. It does not
+enable production scheduling.
+Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
 liability collection. The daily production schedule therefore remains disabled,
@@ -166,19 +172,20 @@ issue numbers are #13–#19:
 
 1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13): Outcome B documented; schema `1.0` remains fail-safe.
 2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): Outcome A implemented and restart-verified; periodic human MFA remains necessary after expiry or revocation.
-3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): blocked under schema `1.0`; the live credits and overview probe could not prove complete liability coverage. The recommended next decision is the coordinated [schema `2.0` migration](docs/schema-v2-migration-plan.md).
-4. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
-5. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
-6. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
-7. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
+3. [Adopt schema 2.0 explicit liability coverage (#23)](https://github.com/notflorian/finary-chatgpt/issues/23): implemented as the canonical pre-production workflow/workbook contract and live-accepted while inactive.
+4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): reassess after #23 is merged.
+5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
+6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
+8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
 Issue #13 remains an evidence-backed Outcome B and production blocker. The
 Phase 9 prerequisite investigation confirmed that the organization-scoped
 overview and credits surfaces are callable, but every membership returned an
 empty credit collection and no representative record or complete-zero contract.
 Issue #14 resolves the routine restart-authentication blocker without enabling
-the schedule. The recommended schema `2.0` liability coverage migration remains
-documentation only and requires separate approval and downstream migration.
+the schedule. Schema `2.0` is the inactive canonical path and passed protected
+workbook migration and same-day idempotency acceptance.
 Persisted Clerk state is allowed only in the minimal protected bridge store;
 never persist TOTP secrets, backup codes, one-time MFA codes, or bearer JWTs,
 and never interpret empty nested `loans` arrays as zero liabilities. ChatGPT
@@ -191,6 +198,9 @@ dependency-free initialization definition is
 defines all ten sheet names, ordered headers, types, nullability, ownership,
 unique keys, and enum values without calling Google APIs.
 
+The completed migration evidence and promotion decision are documented in
+[`docs/schema-v2-migration-plan.md`](docs/schema-v2-migration-plan.md).
+
 ## Security and scope
 
 - Keep `.env` local; it is ignored by Git.
@@ -198,6 +208,8 @@ unique keys, and enum values without calling Google APIs.
 - `GET /health` has no upstream dependencies and never creates a Finary client.
 - `GET /v1/snapshot` returns only strict Pydantic models with schema version
   `1.0`, category-aware keys, allowlisted fields, and sanitized errors.
+- `GET /v2/snapshot` preserves those asset models and adds strict explicit
+  liability coverage with nullable dependent totals.
 - Finary credentials are read from `FINARY_EMAIL`, `FINARY_PASSWORD`, and the
   optional `FINARY_MFA_CODE` environment variable.
 - The private API surface was verified against `finary_uapi` 0.2.3. The bridge

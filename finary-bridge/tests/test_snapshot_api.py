@@ -30,11 +30,13 @@ class _FakeClient:
         *,
         failure: Exception | None = None,
         liabilities_unavailable: bool = False,
+        liability_coverage: FinaryLiabilityCoverage = FinaryLiabilityCoverage.COMPLETE,
     ) -> None:
         self.accounts = accounts
         self.positions = positions
         self.failure = failure
         self.liabilities_unavailable = liabilities_unavailable
+        self.liability_coverage = liability_coverage
         self.authentication_calls = 0
 
     def authenticate(self) -> None:
@@ -51,7 +53,7 @@ class _FakeClient:
     def get_liabilities(self) -> FinaryRawLiabilities:
         if self.liabilities_unavailable:
             raise FinaryFeatureUnavailableError("synthetic private detail")
-        return FinaryRawLiabilities(records=(), coverage=FinaryLiabilityCoverage.COMPLETE)
+        return FinaryRawLiabilities(records=(), coverage=self.liability_coverage)
 
 
 def _request(path: str, client: _FakeClient) -> Response:
@@ -230,3 +232,69 @@ def test_health_does_not_create_or_authenticate_finary_client(
 
     assert response.status_code == 200
     assert client.authentication_calls == 0
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [FinaryLiabilityCoverage.PARTIAL, FinaryLiabilityCoverage.UNAVAILABLE],
+)
+def test_v2_snapshot_returns_assets_with_null_unknown_liability_totals(
+    coverage: FinaryLiabilityCoverage,
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    response = _request(
+        "/v2/snapshot",
+        _FakeClient(raw_accounts, raw_positions, liability_coverage=coverage),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schema_version"] == "2.0"
+    assert payload["coverage"] == {"liabilities": coverage.value}
+    assert payload["gross_assets_eur"] == 150.0
+    assert payload["liabilities_eur"] is None
+    assert payload["net_worth_eur"] is None
+    assert payload["liabilities"] == []
+
+
+def test_v1_still_rejects_unavailable_coverage_container(
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    response = _request(
+        "/v1/snapshot",
+        _FakeClient(
+            raw_accounts,
+            raw_positions,
+            liability_coverage=FinaryLiabilityCoverage.UNAVAILABLE,
+        ),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "FINARY_FEATURE_UNAVAILABLE"
+
+
+@pytest.mark.parametrize(
+    ("failure", "status_code", "error_code"),
+    [
+        (FinaryAuthenticationError("private"), 502, "FINARY_AUTH_FAILED"),
+        (FinaryUpstreamTimeoutError("private"), 504, "FINARY_TIMEOUT"),
+        (FinaryMalformedResponseError("private"), 502, "FINARY_MALFORMED_RESPONSE"),
+        (FinaryUpstreamError("private"), 502, "FINARY_UPSTREAM_ERROR"),
+    ],
+)
+def test_v2_snapshot_preserves_structured_error_mapping(
+    failure: Exception,
+    status_code: int,
+    error_code: str,
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    response = _request(
+        "/v2/snapshot", _FakeClient(raw_accounts, raw_positions, failure=failure)
+    )
+
+    assert response.status_code == status_code
+    assert response.json()["error"]["code"] == error_code
+    assert "private" not in response.text
