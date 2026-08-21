@@ -7,6 +7,7 @@ services:
       FINARY_EMAIL: ${FINARY_EMAIL:-}
       FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
       FINARY_PASSWORD: ${FINARY_PASSWORD:-}
+      FINARY_SESSION_PATH: ${FINARY_SESSION_PATH:-/var/lib/finary-session/state/session.json}
       TZ: ${TZ:-Europe/Paris}
     ports:
       - "127.0.0.1:${FINARY_BRIDGE_PORT:-8000}:8000"
@@ -24,6 +25,8 @@ services:
       start_period: 5s
     networks:
       - finary-stack
+    volumes:
+      - finary_session_data:/var/lib/finary-session
 
   schema-server:
     image: nginx:1.31.4@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
@@ -92,4 +95,5 @@ networks:
     driver: bridge
 
 volumes:
+  finary_session_data:
   n8n_data:
