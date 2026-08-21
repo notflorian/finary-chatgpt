@@ -76,7 +76,8 @@ const $input = {{
 
 def _snapshot() -> dict[str, Any]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
+        "coverage": {"liabilities": "COMPLETE"},
         "generated_at": "2026-08-20T07:30:12+02:00",
         "reference_currency": "EUR",
         "gross_assets_eur": 150.0,
@@ -347,7 +348,7 @@ def test_structured_bridge_failure_cannot_reach_portfolio_writes(
         "message": "Required Finary data is unavailable",
         "retryable": False,
     }
-    false_branch = workflow["connections"]["Snapshot Is Complete"]["main"][1]
+    false_branch = workflow["connections"]["Snapshot Is Valid"]["main"][1]
     assert false_branch == [
         {"node": "Preflight Failure Sync Header", "type": "main", "index": 0}
     ]

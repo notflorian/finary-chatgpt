@@ -261,12 +261,11 @@ with the canonical fixture. Every included account balance must have explicit
 EUR currency provenance or snapshot normalization fails.
 
 A successful schema `1.0` response has numeric `gross_assets_eur`,
-`liabilities_eur`, and `net_worth_eur`. The live Phase 2 adapter currently
-raises `FinaryFeatureUnavailableError` for liabilities, so the HTTP endpoint
-returns `FINARY_FEATURE_UNAVAILABLE` instead of emitting a successful response
-with assumed zero liabilities. A known-empty liability collection returned by
-an injected complete client is distinct from an unavailable collection and may
-produce `liabilities_eur = 0`.
+`liabilities_eur`, and `net_worth_eur`. The live adapter reports an explicit
+`UNAVAILABLE` raw coverage container; the v1 normalization policy maps it to
+`FinaryFeatureUnavailableError`, so `/v1/snapshot` returns
+`FINARY_FEATURE_UNAVAILABLE` instead of assuming zero. A known-empty complete
+collection remains distinct and may produce `liabilities_eur = 0`.
 
 Phase 3 maps application failures to a stable error envelope. Messages are
 fixed and never include raw adapter exception text.
@@ -279,6 +278,24 @@ fixed and never include raw adapter exception text.
 | `FINARY_UPSTREAM_ERROR` | 502 | `FinaryUpstreamError` or unknown adapter error |
 | `FINARY_FEATURE_UNAVAILABLE` | 503 | `FinaryFeatureUnavailableError` |
 | `SNAPSHOT_VALIDATION_FAILED` | 502 | normalized contract validation failure |
+
+## 5.3 GET /v2/snapshot
+
+Schema `2.0` reuses the stable account, position, and liability models and adds
+`coverage.liabilities` with `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`.
+`gross_assets_eur` remains the authoritative account-balance total.
+
+- `COMPLETE` requires finite numeric `liabilities_eur` and `net_worth_eur`, the
+  normalized-liability sum, and `net_worth_eur = gross_assets_eur -
+  liabilities_eur`.
+- `PARTIAL` and `UNAVAILABLE` require null liability and net-worth totals.
+- `UNAVAILABLE` cannot claim authoritative liability records.
+
+The current live adapter therefore yields HTTP 200 from `/v2/snapshot` with
+valid assets, `coverage.liabilities = UNAVAILABLE`, an empty liability list,
+and null liability-dependent totals. Genuine authentication, timeout,
+malformed-response, upstream, and normalization failures retain the sanitized
+error mapping above. `/v1/snapshot` is unchanged.
 
 ## 6. Stable data models
 
@@ -425,15 +442,18 @@ EUR provenance.
 An explicitly complete empty collection may produce known zero in deterministic
 tests; partial or unavailable empty collections still raise
 `FinaryFeatureUnavailableError`. Empty nested `loans` arrays remain ignored and
-never prove zero liabilities. The current live endpoint returns the structured
-unavailable-feature error before calculating net worth.
+never prove zero liabilities. The current live v1 endpoint returns the
+structured unavailable-feature error before calculating net worth.
 
-The full evidence and proposed future schema `2.0` coverage contract are in
+The full evidence and implemented schema `2.0` coverage contract are in
 [`liability-coverage-investigation.md`](liability-coverage-investigation.md).
-That proposal would add an explicit liability coverage state and keep
+The v2 contract adds an explicit liability coverage state and keeps
 `liabilities_eur` and `net_worth_eur` null for `PARTIAL` or `UNAVAILABLE`.
-It is not implemented: `/v1/snapshot`, the Sheets schema, and n8n semantics are
-unchanged.
+It is exposed through `/v2/snapshot`, the canonical Sheets schema, and the
+canonical inactive n8n workflow. The older workbook and workflow artifacts were
+removed after live validation because this pre-1.0 system was never in
+production. `/v1/snapshot` remains temporarily available and fail-safe, but is
+not a backward-compatibility promise.
 
 ## 6.4 Phase 4 handoff constraints
 
@@ -712,10 +732,12 @@ Unique key:
 snapshot_date
 ```
 
-Only a complete successful snapshot may write this sheet. Liability and net
-worth cells are nullable for unknown historical/imported states; blank never
-means zero. `gross_assets_eur` remains the authoritative Phase 3 account-balance
-total and is never calculated by adding account and position values.
+Under schema `1.0`, only a complete successful snapshot writes this sheet.
+Under schema `2.0`, every valid asset snapshot writes explicit
+`liability_coverage`; incomplete coverage keeps liability and net-worth cells
+blank and never implies zero. `gross_assets_eur` remains the authoritative
+account-balance total and is never calculated by adding account and position
+values.
 
 Percentages should use a clearly documented denominator.
 
@@ -936,7 +958,7 @@ Schedule Trigger ---+
 Generate run context
                     |
                     v
-HTTP GET /v1/snapshot
+HTTP GET /v2/snapshot
                     |
                     v
 Validate snapshot
@@ -1329,13 +1351,14 @@ Expected behavior:
 
 ## 32. First implementation milestone
 
-The first real milestone is not the n8n workflow.
+The first real milestone was not the n8n workflow.
 
 It is:
 
 ```text
 GET /health
 GET /v1/snapshot
+GET /v2/snapshot
 ```
 
 with a stable normalized snapshot.
@@ -1344,7 +1367,8 @@ Do not build downstream automation around unverified Finary assumptions.
 
 ## 33. Implemented phase sequence and next gates
 
-Phases 1 through 8 are implemented. The prompts below retain the first six
+Phases 1 through 8 and the canonical schema `2.0` implementation in issue #23
+are implemented. The prompts below retain the first six
 implementation phases as historical incremental delivery context, not as
 pending work. Phases 7 and 8 are recorded in the roadmap table and their
 investigation documents.
@@ -1406,22 +1430,24 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | --- | --- | --- | --- |
 | 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Outcome B: no verified complete liability source; versioned alternative documented | Investigation complete; schema `1.0` blocker remains |
 | 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Outcome A: protected Clerk session persistence | Restart reuse live-verified; periodic MFA remains after expiry/revocation |
-| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Blocked by unresolved complete liability coverage from #13 |
+| v2 migration | [#23](https://github.com/notflorian/finary-chatgpt/issues/23) | Explicit liability coverage API, canonical Sheets schema, and inactive workflows | Protected workbook migration and same-day acceptance passed |
+| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Reassess under the accepted schema-2.0 incomplete-coverage criteria |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Before activation |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
 | 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #15, #16, #17 |
 | 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 
 Issue #13 produced the explicit versioned completeness design because no
-complete source could be proven. Schema `1.0` was not weakened, and empty
-nested arrays still cannot infer zero liabilities. Any future schema `2.0`
-migration requires separate approval and coordinated Sheets/n8n changes. Issue
-#14 implemented and verified routine restart session reuse without persisting
-MFA material or bearer JWTs. Authentication no longer blocks routine restarts,
-but the Phase 7 liability Outcome B remains a production blocker. Until a
-separately approved path resolves liability completeness and #15 passes,
-`FINARY_FEATURE_UNAVAILABLE` is the correct post-authentication live result and
-the daily production schedule must remain disabled.
+complete source could be proven. Issue #23 implements that design: the
+temporarily retained `/v1/snapshot` route remains fail-safe, while
+`/v2/snapshot` and the canonical unsuffixed Sheets/workflow artifacts
+synchronize truthful asset state
+under explicit incomplete coverage without claiming net worth or changing
+last-known complete liabilities. The pre-production v1 workbook/workflow
+artifacts were removed after protected live migration and same-day idempotency
+acceptance. Issue #14 verified routine restart session reuse without persisting
+MFA material or bearer JWTs. Production remains gated on inactive end-to-end,
+Compose/CI readiness, and activation issues; the daily schedule remains disabled.
 
 ## 34. Final acceptance checklist
 
@@ -1430,7 +1456,7 @@ The implementation is ready when all of the following are true:
 ```text
 [ ] docker compose starts successfully
 [ ] /health returns 200
-[ ] /v1/snapshot returns normalized JSON
+[ ] /v2/snapshot returns normalized JSON with explicit liability coverage
 [ ] no Finary secret appears in logs
 [ ] no raw Finary payload reaches n8n
 [ ] account keys are stable

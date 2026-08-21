@@ -6,12 +6,10 @@ does not change the Phase 5 synchronization semantics.
 
 ## Safety state
 
-Keep `Finary - Daily Sync` **inactive** in production. Phase 7 concluded with
-Outcome B: no complete liability source is verified. The live schema `1.0`
-adapter therefore still returns `FINARY_FEATURE_UNAVAILABLE`. That structured
-failure is expected and must not overwrite the last valid current portfolio
-state. Enable the schedule only after the bridge can produce a complete
-snapshot and a manual run has been reviewed.
+Keep the canonical daily workflow **inactive** until the production activation
+gate is approved. Schema `2.0` returns truthful asset state with explicit
+`PARTIAL`/`UNAVAILABLE` coverage. Its workbook and inactive workflow passed
+protected live acceptance; no implementation step enables scheduling.
 
 The activation path is tracked in GitHub. Liability investigation
 [#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
@@ -20,7 +18,9 @@ but schema `1.0` completeness remains unavailable. Authentication
 [#14](https://github.com/notflorian/finary-chatgpt/issues/14) concluded with
 Outcome A: the protected bridge-only Clerk session survives routine restarts
 without persisting MFA material or bearer JWTs. Complete liability coverage
-remains unresolved before live acceptance
+Issue [#23](https://github.com/notflorian/finary-chatgpt/issues/23) implements
+the canonical schema-2.0 contract and inactive migration artifacts. Protected
+workbook acceptance passed; the remaining end-to-end gate is tracked in
 [#15](https://github.com/notflorian/finary-chatgpt/issues/15).
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) are also
@@ -40,6 +40,11 @@ activation has produced a validated workbook state.
    `curl -fsS http://127.0.0.1:5678/healthz`.
 5. From the n8n container, the schema is available at
    `http://schema-server/google-sheets-schema.json`.
+
+Set `FINARY_GOOGLE_SHEET_ID` to the canonical schema-2.0 workbook, import the
+two unsuffixed workflow exports, assign credentials to every Sheets node, and
+link the error handler. The pre-production v1 workbook and workflows were
+removed after live migration acceptance.
 
 The n8n database and encrypted credentials persist in `n8n_data`. Sensitive
 Clerk restart state persists separately in `finary_session_data`, mounted only
@@ -154,17 +159,16 @@ docker compose up -d --force-recreate finary-bridge
 unset FINARY_MFA_CODE
 ```
 
-The first request stores only the allowed Clerk state. A schema `1.0`
-`FINARY_FEATURE_UNAVAILABLE` response proves authentication succeeded and then
-reached the independent liability gate. Recreate the bridge again without
-`FINARY_MFA_CODE` and repeat the request; the protected session should refresh
-without prompting. `/health` proves process readiness only and never touches
-the session file.
+The first successful `/v2/snapshot` request stores only the allowed Clerk
+state. Recreate the bridge again without `FINARY_MFA_CODE` and repeat the
+request; the protected session should refresh without prompting. `/health`
+proves process readiness only and never touches the session file.
 
 For diagnostics, `/health` proves only that the bridge process is ready and
-never contacts Finary. Call `/v1/snapshot` manually with the configured API key
-to test the upstream path; expect the current sanitized
-`FINARY_FEATURE_UNAVAILABLE` response until liability coverage is verified.
+never contacts Finary. Call `/v2/snapshot` with the configured API key to verify
+the canonical coverage-aware path; current structure should be HTTP 200 with
+`coverage.liabilities = UNAVAILABLE`, null liability/net-worth totals, and no
+authoritative liability records. Do not print asset values in shared logs.
 
 To repeat the sanitized adapter investigation deliberately, run from
 `finary-bridge` with local credentials and interactive MFA available:
@@ -174,8 +178,8 @@ FINARY_LIVE_TEST=1 FINARY_LIVE_DESCRIBE=1 \
   python -m pytest -m live tests/live/test_finary_live.py -vv -s --tb=no
 ```
 
-The liability diagnostic must report `NO VERIFIED COMPLETE SOURCE` for the
-current adapter. It prints no endpoint payload, value, ID, account name,
+The liability diagnostic must report `UNAVAILABLE` for the current adapter. It
+prints no endpoint payload, value, ID, account name,
 institution, address, token, cookie, or MFA value. A successful authentication
 and empty nested `loans` arrays do not alter the conclusion. Operators must not
 create zero liability rows, calculate net worth, clear prior liabilities, or
@@ -191,7 +195,10 @@ FINARY_LIVE_SESSION_TEST=1 \
 
 It prompts for one factor, then verifies two fresh clients without another
 factor and prints sanitized status only. The 2026-08-21 acceptance run also
-verified the same state from an independent Python process. It never prints
+verified the same state from an independent Python process. Production live
+acceptance additionally proved repeated refreshes in one long-lived adapter;
+the adapter creates a fresh private HTTP session at each refresh boundary while
+retaining its process-wide lock. It never prints
 cookies, tokens, session identifiers, factors, identities, or portfolio values.
 
 Expiry and revocation are terminal for the persisted session. A definitive

@@ -170,7 +170,7 @@ class FinaryClient(Protocol):
         """Retrieve raw records from verified position collections."""
 
     def get_liabilities(self) -> FinaryRawLiabilities:
-        """Retrieve liabilities or raise when the upstream feature is unavailable."""
+        """Retrieve liabilities with an explicit upstream coverage decision."""
 
 
 class _HttpResponse(Protocol):
@@ -270,6 +270,7 @@ class FinaryApiClient:
         )
         self._mfa_code = credentials.mfa_code
         self._timeout_seconds = timeout_seconds
+        self._session_factory = session_factory
         self._session = session_factory()
         self._second_factor_code_provider = second_factor_code_provider
         self._session_store = session_store
@@ -405,8 +406,9 @@ class FinaryApiClient:
             "Finary liabilities are unavailable in the verified upstream surface",
             extra={"event": "finary.liabilities.unavailable"},
         )
-        raise FinaryFeatureUnavailableError(
-            "Liability retrieval is unavailable in the verified upstream API surface"
+        return FinaryRawLiabilities(
+            records=(),
+            coverage=FinaryLiabilityCoverage.UNAVAILABLE,
         )
 
     def _complete_second_factor_if_needed(
@@ -597,6 +599,12 @@ class FinaryApiClient:
         return session_id, session_token
 
     def _refresh_session(self, state: FinarySessionState) -> None:
+        # Clerk rotates its refresh state. Reusing the same curl session for a
+        # later refresh is rejected by the verified upstream flow, while a
+        # fresh session seeded from the latest protected state is accepted.
+        # Keep the adapter and its lock process-scoped, but replace only the
+        # private HTTP session at each refresh boundary.
+        self._session = self._session_factory()
         self._session.cookies.set(
             _CLERK_CLIENT_COOKIE_NAME,
             state.client_cookie,

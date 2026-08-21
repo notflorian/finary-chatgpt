@@ -93,4 +93,4 @@ def test_phase8_decision_and_security_boundary_are_documented() -> None:
     assert "production `__client` cookie" in investigation
     assert "does not persist that JWT" in investigation
     assert "not backed up" in investigation
-    assert "Issue #15 remains out of scope" in investigation
+    assert "remaining production activation\ngates still apply" in investigation

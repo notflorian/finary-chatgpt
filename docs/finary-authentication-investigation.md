@@ -15,6 +15,12 @@ On 2026-08-21, an opt-in live test authenticated once with TOTP, created two
 fresh clients without another factor, refreshed the session, and performed a
 harmless account-structure request. A subsequent independent Python process
 also loaded the same protected file and completed the request without MFA.
+Protected schema-2.0 migration then exposed an additional lifecycle constraint:
+Clerk accepted the first refresh but returned HTTP 400 when a later refresh
+reused the same curl HTTP session. The adapter now creates a fresh private HTTP
+session from the latest protected state at every refresh boundary. Two live
+snapshot requests separated by more than the 45-second refresh interval both
+returned HTTP 200 after this change.
 The state was then placed in the dedicated Compose volume and survived two
 bridge-container restarts, reaching only the expected liability-coverage gate.
 This establishes routine process/container-restart reuse while the upstream
@@ -174,7 +180,9 @@ state in generic backups.
 The lock prevents simultaneous requests in one process from refreshing and
 rewriting the same session or starting duplicate bootstrap flows. It is not a
 distributed lock; the supported Compose topology runs one bridge process
-against the volume.
+against the volume. The adapter object and lock remain process-scoped, while
+each refresh uses a new private HTTP session because repeated refresh on the
+same curl session was rejected by the observed upstream behavior.
 
 ## Manual bootstrap and restart verification
 
@@ -234,8 +242,8 @@ environment variables, workflow exports, Google Sheets, ChatGPT, repository
 files, logs, normal diagnostics, and normal backups. n8n continues to call only
 the stable bridge API.
 
-Phase 8 resolves the routine restart-authentication blocker. It does not enable
-the production schedule because Phase 7 Outcome B remains unchanged:
-`PARTIAL` and `UNAVAILABLE` liability coverage still produce
-`FINARY_FEATURE_UNAVAILABLE`, schema `1.0` is unchanged, and schema `2.0` is not
-implemented. Issue #15 remains out of scope.
+Phase 8 resolves the routine restart-authentication blocker. Phase 7 Outcome B
+remains unchanged, but canonical schema `2.0` represents `PARTIAL` and
+`UNAVAILABLE` explicitly without inventing net worth. This authentication
+design does not itself enable scheduling; the remaining production activation
+gates still apply.

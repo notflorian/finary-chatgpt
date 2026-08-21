@@ -137,3 +137,43 @@ def test_service_maps_model_validation_to_normalization_error(
 
     with pytest.raises(SnapshotNormalizationError, match="model validation"):
         service.get_snapshot()
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [FinaryLiabilityCoverage.PARTIAL, FinaryLiabilityCoverage.UNAVAILABLE],
+)
+def test_v2_service_returns_assets_with_explicit_incomplete_liability_coverage(
+    coverage: FinaryLiabilityCoverage,
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    client = _FakeClient(
+        raw_accounts,
+        raw_positions,
+        liabilities=FinaryRawLiabilities(records=(), coverage=coverage),
+    )
+    service = SnapshotService(
+        client,
+        clock=lambda: datetime.fromisoformat("2026-08-20T07:30:12+02:00"),
+    )
+
+    snapshot = service.get_snapshot_v2()
+
+    assert snapshot.schema_version == "2.0"
+    assert snapshot.coverage.liabilities.value == coverage.value
+    assert snapshot.gross_assets_eur == 150.0
+    assert snapshot.liabilities_eur is None
+    assert snapshot.net_worth_eur is None
+    assert snapshot.liabilities == ()
+
+
+def test_v2_service_complete_empty_coverage_produces_known_zero(
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    snapshot = SnapshotService(_FakeClient(raw_accounts, raw_positions)).get_snapshot_v2()
+
+    assert snapshot.coverage.liabilities.value == "COMPLETE"
+    assert snapshot.liabilities_eur == 0.0
+    assert snapshot.net_worth_eur == snapshot.gross_assets_eur

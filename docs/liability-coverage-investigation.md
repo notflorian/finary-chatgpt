@@ -178,21 +178,22 @@ Only `COMPLETE` may reach schema `1.0` liability normalization. Consequently:
   legitimately produce `liabilities_eur = 0` for deterministic injected tests;
 - `PARTIAL` or `UNAVAILABLE`, even with an empty tuple, raises
   `FinaryFeatureUnavailableError` and cannot become zero;
-- the live adapter still raises before returning a collection because it has no
-  verified complete reader;
+- the live adapter returns an empty adapter-owned `UNAVAILABLE` container
+  because it has no verified complete reader; schema `1.0` normalization still
+  maps that state to `FinaryFeatureUnavailableError`;
 - a non-empty `COMPLETE` collection remains rejected until its field schema and
   EUR provenance have been verified.
 
 No endpoint was added based on a guessed name. No nested `loans` array is read.
 
-## Recommended versioned incomplete-coverage contract
+## Implemented versioned incomplete-coverage contract
 
-The Phase 9 result recommends adopting the separately approved migration in
-[`schema-v2-migration-plan.md`](schema-v2-migration-plan.md). Implement it as a new schema
-major version and endpoint, for example `GET /v2/snapshot`. Do not change the
-meaning of `GET /v1/snapshot`.
+The Phase 9 result led to the issue #23 migration documented in
+[`schema-v2-migration-plan.md`](schema-v2-migration-plan.md). It is implemented
+as the `/v2/snapshot` contract; `/v1/snapshot` is unchanged. After protected
+live acceptance, the schema-2.0 workbook/workflow artifacts became canonical.
 
-The smallest coherent proposal is:
+The implemented response shape is:
 
 ```json
 {
@@ -219,16 +220,17 @@ Allowed liability coverage states would be `COMPLETE`, `PARTIAL`, and
 - `UNAVAILABLE`: no liability records or total are claimed;
   `liabilities_eur` and `net_worth_eur` are null.
 
-A future migration would need explicit Sheets columns for coverage, revised n8n
-validation/write rules, rules preventing partial data from deactivating a last
-complete liability state, and a new compatibility test matrix. Those changes
-are intentionally not part of Phase 7. The schema `1.0` Google Sheets JSON,
-workbook columns, and n8n workflows remain unchanged.
+Issue #23 implemented explicit Sheets coverage columns, revised n8n
+validation/write rules, and lifecycle protection preventing incomplete data
+from deactivating a last complete liability state. After protected live
+validation, schema `2.0` and the verified workflows replaced the pre-production
+v1 workbook/workflows as the canonical downstream artifacts. The retained
+`/v1/snapshot` route is fail-safe but carries no pre-1.0 compatibility promise.
 
 ## Live structural verification
 
 The opt-in smoke test remains credential-gated and prints only the stable
-liability status `NO VERIFIED COMPLETE SOURCE` or `COMPLETE SOURCE VERIFIED`.
+adapter coverage status (`UNAVAILABLE` for the current implementation).
 It never prints endpoint payloads, values, IDs, names, addresses, or
 authentication material. A fresh session may still require an interactive TOTP
 or prepared email code; Phase 7 does not change that authentication behavior.

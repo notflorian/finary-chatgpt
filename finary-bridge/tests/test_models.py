@@ -5,7 +5,16 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.models import Account, AssetClass, Liability, PortfolioSnapshot, Position
+from app.models import (
+    Account,
+    AssetClass,
+    Liability,
+    LiabilityCoverage,
+    PortfolioSnapshot,
+    PortfolioSnapshotV2,
+    Position,
+    SnapshotCoverage,
+)
 
 
 def _account() -> Account:
@@ -121,4 +130,93 @@ def test_snapshot_rejects_duplicate_liability_keys() -> None:
             accounts=(_account(),),
             positions=(_position(),),
             liabilities=(liability, liability),
+        )
+
+
+def test_v2_unavailable_coverage_requires_null_totals_and_no_liabilities() -> None:
+    snapshot = PortfolioSnapshotV2(
+        generated_at=datetime.fromisoformat("2026-08-20T07:30:00+02:00"),
+        coverage=SnapshotCoverage(liabilities=LiabilityCoverage.UNAVAILABLE),
+        gross_assets_eur=100.0,
+        liabilities_eur=None,
+        net_worth_eur=None,
+        accounts=(_account(),),
+        positions=(_position(),),
+        liabilities=(),
+    )
+
+    assert snapshot.schema_version == "2.0"
+    assert snapshot.coverage.liabilities is LiabilityCoverage.UNAVAILABLE
+
+
+@pytest.mark.parametrize("coverage", [LiabilityCoverage.PARTIAL, LiabilityCoverage.UNAVAILABLE])
+def test_v2_incomplete_coverage_rejects_numeric_totals(
+    coverage: LiabilityCoverage,
+) -> None:
+    with pytest.raises(ValidationError, match="requires null totals"):
+        PortfolioSnapshotV2(
+            generated_at=datetime.fromisoformat("2026-08-20T07:30:00+02:00"),
+            coverage=SnapshotCoverage(liabilities=coverage),
+            gross_assets_eur=100.0,
+            liabilities_eur=0.0,
+            net_worth_eur=100.0,
+            accounts=(_account(),),
+            positions=(_position(),),
+            liabilities=(),
+        )
+
+
+def test_v2_complete_coverage_requires_consistent_numeric_totals() -> None:
+    snapshot = PortfolioSnapshotV2(
+        generated_at=datetime.fromisoformat("2026-08-20T07:30:00+02:00"),
+        coverage=SnapshotCoverage(liabilities=LiabilityCoverage.COMPLETE),
+        gross_assets_eur=100.0,
+        liabilities_eur=0.0,
+        net_worth_eur=100.0,
+        accounts=(_account(),),
+        positions=(_position(),),
+        liabilities=(),
+    )
+
+    assert snapshot.liabilities_eur == 0.0
+    assert snapshot.net_worth_eur == 100.0
+
+
+def test_v2_partial_coverage_may_carry_verified_records_without_a_total() -> None:
+    liability = Liability(
+        liability_key="finary:liability:synthetic-partial",
+        source_liability_id="synthetic-partial",
+        name="Synthetic Partial Liability",
+        liability_type="OTHER",
+        outstanding_eur=10.0,
+    )
+    snapshot = PortfolioSnapshotV2(
+        generated_at=datetime.fromisoformat("2026-08-20T07:30:00+02:00"),
+        coverage=SnapshotCoverage(liabilities=LiabilityCoverage.PARTIAL),
+        gross_assets_eur=100.0,
+        accounts=(_account(),),
+        positions=(_position(),),
+        liabilities=(liability,),
+    )
+
+    assert snapshot.liabilities_eur is None
+    assert snapshot.net_worth_eur is None
+
+
+def test_v2_unavailable_coverage_rejects_claimed_liabilities() -> None:
+    liability = Liability(
+        liability_key="finary:liability:synthetic-unavailable",
+        source_liability_id="synthetic-unavailable",
+        name="Synthetic Unavailable Liability",
+        liability_type="OTHER",
+        outstanding_eur=10.0,
+    )
+    with pytest.raises(ValidationError, match="cannot claim liabilities"):
+        PortfolioSnapshotV2(
+            generated_at=datetime.fromisoformat("2026-08-20T07:30:00+02:00"),
+            coverage=SnapshotCoverage(liabilities=LiabilityCoverage.UNAVAILABLE),
+            gross_assets_eur=100.0,
+            accounts=(_account(),),
+            positions=(_position(),),
+            liabilities=(liability,),
         )

@@ -39,6 +39,14 @@ class AssetClass(StrEnum):
     OTHER = "OTHER"
 
 
+class LiabilityCoverage(StrEnum):
+    """Completeness of the liabilities represented by a v2 snapshot."""
+
+    COMPLETE = "COMPLETE"
+    PARTIAL = "PARTIAL"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 class Account(StableModel):
     """One normalized Finary account without private upstream nesting."""
 
@@ -154,6 +162,82 @@ class PortfolioSnapshot(StableModel):
             abs_tol=1e-9,
         ):
             raise ValueError("net worth must equal gross assets minus liabilities")
+        return self
+
+
+class SnapshotCoverage(StableModel):
+    """Coverage decisions that qualify nullable v2 portfolio totals."""
+
+    liabilities: LiabilityCoverage
+
+
+class PortfolioSnapshotV2(StableModel):
+    """Coverage-aware snapshot returned by ``GET /v2/snapshot``."""
+
+    schema_version: Literal["2.0"] = "2.0"
+    generated_at: datetime
+    reference_currency: Literal["EUR"] = "EUR"
+    coverage: SnapshotCoverage
+    gross_assets_eur: float = Field(ge=0)
+    liabilities_eur: float | None = Field(default=None, ge=0)
+    net_worth_eur: float | None = None
+    accounts: tuple[Account, ...]
+    positions: tuple[Position, ...]
+    liabilities: tuple[Liability, ...]
+
+    @field_validator("generated_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        """Reject timestamps whose UTC offset is unknown."""
+
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("generated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def validate_snapshot_consistency(self) -> PortfolioSnapshotV2:
+        """Validate keys, references, and coverage-dependent totals."""
+
+        account_keys = [account.account_key for account in self.accounts]
+        if len(account_keys) != len(set(account_keys)):
+            raise ValueError("account keys must be unique")
+
+        position_keys = [position.position_key for position in self.positions]
+        if len(position_keys) != len(set(position_keys)):
+            raise ValueError("position keys must be unique")
+        account_key_set = set(account_keys)
+        if any(position.account_key not in account_key_set for position in self.positions):
+            raise ValueError("positions must reference existing accounts")
+
+        liability_keys = [liability.liability_key for liability in self.liabilities]
+        if len(liability_keys) != len(set(liability_keys)):
+            raise ValueError("liability keys must be unique")
+
+        if self.coverage.liabilities is LiabilityCoverage.COMPLETE:
+            if self.liabilities_eur is None or self.net_worth_eur is None:
+                raise ValueError("complete liability coverage requires numeric totals")
+            expected_liabilities = sum(
+                liability.outstanding_eur for liability in self.liabilities
+            )
+            if not isclose(
+                self.liabilities_eur,
+                expected_liabilities,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            ):
+                raise ValueError("liabilities total must equal normalized liabilities")
+            if not isclose(
+                self.net_worth_eur,
+                self.gross_assets_eur - self.liabilities_eur,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            ):
+                raise ValueError("net worth must equal gross assets minus liabilities")
+        else:
+            if self.liabilities_eur is not None or self.net_worth_eur is not None:
+                raise ValueError("incomplete liability coverage requires null totals")
+            if self.coverage.liabilities is LiabilityCoverage.UNAVAILABLE and self.liabilities:
+                raise ValueError("unavailable liability coverage cannot claim liabilities")
         return self
 
 

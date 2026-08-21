@@ -3,7 +3,9 @@
 ## 1. Scope and canonical definition
 
 The workbook is named **Finary Portfolio Data**. It is the normalized boundary
-between the Phase 3 bridge contract and the future Phase 5 n8n workflow.
+between the bridge schema `2.0` contract and the canonical inactive n8n
+workflow. The pre-production v1 workbook and workflow were removed after the
+protected schema-2.0 migration passed live acceptance.
 
 [`google-sheets-schema.json`](google-sheets-schema.json) is the canonical,
 machine-readable initialization definition. It contains ordered headers, types,
@@ -24,7 +26,7 @@ This phase defines ten sheets:
 9. `cashflows`
 10. `sync_runs`
 
-No sheet contains a raw Finary payload or generic metadata column. The Phase 3
+No sheet contains a raw Finary payload or generic metadata column. The bridge v2
 metadata allowlist is empty.
 
 ## 2. Type, ownership, and null conventions
@@ -40,10 +42,10 @@ metadata allowlist is empty.
 
 Each column has one writer classification:
 
-- **automated**: copied from a successful `GET /v1/snapshot` response or
+- **automated**: copied from a successful `GET /v2/snapshot` response or
   initialized from the canonical schema;
 - **manual**: maintained by the user and never overwritten by portfolio sync;
-- **derived**: calculated or joined by the future Phase 5 workflow.
+- **derived**: calculated or joined by the canonical inactive n8n workflow.
 
 Nullability is independent of ownership. A nullable value is stored as a
 completely blank cell. Never write `N/A`, `unknown`, `null`, or `0` as a null
@@ -60,17 +62,20 @@ as `75%`, but its stored numeric value remains `0.75`.
 - Preserve
   `position_key = finary:{account_id}:asset:{position_kind}:{asset_id}`.
 - Never key a record by a numeric asset ID, ticker, ISIN, or name alone.
-- Never infer EUR from a `display_*` field. Phase 3 does not expose those fields.
-- Copy a nullable Phase 3 EUR value to a blank cell; do not convert it to zero.
+- Never infer EUR from a `display_*` field. bridge v2 does not expose those fields.
+- Copy a nullable bridge v2 EUR value to a blank cell; do not convert it to zero.
 - A structured bridge error is not a snapshot. It must not update, deactivate,
-  or clear portfolio state or history. Phase 5 may append failed telemetry only.
+  or clear portfolio state or history. v2 n8n may append failed telemetry only.
 - Account balances and `PortfolioSnapshot.gross_assets_eur` are authoritative
   for gross assets. Position values are analytical components and must never be
   added to account balances.
-- Empty liability coverage is meaningful only when Phase 3 returns a successful
-  complete snapshot. `FINARY_FEATURE_UNAVAILABLE` does not mean zero liabilities.
-- Current-state rows are retained and marked inactive when absent from a later
-  complete snapshot. They are never automatically deleted.
+- `coverage.liabilities` is authoritative. `COMPLETE` permits numeric liability
+  and net-worth totals; `PARTIAL` and `UNAVAILABLE` require both totals to be
+  blank. Blank never means zero.
+- Only `COMPLETE` may update `liabilities_current`. Incomplete asset snapshots
+  preserve last-known complete liability rows without deactivation.
+- Account and position rows are retained and marked inactive when absent from a
+  later valid asset snapshot. They are never automatically deleted.
 - Historical and telemetry rows are retained.
 
 ## 4. `README`
@@ -97,8 +102,11 @@ Required initialized entries include:
 | `null_rule` | `blank means unknown or unavailable; blank never means zero` |
 | `eur_rule` | `position EUR fields exist only with verified EUR provenance` |
 | `gross_assets_rule` | `account balances are authoritative; never add position values to account balances` |
-| `failed_snapshot_rule` | `an incomplete or failed snapshot must not overwrite the last valid state` |
-| `liability_rule` | `unavailable liability coverage is not zero liabilities` |
+| `failed_snapshot_rule` | `an invalid or failed bridge response must not overwrite the last valid state` |
+| `liability_rule` | `liability_coverage is authoritative; blank liabilities or net worth never means zero` |
+| `partial_liability_rule` | `PARTIAL records are not a complete debt set and are not written to liabilities_current` |
+| `unavailable_liability_rule` | `UNAVAILABLE means no authoritative liability collection` |
+| `last_known_liability_rule` | `liabilities_current may contain last-known COMPLETE data` |
 | `allocation_rule` | `allocation percentages exclude liabilities and use only known-EUR active positions` |
 
 Synthetic example: `timezone | Europe/Paris | Business dates and schedules use Europe/Paris.`
@@ -110,11 +118,11 @@ Ownership: automated snapshot fields plus derived synchronization fields.
 Unique key: `account_key`.
 
 Update: upsert by `account_key` only after complete validation. A previously
-active account missing from a later complete snapshot becomes `is_active =
+active account missing from a later valid asset snapshot becomes `is_active =
 FALSE`; retain its previous values and `last_seen_*`. Never delete rows and
 never use a display name as an identifier.
 
-| Column | Type | Nullable | Owner | Phase 3 source / derivation |
+| Column | Type | Nullable | Owner | bridge v2 source / derivation |
 | --- | --- | --- | --- | --- |
 | `account_key` | STRING | No | automated | `Account.account_key` |
 | `source` | STRING | No | automated | `Account.source` |
@@ -127,7 +135,7 @@ never use a display name as an identifier.
 | `market_value_eur` | NUMBER | Yes | automated | `Account.market_value_eur` |
 | `last_seen_at` | DATETIME | No | derived | Successful `PortfolioSnapshot.generated_at` |
 | `last_seen_run_id` | STRING | No | derived | Run that last returned the account |
-| `is_active` | BOOLEAN | No | derived | Presence in the latest complete snapshot |
+| `is_active` | BOOLEAN | No | derived | Presence in the latest valid asset snapshot |
 
 Synthetic example:
 
@@ -139,15 +147,15 @@ finary:account:account-demo-old | finary | account-demo-old | Closed Demo Accoun
 ## 6. `positions_current`
 
 Purpose: one row per normalized account-position combination in the latest
-known valid state. Ownership is mixed: direct Phase 3 fields are automated;
+known valid state. Ownership is mixed: direct bridge v2 fields are automated;
 account enrichment, final classification, weight, and lifecycle fields are
 derived. Unique key: `position_key`.
 
 Update: upsert by the complete category-aware `position_key`. A position absent
-from a later complete snapshot becomes inactive; retain it and do not set its
+from a later valid asset snapshot becomes inactive; retain it and do not set its
 value to zero. Never delete automatically.
 
-| Column | Type | Nullable | Owner | Phase 3 source / derivation |
+| Column | Type | Nullable | Owner | bridge v2 source / derivation |
 | --- | --- | --- | --- | --- |
 | `position_key` | STRING | No | automated | `Position.position_key` |
 | `source` | STRING | No | automated | `Position.source` |
@@ -174,7 +182,7 @@ value to zero. Never delete automatically.
 | `weight_portfolio` | NUMBER | Yes | derived | Known EUR value divided by known-EUR active-position denominator |
 | `last_seen_at` | DATETIME | No | derived | Successful `PortfolioSnapshot.generated_at` |
 | `last_seen_run_id` | STRING | No | derived | Run that last returned the position |
-| `is_active` | BOOLEAN | No | derived | Presence in latest complete snapshot |
+| `is_active` | BOOLEAN | No | derived | Presence in latest valid asset snapshot |
 
 `weight_portfolio` is blank when the row has no `market_value_eur` or the
 known-EUR denominator is zero. When populated, it measures only the subset of
@@ -193,16 +201,16 @@ The examples deliberately reuse numeric ID `1001` across `securities` and
 
 ## 7. `liabilities_current`
 
-Purpose: forward-compatible current liability state. Phase 3 has a stable
+Purpose: forward-compatible current liability state. bridge v2 has a stable
 `Liability` model but no verified callable liability source, so this sheet may
 remain empty. An empty sheet does **not** prove that the user has no liabilities.
 
 Ownership: automated and derived lifecycle fields. Unique key:
 `liability_key`. Update only from a successful snapshot that explicitly has
-complete liability coverage. `FINARY_FEATURE_UNAVAILABLE` must not create a
+`COMPLETE` liability coverage. `PARTIAL` and `UNAVAILABLE` must not create a
 zero row, clear prior rows, or mark prior rows inactive. Never delete rows.
 
-| Column | Type | Nullable | Owner | Phase 3 source / derivation |
+| Column | Type | Nullable | Owner | bridge v2 source / derivation |
 | --- | --- | --- | --- | --- |
 | `liability_key` | STRING | No | automated | `Liability.liability_key` |
 | `source` | STRING | No | automated | `Liability.source` |
@@ -233,7 +241,7 @@ a new row. Historical rows and null EUR values are never deleted or rewritten
 as zero. `snapshot_date` is the Europe/Paris calendar date derived from the
 timezone-aware `generated_at` value.
 
-| Column | Type | Nullable | Owner | Phase 3 source / derivation |
+| Column | Type | Nullable | Owner | bridge v2 source / derivation |
 | --- | --- | --- | --- | --- |
 | `history_key` | STRING | No | derived | `{snapshot_date}:{Position.position_key}` |
 | `snapshot_date` | DATE | No | derived | Europe/Paris date of `generated_at` |
@@ -263,17 +271,16 @@ Purpose: one validated summary row per Europe/Paris business date. Ownership is
 automated for direct snapshot totals and derived for analytical breakdowns.
 Unique key: `snapshot_date`; same-day reruns upsert, rows are never deleted.
 
-Only a complete successful snapshot may write this sheet. Phase 3 currently
-returns no snapshot at all when liability coverage is unavailable, so Phase 5
-must leave the prior daily/current state untouched and record failed telemetry.
-The nullable liability and net-worth columns preserve unknown semantics for
-future contract evolution or imported historical rows; blank never means zero.
+Every valid v2 asset snapshot may write this sheet. `PARTIAL` and `UNAVAILABLE`
+are successful asset snapshots with an explicit warning; their liability and
+net-worth totals are blank. They do not modify `liabilities_current`.
 
 | Column | Type | Nullable | Owner | Source / derivation |
 | --- | --- | --- | --- | --- |
 | `snapshot_date` | DATE | No | derived | Europe/Paris date of `generated_at` |
 | `generated_at` | DATETIME | No | automated | `PortfolioSnapshot.generated_at` |
 | `gross_assets_eur` | NUMBER | No | automated | `PortfolioSnapshot.gross_assets_eur`; authoritative account total |
+| `liability_coverage` | ENUM | No | automated | `PortfolioSnapshotV2.coverage.liabilities`; `COMPLETE`, `PARTIAL`, or `UNAVAILABLE` |
 | `liabilities_eur` | NUMBER | Yes | automated | `PortfolioSnapshot.liabilities_eur` when known |
 | `net_worth_eur` | NUMBER | Yes | automated | `PortfolioSnapshot.net_worth_eur` when known |
 | `financial_assets_eur` | NUMBER | Yes | derived | Known-EUR active financial-position subset; not currently fully definable |
@@ -303,14 +310,14 @@ future contract evolution or imported historical rows; blank never means zero.
 | `cash_accounts_eur` | NUMBER | Yes | derived | Known-EUR accounts with stable cash type |
 | `run_id` | STRING | No | derived | Producing synchronization run |
 
-Asset-class totals and percentages can be partial because Phase 3 correctly
+Asset-class totals and percentages can be partial because bridge v2 correctly
 leaves some position EUR values blank. Percentages exclude liabilities and use
 only active positions with known EUR values. They must be presented as
 known-EUR allocation coverage, not as a reconciliation to `gross_assets_eur`.
-`financial_assets_eur` remains blank unless Phase 5 can prove a complete,
-non-overlapping definition; Phase 4 does not invent one.
+`financial_assets_eur` remains blank unless v2 n8n can prove a complete,
+non-overlapping definition; schema 2.0 does not invent one.
 
-Synthetic example: `2026-08-20 | 2026-08-20T07:30:12+02:00 | 1000 | [blank] |
+Synthetic example: `2026-08-20 | 2026-08-20T07:30:12+02:00 | 1000 | UNAVAILABLE | [blank] |
 [blank] | [blank] | ... | 20260820-073012`. The blanks demonstrate unknown
 liability/net-worth and analytical values; they are not zero.
 
@@ -328,7 +335,7 @@ but never create, update, deactivate, or delete these rows.
 | `min_pct` | NUMBER | No | manual | Decimal fraction lower bound |
 | `max_pct` | NUMBER | No | manual | Decimal fraction upper bound |
 | `notes` | STRING | Yes | manual | User notes |
-| `enabled` | BOOLEAN | No | manual | Whether Phase 5 should consider the row |
+| `enabled` | BOOLEAN | No | manual | Whether v2 n8n should consider the row |
 
 For each enabled row: `0 <= min_pct <= target_pct <= max_pct <= 1`.
 Synthetic example:
@@ -362,7 +369,7 @@ enabled row. Matching precedence is exactly:
 4. exact normalized `name_match`.
 
 No fuzzy matching is allowed. Multiple enabled matches at the same highest
-precedence are a Phase 5 validation error.
+precedence are a v2 n8n validation error.
 
 Synthetic example:
 `override-demo-001 | securities:1001 | [blank] | [blank] | [blank] | EQUITY |
@@ -371,7 +378,7 @@ WORLD_EQUITY | GLOBAL | Synthetic override | TRUE`.
 ## 12. `cashflows`
 
 Purpose: initially manual EUR cashflows. Unique key: `cashflow_key`. Portfolio
-sync must never overwrite or delete rows. Phase 4 defines no performance
+sync must never overwrite or delete rows. Schema 2.0 defines no performance
 calculation.
 
 | Column | Type | Nullable | Owner | Meaning |
@@ -415,6 +422,7 @@ Europe/Paris. One terminal row is appended per run; a retry using the same
 | `accounts_count` | NUMBER | Yes | derived | Validated snapshot count, blank on early failure |
 | `positions_count` | NUMBER | Yes | derived | Validated snapshot count, blank on early failure |
 | `liabilities_count` | NUMBER | Yes | derived | Validated snapshot count, blank when unavailable |
+| `liability_coverage` | ENUM | Yes | derived | Valid v2 coverage; blank only before snapshot decode |
 | `gross_assets_eur` | NUMBER | Yes | derived | Snapshot total when available |
 | `liabilities_eur` | NUMBER | Yes | derived | Snapshot total when available |
 | `net_worth_eur` | NUMBER | Yes | derived | Snapshot total when available |
@@ -431,10 +439,20 @@ A failed run may contain blanks for every portfolio count and value. Zero must
 not be used as an error placeholder. Synthetic failed example:
 
 ```text
-20260820-073012 | 2026-08-20T07:30:12+02:00 | 2026-08-20T07:30:13+02:00 | FAILED | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | 1000 | 0.1.0 | [blank] | 0 | FINARY_FEATURE_UNAVAILABLE | Required Finary data is unavailable
+20260820-073012 | 2026-08-20T07:30:12+02:00 | 2026-08-20T07:30:13+02:00 | FAILED | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | [blank] | 1000 | 0.1.0 | [blank] | 0 | BRIDGE_REQUEST_FAILED | Bridge snapshot request failed
 ```
 
-## 14. Initialization and Phase 5 boundary
+## 14. Initialization and n8n boundary
+
+Initialize the canonical schema-2.0 headers from the JSON definition. Never
+relabel historical rows as `COMPLETE` without proven complete liability
+coverage, and never replace unknown totals with zero. Every valid new daily row
+has non-null `liability_coverage`.
+
+The pre-production migration passed live key, null, coverage, same-day
+idempotency, history, inactive-row, telemetry, and manual-sheet checks. The
+canonical workflow uses `FINARY_GOOGLE_SHEET_ID`; there is no parallel v1
+workbook or workflow configuration.
 
 The JSON definition is sufficient for a safe manual bootstrap helper to:
 
@@ -445,7 +463,7 @@ The JSON definition is sufficient for a safe manual bootstrap helper to:
 - configure percentage display formatting without changing stored fractions.
 
 It intentionally cannot authenticate with Google or create a live workbook.
-Phase 5 must implement synchronization separately and preserve these rules:
+The n8n workflow must implement synchronization separately and preserve these rules:
 
 1. Validate a complete bridge response before any portfolio write.
 2. On a structured bridge error, write failed `sync_runs` telemetry only.
@@ -454,6 +472,6 @@ Phase 5 must implement synchronization separately and preserve these rules:
 5. Never overwrite the three manual sheets.
 6. Apply overrides deterministically before writing final classifications.
 7. Upsert current/history/daily rows by the documented keys.
-8. Mark missing current rows inactive only from a complete valid snapshot.
+8. Mark missing account/position rows inactive only from a valid v2 asset snapshot.
 9. Keep account totals separate from analytical position totals.
 10. Treat known-EUR position allocation as potentially partial coverage.

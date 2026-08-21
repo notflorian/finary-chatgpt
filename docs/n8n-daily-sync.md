@@ -24,15 +24,26 @@ Before importing the workflow:
    error workflow. Imported IDs are instance-specific, so this link is manual.
    Publishing this Error Trigger workflow creates no schedule or external
    endpoint.
-9. Keep the daily workflow unpublished/inactive while verified liability
-   coverage is unavailable. Phase 8 documents the protected Clerk-session
+9. Keep the daily workflow unpublished/inactive until the separate production
+   activation gate is approved. Phase 8 documents the protected Clerk-session
    Outcome A in `docs/finary-authentication-investigation.md`; routine bridge
-   restarts can reuse it, but this does not resolve snapshot completeness.
-   Activate the schedule only after the liability blocker is resolved and a
-   complete manual snapshot succeeds.
+   restarts can reuse it.
 
 The workflow does not create, clear, reformat, or repair the workbook. A missing
 sheet or shifted header aborts before portfolio writes.
+
+## Schema 2.0 coverage behavior
+
+The canonical daily workflow calls `/v2/snapshot`. All three liability coverage states
+pass strict pre-write validation. `COMPLETE` follows the full liability write
+and inactivation lifecycle. `PARTIAL` and `UNAVAILABLE` synchronize accounts,
+positions, history, daily asset analytics, and telemetry with null liability and
+net-worth totals; they produce `SUCCESS_WITH_WARNINGS` and produce no
+`liabilities_current` rows, preserving last-known complete liability state.
+`portfolio_daily.liability_coverage` is always populated for a valid v2 asset
+run; `sync_runs.liability_coverage` is blank only when failure precedes snapshot
+decode. All retry, timeout, Execute Once, idempotency, null, override, and
+sanitization rules below apply to the canonical workflows.
 
 ## Configuration
 
@@ -61,8 +72,8 @@ Warning thresholds are centralized in the `Prepare Validated Rows` Code node:
 
 ## Schema-driven preflight
 
-`docs/google-sheets-schema.json` remains the only schema source. Every run loads
-it through `FINARY_SCHEMA_URL`, verifies schema version `1.0`, and derives the
+`docs/google-sheets-schema.json` is the only schema source. Every run loads
+it through `FINARY_SCHEMA_URL`, verifies schema version `2.0`, and derives the
 Google Sheets resource-mapper schemas from its column definitions. The workflow
 does not embed an independent header list.
 
@@ -85,7 +96,7 @@ Once`, because all selected rows must be written. The daily workflow has a
 300-second execution timeout.
 
 The validation gate rejects unsupported or error responses, naive timestamps,
-non-EUR schema 1.0 references, suspicious empty accounts or positions, missing
+non-EUR schema 2.0 references, suspicious empty accounts or positions, missing
 or duplicate IDs, broken account references, malformed category-aware position
 keys, non-finite values, negative liabilities, inconsistent liability/net-worth
 totals, impossible account/gross-asset relationships, ambiguous overrides,

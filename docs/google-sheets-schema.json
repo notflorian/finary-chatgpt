@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "workbook_name": "Finary Portfolio Data",
   "timezone": "Europe/Paris",
   "reference_currency": "EUR",
@@ -30,14 +30,18 @@
     {"key": "null_rule", "value": "blank means unknown or unavailable; blank never means zero", "description": "Numeric nulls are empty cells, not text or zero placeholders."},
     {"key": "eur_rule", "value": "position EUR fields exist only with verified EUR provenance", "description": "No display-field inference or speculative conversion is allowed."},
     {"key": "gross_assets_rule", "value": "account balances are authoritative; never add position values to account balances", "description": "Position values are analytical components and may overlap account balances."},
-    {"key": "failed_snapshot_rule", "value": "an incomplete or failed snapshot must not overwrite the last valid state", "description": "Only failed telemetry may be written after a structured snapshot error."},
-    {"key": "liability_rule", "value": "unavailable liability coverage is not zero liabilities", "description": "Do not fabricate zero liability or net-worth values."},
+    {"key": "failed_snapshot_rule", "value": "an invalid or failed bridge response must not overwrite the last valid state", "description": "Explicit PARTIAL or UNAVAILABLE liability coverage remains a valid asset snapshot."},
+    {"key": "liability_rule", "value": "liability_coverage is authoritative; blank liabilities or net worth never means zero", "description": "Net worth may be stated only when liability_coverage is COMPLETE."},
+    {"key": "partial_liability_rule", "value": "PARTIAL records are not a complete debt set and are not written to liabilities_current", "description": "Only COMPLETE coverage may modify liabilities_current."},
+    {"key": "unavailable_liability_rule", "value": "UNAVAILABLE means no authoritative liability collection", "description": "Gross assets remain analyzable while liability and net-worth totals remain blank."},
+    {"key": "last_known_liability_rule", "value": "liabilities_current may contain last-known COMPLETE data", "description": "PARTIAL or UNAVAILABLE asset snapshots preserve the last-known complete liability state."},
     {"key": "allocation_rule", "value": "allocation percentages exclude liabilities and use only known-EUR active positions", "description": "Allocation may describe partial known-EUR coverage."}
   ],
   "enums": {
     "asset_class": ["EQUITY", "BOND", "CASH", "REAL_ESTATE", "SCPI", "PRIVATE_EQUITY", "CRYPTO", "COMMODITY", "LIFE_INSURANCE_FUND", "OTHER"],
     "cashflow_type": ["CONTRIBUTION", "WITHDRAWAL", "DIVIDEND", "INTEREST", "FEE", "TAX", "TRANSFER"],
-    "sync_status": ["SUCCESS", "SUCCESS_WITH_WARNINGS", "FAILED"]
+    "sync_status": ["SUCCESS", "SUCCESS_WITH_WARNINGS", "FAILED"],
+    "liability_coverage": ["COMPLETE", "PARTIAL", "UNAVAILABLE"]
   },
   "sheets": {
     "README": {
@@ -56,7 +60,7 @@
       "purpose": "Latest known valid normalized account state, including inactive retained rows.",
       "sheet_ownership": "automated",
       "unique_key": "account_key",
-      "update_behavior": "Upsert successful snapshots by account_key; mark previously active missing rows inactive only after complete validation.",
+      "update_behavior": "Upsert valid v2 asset snapshots by account_key; mark previously active missing rows inactive only after complete validation.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
         {"name": "account_key", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Account.account_key"},
@@ -77,7 +81,7 @@
       "purpose": "Latest known valid normalized position state per account, including inactive retained rows.",
       "sheet_ownership": "automated",
       "unique_key": "position_key",
-      "update_behavior": "Upsert successful snapshots by position_key; mark previously active missing rows inactive only after complete validation.",
+      "update_behavior": "Upsert valid v2 asset snapshots by position_key; mark previously active missing rows inactive only after complete validation.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
         {"name": "position_key", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Position.position_key"},
@@ -112,7 +116,7 @@
       "purpose": "Forward-compatible latest known valid normalized liability state; currently remains empty because coverage is unavailable.",
       "sheet_ownership": "automated",
       "unique_key": "liability_key",
-      "update_behavior": "Upsert only a successful snapshot with verified liability coverage; unavailable coverage never writes or clears rows.",
+      "update_behavior": "Upsert or inactivate only when liability_coverage is COMPLETE; PARTIAL or UNAVAILABLE never writes, clears, or deactivates rows.",
       "deletion_behavior": "Never delete automatically; missing rows may be marked inactive only from a complete liability collection.",
       "columns": [
         {"name": "liability_key", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Liability.liability_key"},
@@ -160,12 +164,13 @@
       "purpose": "One validated daily portfolio summary with explicitly nullable analytical coverage.",
       "sheet_ownership": "derived",
       "unique_key": "snapshot_date",
-      "update_behavior": "Upsert the same Europe/Paris business date only from a complete successful snapshot.",
+      "update_behavior": "Upsert the same Europe/Paris business date from any valid v2 asset snapshot.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
         {"name": "snapshot_date", "type": "DATE", "nullable": false, "ownership": "derived", "source": "Europe/Paris date of PortfolioSnapshot.generated_at"},
         {"name": "generated_at", "type": "DATETIME", "nullable": false, "ownership": "automated", "source": "PortfolioSnapshot.generated_at"},
         {"name": "gross_assets_eur", "type": "NUMBER", "nullable": false, "ownership": "automated", "source": "PortfolioSnapshot.gross_assets_eur"},
+        {"name": "liability_coverage", "type": "ENUM", "nullable": false, "ownership": "automated", "source": "PortfolioSnapshotV2.coverage.liabilities"},
         {"name": "liabilities_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "PortfolioSnapshot.liabilities_eur when a complete snapshot exists"},
         {"name": "net_worth_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "PortfolioSnapshot.net_worth_eur when a complete snapshot exists"},
         {"name": "financial_assets_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "known-EUR active position subset when coverage is sufficient"},
@@ -262,6 +267,7 @@
         {"name": "accounts_count", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "validated snapshot when available"},
         {"name": "positions_count", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "validated snapshot when available"},
         {"name": "liabilities_count", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "validated snapshot when available"},
+        {"name": "liability_coverage", "type": "ENUM", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshotV2.coverage.liabilities when a valid snapshot was decoded"},
         {"name": "gross_assets_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshot.gross_assets_eur when available"},
         {"name": "liabilities_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshot.liabilities_eur when available"},
         {"name": "net_worth_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshot.net_worth_eur when available"},
