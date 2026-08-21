@@ -24,8 +24,9 @@ acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15) passed;
 sanitized evidence is recorded in `end-to-end-acceptance.md`.
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
-[#17](https://github.com/notflorian/finary-chatgpt/issues/17) remains required
-before production activation
+[#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented;
+all four GitHub-hosted checks have been observed green. Production activation
+remains a separate explicit gate in
 [#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
 [#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
 activation has produced a validated workbook state.
@@ -76,6 +77,33 @@ start legacy helper containers beside it. Before any lifecycle command, run
 `docker compose config --quiet`; after startup, require all three services to
 be healthy. A bridge restart must not restart or erase n8n, and an n8n restart
 must not modify the workbook merely by starting.
+
+## CI and release gate
+
+Phase 11 defines four stable GitHub Actions checks:
+
+- `tests`
+- `static-analysis`
+- `repository-contracts`
+- `n8n-import`
+
+Reproduce them with the exact commands in `ci.md`. The tests gate reports
+pytest failures and unexpected skips; static analysis reports Ruff and mypy
+separately; repository contracts identify JSON or quiet Compose failures; and
+n8n import uses the real Compose-pinned runtime in network-isolated ephemeral
+containers. Do not diagnose CI by printing `.env`, expanded Compose
+configuration, workflow execution data, or private fixtures.
+
+The workflow uses GitHub-hosted runners, read-only contents permission, full-
+SHA action pins, and no production secrets, live-test flags, cache, or artifact
+upload. It cannot access Finary, Google Sheets, Clerk state, the live n8n
+instance, or the local Docker host. After the workflow is published and passes,
+configure the four stable names as required pull-request checks through a
+separate authorized repository-settings change; Phase 11 does not mutate
+branch protection.
+
+A green Phase 11 run is necessary but not sufficient for scheduling. Issue #18
+must still explicitly approve activation after its operational preflight.
 
 ## Import and configure workflows
 

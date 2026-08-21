@@ -107,8 +107,9 @@ Phase 9 acceptance satisfies the implementation scope of issue #15. The
 remaining roadmap is:
 
 1. #16 — repository Compose migration accepted; see `compose-migration.md`;
-2. #17 — add CI quality gates;
-3. #18 — activate production synchronization safely;
+2. #17 — CI quality gates implemented; all four GitHub-hosted checks observed
+   green;
+3. #18 — activate production synchronization safely after green CI;
 4. #19 — connect ChatGPT to the validated workbook.
 
 **PRODUCTION SCHEDULE REMAINS DISABLED.**

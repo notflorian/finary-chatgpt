@@ -97,7 +97,8 @@ is stopped, using the matching encryption key. A restart or recreation of one
 service must not delete another service's state because the n8n and Clerk
 volumes are distinct.
 
-Phase 10 does not add CI, enable the daily schedule, or connect ChatGPT. Those
-remain issues #17, #18, and #19 respectively.
+Phase 10 itself did not add CI, enable the daily schedule, or connect ChatGPT.
+Phase 11 CI is implemented and all four GitHub-hosted checks have been observed
+green. Activation and ChatGPT access remain issues #18 and #19.
 
 **PRODUCTION SCHEDULE REMAINS DISABLED.**

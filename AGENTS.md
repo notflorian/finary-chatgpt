@@ -662,9 +662,9 @@ operational constraints, now preserved by Phase 6:
 - The verified adapter still has no complete liability feature. The canonical
   `/v2/snapshot` returns truthful asset state with explicit incomplete coverage
   and null liability-dependent totals. Phase 9 accepted the inactive end-to-end
-  path. Keep the daily workflow inactive until the remaining Compose and CI
-  gates pass; never treat incomplete
-  coverage as zero merely to enable scheduling.
+  path. Keep the daily workflow inactive until Phase 11 is published and green
+  and issue #18 explicitly approves activation; never treat incomplete coverage
+  as zero merely to enable scheduling.
 - The Google Sheets credential must be assigned to every Sheets node on both
   success and failure branches after import. Operations documentation must
   include this check and distinguish credential errors from quota errors.
@@ -715,8 +715,11 @@ to GitHub issues #13–#19 and are the authoritative next work:
    Compose project after a protected backup and isolated restore test. Restart
    persistence and service-volume isolation were verified. Evidence is in
    `docs/compose-migration.md`.
-6. #17 — add credential-free CI quality gates.
-7. #18 — activate production synchronization; blocked by #17.
+6. #17 — implemented: credential-free GitHub-hosted CI runs the stable `tests`,
+   `static-analysis`, `repository-contracts`, and `n8n-import` checks. All four
+   GitHub-hosted checks have been observed green.
+7. #18 — activate production synchronization only after all four stable checks
+   are green and activation is explicitly approved.
 8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
 
 These cross-cutting issues are operational milestones, not permission to weaken
@@ -749,6 +752,16 @@ the existing contracts. Preserve these gates:
 - Require CI readiness and explicit activation approval before enabling the
   daily trigger. Phase 9 inactive end-to-end acceptance and Phase 10 Compose
   migration/recovery acceptance are complete.
+- Preserve the Phase 11 CI boundary: GitHub-hosted runners only, `contents: read`,
+  full-SHA action pins, explicit Python and Node patch pins, no
+  `pull_request_target`, no production secrets, and no live-test flags.
+- Normal CI must exclude live tests with both `-m "not live"` and
+  `--ignore=tests/live`. The Node-backed workflow tests must execute rather than
+  skip because Node is missing.
+- Keep the stable CI check names `tests`, `static-analysis`,
+  `repository-contracts`, and `n8n-import`. Import validation must derive the
+  digest-pinned n8n 2.35.5 image from Compose and run each workflow in an
+  ephemeral `--network none` container without executing or activating it.
 - Configure ChatGPT/Google Drive consumption only after a valid workbook state
   exists; never expose Finary credentials or private upstream payloads.
 
