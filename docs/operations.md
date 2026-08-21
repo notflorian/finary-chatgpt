@@ -1,6 +1,6 @@
 # Operations runbook
 
-This runbook covers the local Phase 6 stack: `finary-bridge`, n8n, the local
+This runbook covers the local repository Compose stack: `finary-bridge`, n8n, the local
 canonical-schema service, Google Sheets, and the two importable workflows. It
 does not change the Phase 5 synchronization semantics.
 
@@ -23,8 +23,9 @@ the canonical schema-2.0 contract and inactive migration artifacts. End-to-end
 acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15) passed;
 sanitized evidence is recorded in `end-to-end-acceptance.md`.
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
-and CI [#17](https://github.com/notflorian/finary-chatgpt/issues/17) remain
-required before production activation
+is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
+[#17](https://github.com/notflorian/finary-chatgpt/issues/17) remains required
+before production activation
 [#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
 [#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
 activation has produced a validated workbook state.
@@ -51,11 +52,30 @@ Clerk restart state persists separately in `finary_session_data`, mounted only
 into the bridge. The Compose ports bind to localhost only. The schema service
 has no host port and mounts the canonical JSON read-only.
 
+The canonical workflows resolve their local bridge, schema, workbook, and
+optional API-key settings through n8n's `$env` expressions. Compose therefore
+sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`, matching the accepted legacy runtime.
+Do not expose untrusted workflow editing on this local instance; a workflow
+editor can read process environment values under this setting.
+
+Both schema-fetch HTTP nodes read the canonical JSON as text and let their Code
+node parse it. This is deliberate compatibility with n8n 2.35.5; selecting the
+HTTP node's JSON response mode caused a pre-write parse failure in live
+migration validation. In that runtime, the Text-mode full response stores the
+payload under `data`; the validation nodes deliberately accept `data`, `body`,
+or an already-decoded object.
+
 Open n8n at `http://127.0.0.1:5678`. View bounded recent logs with
 `docker compose logs --tail=200 finary-bridge n8n schema-server`; review them
 before sharing because execution detail can contain private node input. Routine
 lifecycle commands are `docker compose build`, `docker compose up -d`, and
 `docker compose down` without `-v`.
+
+Phase 10 made this repository Compose project the only live-stack owner. Do not
+start legacy helper containers beside it. Before any lifecycle command, run
+`docker compose config --quiet`; after startup, require all three services to
+be healthy. A bridge restart must not restart or erase n8n, and an n8n restart
+must not modify the workbook merely by starting.
 
 ## Import and configure workflows
 
@@ -261,10 +281,36 @@ Before upgrades or credential rotation:
    procedure and store it encrypted.
 3. Export both workflows from n8n and verify the exports contain no credential
    objects.
-4. Export the Google workbook to a protected location. It contains financial
-   data and must not be committed.
+4. In Google Drive, create a private copy of the canonical workbook or export
+   it to an owner-only encrypted location. Verify the copy contains all ten
+   tabs, current/history data, telemetry, and manual sheets. It contains
+   financial data and must not be committed or broadly shared.
 5. Preserve the exact `N8N_ENCRYPTION_KEY` separately in a secret manager. A
    volume backup without that key cannot decrypt stored credentials.
+
+Use this safe local-volume procedure for n8n migration or disaster-recovery
+preparation:
+
+1. Record the source container, image digest, mounts, network, localhost port,
+   workflow activation state, error-workflow linkage, and execution count.
+2. Confirm the ignored environment uses the exact live encryption key and
+   canonical workbook identifier without printing either value.
+3. Stop n8n cleanly. Do not remove its container or source volume.
+4. Archive the full mounted n8n data directory into an owner-only directory on
+   an encrypted local volume. Set the directory to `0700`, the archive and
+   checksum to `0600`, and verify the SHA-256 checksum.
+5. Restore the archive into a new temporary Docker volume. Start an isolated
+   n8n with no network and no published port, using the matching encryption
+   key. Confirm the owner setup, workflow list, execution telemetry, and a
+   successful decrypted credential export.
+6. Destroy only that temporary verification instance after it passes. Keep the
+   protected archive and original source volume.
+7. Restore into an empty Compose-managed `n8n_data` volume while n8n is stopped,
+   then start the full stack and perform the topology and persistence checks.
+
+Never copy only `database.sqlite`: n8n state can include additional files and
+SQLite sidecars. Never restore over a running n8n instance. Never print a
+decrypted credential export or include it in the backup archive.
 
 Do **not** back up `finary_session_data`. It contains bearer-equivalent Clerk
 state and is intentionally recoverable only by a fresh MFA bootstrap after a
@@ -275,6 +321,29 @@ stopped, provide the original encryption key, start the stack, and verify both
 workflows and credentials before any manual execution. Restore the workbook
 only into a controlled copy first, then point `FINARY_GOOGLE_SHEET_ID` at the
 verified target.
+
+After restore, run one full persistence cycle without deleting volumes:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Verify health, internal bridge/schema reachability, the owner account,
+decryptable Google credential, both workflows and their linkage, retained
+execution history, and the inactive daily schedule. Confirm `/v2/snapshot`
+still reuses the protected bridge session without an interactive HTTP prompt.
+Only then may obsolete containers be removed. Retain the source volume and
+protected archive until the operator explicitly ends the rollback window.
+
+For host disaster recovery, restore `n8n_data` and the private canonical
+workbook first, provide the original `N8N_ENCRYPTION_KEY`, and start Compose.
+Reconnect a Google credential only when the preserved credential genuinely
+cannot be used; do not overwrite it to hide an encryption-key mismatch. Because
+`finary_session_data` is intentionally absent from disaster-recovery backups,
+perform a fresh transient MFA bootstrap. Keep the daily workflow inactive until
+the restored owner, credential, workflows, history, schema, snapshot, workbook,
+and idempotency checks all pass manually.
 
 ## Rotation and upgrades
 

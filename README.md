@@ -7,7 +7,7 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phases 1 through 9 implement and accept the bridge and inactive operational
+Phases 1 through 10 implement and accept the bridge and inactive operational
 pipeline. The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
@@ -16,8 +16,10 @@ verification. Private Finary fields remain confined to the adapter and
 normalizer. The canonical daily workflow remains inactive pending the separate
 production activation gate.
 
-Phase 9's sanitized acceptance evidence is recorded in
-[`docs/end-to-end-acceptance.md`](docs/end-to-end-acceptance.md).
+Phase 9's sanitized application acceptance evidence is recorded in
+[`docs/end-to-end-acceptance.md`](docs/end-to-end-acceptance.md). Phase 10's
+sanitized live-stack migration evidence is recorded in
+[`docs/compose-migration.md`](docs/compose-migration.md).
 
 ## Prerequisites
 
@@ -78,7 +80,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The bridge and n8n are bound to `127.0.0.1:8000` and `127.0.0.1:5678`. The
+The accepted live stack is now owned by this repository's Compose project. The
+bridge and n8n are bound to `127.0.0.1:8000` and `127.0.0.1:5678`. The
 canonical schema service is private to the Compose network. n8n data is stored
 in `n8n_data`; the sensitive Clerk restart state is isolated in the separate
 bridge-only `finary_session_data` named volume. Stop the stack without deleting
@@ -154,7 +157,7 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 9 are implemented. Issue #23 implemented the canonical schema
+Phases 1 through 10 are implemented. Issue #23 implemented the canonical schema
 `2.0` contract, workbook, and inactive workflows. Phase 9 then accepted the
 merged end-to-end path with a protected-session restart, sanitized live v2
 snapshot, one inactive manual synchronization, workbook integrity checks, and
@@ -182,9 +185,9 @@ issue numbers are #13–#19:
 2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): Outcome A implemented and restart-verified; periodic human MFA remains necessary after expiry or revocation.
 3. [Adopt schema 2.0 explicit liability coverage (#23)](https://github.com/notflorian/finary-chatgpt/issues/23): implemented as the canonical pre-production workflow/workbook contract and live-accepted while inactive.
 4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): accepted under schema 2.0; see the [sanitized evidence](docs/end-to-end-acceptance.md).
-5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
+5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16): accepted; the repository Compose project now owns all three live services and persistent n8n state.
 6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
-7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #16 and #17.
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #17.
 8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
 Issue #13 remains an evidence-backed Outcome B and an explicit limitation of

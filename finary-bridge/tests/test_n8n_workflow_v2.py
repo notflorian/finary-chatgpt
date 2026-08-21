@@ -85,20 +85,37 @@ def test_v2_workflow_preserves_operational_node_safety(
     sheet_nodes = [
         node for node in workflow["nodes"] if node["type"] == "n8n-nodes-base.googleSheets"
     ]
-    reads = [
-        node
-        for node in sheet_nodes
-        if node["parameters"].get("operation", "read") == "read"
-    ]
+    reads = [node for node in sheet_nodes if node["parameters"].get("operation", "read") == "read"]
     writes = [
-        node
-        for node in sheet_nodes
-        if node["parameters"].get("operation") == "appendOrUpdate"
+        node for node in sheet_nodes if node["parameters"].get("operation") == "appendOrUpdate"
     ]
     assert reads and all(node.get("executeOnce") is True for node in reads)
     assert writes and all(node.get("executeOnce") is not True for node in writes)
     assert workflow["settings"]["executionTimeout"] == 300
     assert all(node["retryOnFail"] is True for node in sheet_nodes)
+
+
+def test_text_schema_full_response_shape_passes_validation(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    result = _run_code_node(
+        workflow,
+        "Validate Snapshot",
+        named_rows={
+            "Initialize Run": [
+                {
+                    "run_id": "20260820-073012",
+                    "started_at": "2026-08-20T07:30:12+02:00",
+                    "started_epoch_ms": 0,
+                }
+            ],
+            "Fetch Canonical Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
+        },
+        input_rows=[{"statusCode": 200, "body": _v2_snapshot("UNAVAILABLE")}],
+    )[0]["json"]
+
+    assert result["can_write"] is True
+    assert result["schema"]["schema_version"] == "2.0"
 
 
 @pytest.mark.parametrize("coverage", ["COMPLETE", "PARTIAL", "UNAVAILABLE"])
@@ -137,9 +154,9 @@ def test_incomplete_coverage_writes_assets_but_preserves_liability_state(
             "is_active": True,
         }
     ]
-    result = _run_code_node(
-        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
-    )[0]["json"]
+    result = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])[
+        0
+    ]["json"]
 
     assert result["account_rows"]
     assert result["position_rows"]
@@ -186,9 +203,9 @@ def test_complete_known_empty_coverage_inactivates_last_known_liability(
         }
     ]
 
-    result = _run_code_node(
-        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
-    )[0]["json"]
+    result = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])[
+        0
+    ]["json"]
 
     assert len(result["liability_rows"]) == 1
     assert result["liability_rows"][0]["is_active"] is False
@@ -236,9 +253,7 @@ def test_incomplete_partial_write_rerun_repairs_by_deterministic_upsert(
     assert len(positions) == len(prepared["position_rows"])
     assert len(history) == len(prepared["history_rows"])
     assert len(daily) == 1
-    assert liabilities == [
-        {"liability_key": "finary:liability:last-known", "is_active": True}
-    ]
+    assert liabilities == [{"liability_key": "finary:liability:last-known", "is_active": True}]
 
 
 def test_v2_same_day_rerun_is_deterministic(
@@ -246,19 +261,17 @@ def test_v2_same_day_rerun_is_deterministic(
 ) -> None:
     snapshot = _v2_snapshot("UNAVAILABLE")
     named = _prepare_named_rows(schema, snapshot)
-    first = _run_code_node(
-        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
-    )[0]["json"]
-    second = _run_code_node(
-        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
-    )[0]["json"]
+    first = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])[
+        0
+    ]["json"]
+    second = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])[
+        0
+    ]["json"]
 
     assert [row["history_key"] for row in first["history_rows"]] == [
         row["history_key"] for row in second["history_rows"]
     ]
-    assert first["daily_rows"][0]["snapshot_date"] == second["daily_rows"][0][
-        "snapshot_date"
-    ]
+    assert first["daily_rows"][0]["snapshot_date"] == second["daily_rows"][0]["snapshot_date"]
 
 
 def test_v2_next_day_creates_new_history_and_daily_keys(
@@ -280,9 +293,7 @@ def test_v2_next_day_creates_new_history_and_daily_keys(
         input_rows=[{}],
     )[0]["json"]
 
-    assert first["daily_rows"][0]["snapshot_date"] != second["daily_rows"][0][
-        "snapshot_date"
-    ]
+    assert first["daily_rows"][0]["snapshot_date"] != second["daily_rows"][0]["snapshot_date"]
     assert {row["history_key"] for row in first["history_rows"]}.isdisjoint(
         row["history_key"] for row in second["history_rows"]
     )
@@ -292,10 +303,7 @@ def test_v2_missing_position_becomes_inactive_under_unavailable_liabilities(
     workflow: dict[str, Any], schema: dict[str, Any]
 ) -> None:
     named = _prepare_named_rows(schema, _v2_snapshot("UNAVAILABLE"))
-    old = {
-        column["name"]: None
-        for column in schema["sheets"]["positions_current"]["columns"]
-    }
+    old = {column["name"]: None for column in schema["sheets"]["positions_current"]["columns"]}
     old.update(
         {
             "position_key": "finary:account-001:asset:securities:old",
@@ -307,9 +315,9 @@ def test_v2_missing_position_becomes_inactive_under_unavailable_liabilities(
         }
     )
     named["Read Current Positions"] = [old]
-    result = _run_code_node(
-        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
-    )[0]["json"]
+    result = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])[
+        0
+    ]["json"]
 
     inactive = next(
         row for row in result["position_rows"] if row["position_key"] == old["position_key"]

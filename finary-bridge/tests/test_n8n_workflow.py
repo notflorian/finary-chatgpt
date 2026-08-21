@@ -227,6 +227,9 @@ def test_workflow_uses_expected_triggers_and_runtime_schema(
     assert "http://schema-server/google-sheets-schema.json" in (
         schema_request["parameters"]["url"]
     )
+    assert schema_request["parameters"]["options"]["response"]["response"][
+        "responseFormat"
+    ] == "text"
 
 
 def test_only_standard_nodes_and_no_manual_sheet_writes(

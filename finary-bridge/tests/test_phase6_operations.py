@@ -34,7 +34,7 @@ def _run_error_classifier(
     code = _node(workflow, "Prepare Sanitized Failure")["parameters"]["jsCode"]
     named = {
         "Workflow Error Trigger": [trigger],
-        "Fetch Operational Schema": [{"statusCode": 200, "body": schema}],
+        "Fetch Operational Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
     }
     harness = f"""
 const namedRows = {json.dumps(named)};
@@ -73,9 +73,7 @@ def test_workflows_are_inactive_bounded_and_use_standard_nodes() -> None:
     assert error["active"] is False
     assert daily["settings"]["executionTimeout"] == 300
     assert error["settings"]["executionTimeout"] == 120
-    assert _node(error, "Workflow Error Trigger")["type"] == (
-        "n8n-nodes-base.errorTrigger"
-    )
+    assert _node(error, "Workflow Error Trigger")["type"] == ("n8n-nodes-base.errorTrigger")
     allowed = {
         "n8n-nodes-base.errorTrigger",
         "n8n-nodes-base.httpRequest",
@@ -89,11 +87,7 @@ def test_workflows_are_inactive_bounded_and_use_standard_nodes() -> None:
 @pytest.mark.parametrize("path", [DAILY_PATH, ERROR_PATH])
 def test_google_nodes_have_finite_native_retry_without_credentials(path: Path) -> None:
     workflow = _load(path)
-    sheets = [
-        node
-        for node in workflow["nodes"]
-        if node["type"] == "n8n-nodes-base.googleSheets"
-    ]
+    sheets = [node for node in workflow["nodes"] if node["type"] == "n8n-nodes-base.googleSheets"]
     assert sheets
     assert all(node.get("retryOnFail") is True for node in sheets)
     assert all(node.get("maxTries") == 3 for node in sheets)
@@ -104,19 +98,11 @@ def test_google_nodes_have_finite_native_retry_without_credentials(path: Path) -
 def test_read_nodes_execute_once_and_write_nodes_process_all_rows() -> None:
     for workflow in (_load(DAILY_PATH), _load(ERROR_PATH)):
         sheets = [
-            node
-            for node in workflow["nodes"]
-            if node["type"] == "n8n-nodes-base.googleSheets"
+            node for node in workflow["nodes"] if node["type"] == "n8n-nodes-base.googleSheets"
         ]
-        reads = [
-            node
-            for node in sheets
-            if node["parameters"].get("operation", "read") == "read"
-        ]
+        reads = [node for node in sheets if node["parameters"].get("operation", "read") == "read"]
         writes = [
-            node
-            for node in sheets
-            if node["parameters"].get("operation") == "appendOrUpdate"
+            node for node in sheets if node["parameters"].get("operation") == "appendOrUpdate"
         ]
         assert reads and writes
         assert all(node.get("executeOnce") is True for node in reads)
@@ -125,15 +111,17 @@ def test_read_nodes_execute_once_and_write_nodes_process_all_rows() -> None:
 
 def test_error_workflow_can_only_write_sanitized_sync_telemetry() -> None:
     workflow = _load(ERROR_PATH)
+    schema_request = _node(workflow, "Fetch Operational Schema")
+    assert (
+        schema_request["parameters"]["options"]["response"]["response"]["responseFormat"] == "text"
+    )
     writes = [
         node
         for node in workflow["nodes"]
         if node["type"] == "n8n-nodes-base.googleSheets"
         and node["parameters"].get("operation") == "appendOrUpdate"
     ]
-    assert [node["parameters"]["sheetName"]["value"] for node in writes] == [
-        "sync_runs"
-    ]
+    assert [node["parameters"]["sheetName"]["value"] for node in writes] == ["sync_runs"]
     serialized = json.dumps(workflow).lower()
     assert '"operation": "delete"' not in serialized
     assert '"operation": "clear"' not in serialized
@@ -180,9 +168,7 @@ def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures() -
     ]
     result = _run_error_classifier(_trigger("failure"), existing)
     assert result["should_record"] is False
-    assert result["diagnostics"]["last_success_at"] == (
-        "2026-08-20T08:00:00+02:00"
-    )
+    assert result["diagnostics"]["last_success_at"] == ("2026-08-20T08:00:00+02:00")
 
 
 def test_compose_defines_persistent_local_operational_services() -> None:
