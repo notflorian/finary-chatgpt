@@ -8,8 +8,9 @@ Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
 Phases 1 through 8 implement the bridge, operational pipeline, and the two
-upstream capability investigations. Phase 7 concludes that no complete
-liability source is currently verified. Phase 8 accepts a narrowly scoped,
+upstream capability investigations. The authorized Phase 9 liability follow-up
+called the evidenced live organization-scoped surfaces but still could not
+prove complete coverage. Phase 8 accepts a narrowly scoped,
 bridge-only persisted Clerk session after live restart verification. The
 fail-safe schema `1.0` contract at
 `GET /v1/snapshot` and the canonical Phase 4 workbook schema remain unchanged.
@@ -145,7 +146,8 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 8 are implemented. Phase 7 reached
+Phases 1 through 8 are implemented. Phase 9 is blocked under schema `1.0` and
+the project recommends a separately approved schema `2.0` migration. Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
 liability collection. The daily production schedule therefore remains disabled,
@@ -164,15 +166,18 @@ issue numbers are #13–#19:
 
 1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13): Outcome B documented; schema `1.0` remains fail-safe.
 2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): Outcome A implemented and restart-verified; periodic human MFA remains necessary after expiry or revocation.
-3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15), still blocked by unresolved complete liability coverage.
+3. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): blocked under schema `1.0`; the live credits and overview probe could not prove complete liability coverage. The recommended next decision is the coordinated [schema `2.0` migration](docs/schema-v2-migration-plan.md).
 4. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
 5. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
 6. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
 7. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
-Issue #13 remains an evidence-backed Outcome B and production blocker. Issue
-#14 resolves the routine restart-authentication blocker without enabling the
-schedule. The proposed schema `2.0` liability coverage model remains
+Issue #13 remains an evidence-backed Outcome B and production blocker. The
+Phase 9 prerequisite investigation confirmed that the organization-scoped
+overview and credits surfaces are callable, but every membership returned an
+empty credit collection and no representative record or complete-zero contract.
+Issue #14 resolves the routine restart-authentication blocker without enabling
+the schedule. The recommended schema `2.0` liability coverage migration remains
 documentation only and requires separate approval and downstream migration.
 Persisted Clerk state is allowed only in the minimal protected bridge store;
 never persist TOTP secrets, backup codes, one-time MFA codes, or bearer JWTs,

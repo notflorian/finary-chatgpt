@@ -682,8 +682,13 @@ to GitHub issues #13–#19 and are the authoritative next work:
 2. #14 — Outcome A completed: a minimal protected Clerk session store was
    implemented and live-verified across fresh clients and a separate process;
    the evidence is documented in `docs/finary-authentication-investigation.md`.
-3. #15 — complete a live snapshot and inactive end-to-end acceptance; still
-   blocked by unresolved complete liability coverage from #13.
+3. #15 — Phase 9 is blocked under schema `1.0`. The authorized live follow-up
+   called the organization portfolio overview and credits/accounts surface for
+   every discovered membership. Credits were empty and current overview totals
+   reconciled, but identity, amount, currency, lifecycle, deduplication,
+   pagination, category scope, and authoritative empty semantics remain
+   unproven. The recommended next decision is the separately approved schema
+   `2.0` migration specified in `docs/schema-v2-migration-plan.md`.
 4. #16 — migrate the existing live containers to the repository Compose stack.
 5. #17 — add credential-free CI quality gates.
 6. #18 — activate production synchronization; blocked by #15, #16, and #17.
@@ -702,8 +707,9 @@ the existing contracts. Preserve these gates:
 - Preserve the Phase 7 `FinaryRawLiabilities.coverage` distinction. Only
   `COMPLETE` can make an empty collection a known zero; `PARTIAL` and
   `UNAVAILABLE` must remain fail-safe in schema `1.0`.
-- Do not implement the proposed schema `2.0` coverage contract without explicit
-  approval and a coordinated Sheets/n8n migration.
+- Do not implement the recommended schema `2.0` coverage contract without
+  explicit approval and a coordinated bridge, Sheets, n8n, telemetry, and
+  ChatGPT-semantics migration.
 - Preserve the stable downstream schema and isolate upstream changes inside the
   adapter/normalizer wherever possible.
 - Preserve the Phase 8 Outcome A boundary. Persist only the verified Clerk
