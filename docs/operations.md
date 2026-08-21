@@ -24,9 +24,9 @@ acceptance [#15](https://github.com/notflorian/finary-chatgpt/issues/15) passed;
 sanitized evidence is recorded in `end-to-end-acceptance.md`.
 Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
-[#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented
-locally; its GitHub-hosted result must be observed after publication before
-production activation
+[#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented;
+all four GitHub-hosted checks have been observed green. Production activation
+remains a separate explicit gate in
 [#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
 [#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
 activation has produced a validated workbook state.

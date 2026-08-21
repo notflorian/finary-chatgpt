@@ -8,8 +8,8 @@ Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
 Phases 1 through 10 implement and accept the bridge and inactive operational
-pipeline. Phase 11 adds credential-free GitHub Actions quality gates; remote CI
-observation remains pending until the change is published. The live
+pipeline. Phase 11 adds credential-free GitHub Actions quality gates; all four
+GitHub-hosted checks have been observed green. The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
 a narrowly scoped, bridge-only persisted Clerk session after live restart
@@ -178,7 +178,7 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 11 are implemented locally. Issue #23 implemented the canonical schema
+Phases 1 through 11 are implemented. Issue #23 implemented the canonical schema
 `2.0` contract, workbook, and inactive workflows. Phase 9 then accepted the
 merged end-to-end path with a protected-session restart, sanitized live v2
 snapshot, one inactive manual synchronization, workbook integrity checks, and
@@ -207,8 +207,8 @@ issue numbers are #13–#19:
 3. [Adopt schema 2.0 explicit liability coverage (#23)](https://github.com/notflorian/finary-chatgpt/issues/23): implemented as the canonical pre-production workflow/workbook contract and live-accepted while inactive.
 4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): accepted under schema 2.0; see the [sanitized evidence](docs/end-to-end-acceptance.md).
 5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16): accepted; the repository Compose project now owns all three live services and persistent n8n state.
-6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17): implemented locally; GitHub-hosted observation remains pending publication.
-7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): remains the explicit activation gate after Phase 11 is published and green.
+6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17): implemented; all four GitHub-hosted checks have been observed green.
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): remains the explicit activation gate after Phase 11.
 8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
 Issue #13 remains an evidence-backed Outcome B and an explicit limitation of

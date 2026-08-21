@@ -1437,7 +1437,7 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | v2 migration | [#23](https://github.com/notflorian/finary-chatgpt/issues/23) | Explicit liability coverage API, canonical Sheets schema, and inactive workflows | Protected workbook migration and same-day acceptance passed |
 | 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Accepted under schema 2.0; sanitized evidence recorded |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Accepted; protected restore and restart persistence verified |
-| 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented locally; remote observation pending publication |
+| 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented; all four GitHub-hosted checks observed green |
 | 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Published green Phase 11 CI and explicit approval |
 | 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 

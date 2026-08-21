@@ -715,11 +715,11 @@ to GitHub issues #13–#19 and are the authoritative next work:
    Compose project after a protected backup and isolated restore test. Restart
    persistence and service-volume isolation were verified. Evidence is in
    `docs/compose-migration.md`.
-6. #17 — implemented locally: credential-free GitHub-hosted CI runs the stable
-   `tests`, `static-analysis`, `repository-contracts`, and `n8n-import` checks.
-   Remote GitHub Actions observation remains pending publication.
-7. #18 — activate production synchronization only after Phase 11 is published,
-   all four stable checks are green, and activation is explicitly approved.
+6. #17 — implemented: credential-free GitHub-hosted CI runs the stable `tests`,
+   `static-analysis`, `repository-contracts`, and `n8n-import` checks. All four
+   GitHub-hosted checks have been observed green.
+7. #18 — activate production synchronization only after all four stable checks
+   are green and activation is explicitly approved.
 8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
 
 These cross-cutting issues are operational milestones, not permission to weaken
