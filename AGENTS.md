@@ -661,8 +661,9 @@ operational constraints, now preserved by Phase 6:
   restart, expiry, and revocation procedure. HTTP routes must never prompt.
 - The verified adapter still has no complete liability feature. The canonical
   `/v2/snapshot` returns truthful asset state with explicit incomplete coverage
-  and null liability-dependent totals. Keep the daily workflow inactive until
-  the remaining acceptance, Compose, and CI gates pass; never treat incomplete
+  and null liability-dependent totals. Phase 9 accepted the inactive end-to-end
+  path. Keep the daily workflow inactive until the remaining Compose and CI
+  gates pass; never treat incomplete
   coverage as zero merely to enable scheduling.
 - The Google Sheets credential must be assigned to every Sheets node on both
   success and failure branches after import. Operations documentation must
@@ -682,8 +683,8 @@ Definition of done:
   valid synchronization
 - restart, MFA bootstrap, Google credential assignment, quota recovery, and
   partial-write repair procedures are documented and tested where practical
-- the production schedule remains disabled until the remaining inactive
-  end-to-end, Compose, CI, and activation gates are approved
+- the production schedule remains disabled until the remaining Compose, CI,
+  and activation gates are approved
 - recovery steps are documented
 
 ### Post-Phase-6 operational gates
@@ -697,22 +698,21 @@ to GitHub issues #13–#19 and are the authoritative next work:
 2. #14 — Outcome A completed: a minimal protected Clerk session store was
    implemented and live-verified across fresh clients and a separate process;
    the evidence is documented in `docs/finary-authentication-investigation.md`.
-3. #15 — Phase 9 is blocked under schema `1.0`. The authorized live follow-up
-   called the organization portfolio overview and credits/accounts surface for
-   every discovered membership. Credits were empty and current overview totals
-   reconciled, but identity, amount, currency, lifecycle, deduplication,
-   pagination, category scope, and authoritative empty semantics remain
-   unproven. Canonical schema `2.0` protected-workbook acceptance now permits
-   #15 to be reassessed under its explicit incomplete-coverage criteria.
-4. #23 — explicit schema `2.0` liability coverage is implemented in the v2 API
+3. #23 — explicit schema `2.0` liability coverage is implemented in the v2 API
    and promoted to the canonical pre-production workbook and inactive workflow
    names after protected live migration and same-day idempotency acceptance.
    `/v1/snapshot` remains temporarily available and fail-safe, but it is not a
    pre-1.0 compatibility promise. Unused v1 workbook/workflow artifacts were
    removed because they were never production.
+4. #15 — Phase 9 accepted the canonical schema-2.0 inactive end-to-end path.
+   A bridge restart reused the protected session, `/v2/snapshot` passed
+   sanitized structural checks, one inactive manual synchronization completed
+   with explicit incomplete coverage, and workbook/manual-sheet integrity plus
+   deterministic lifecycle and recovery checks passed. Evidence is documented
+   in `docs/end-to-end-acceptance.md`.
 5. #16 — migrate the existing live containers to the repository Compose stack.
 6. #17 — add credential-free CI quality gates.
-7. #18 — activate production synchronization; blocked by #15, #16, and #17.
+7. #18 — activate production synchronization; blocked by #16 and #17.
 8. #19 — connect ChatGPT to the validated workbook; blocked by #18.
 
 These cross-cutting issues are operational milestones, not permission to weaken
@@ -742,8 +742,9 @@ the existing contracts. Preserve these gates:
 - Treat the persisted session as bearer-equivalent, server-revocable, and
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
-- Require the remaining inactive end-to-end and recovery checks, Compose/CI
-  readiness, and explicit activation approval before enabling the daily trigger.
+- Require Compose/CI readiness and explicit activation approval before enabling
+  the daily trigger. Phase 9 inactive end-to-end and recovery acceptance is
+  complete.
 - Configure ChatGPT/Google Drive consumption only after a valid workbook state
   exists; never expose Finary credentials or private upstream payloads.
 

@@ -1286,9 +1286,11 @@ Also keep a Manual Trigger for:
 
 Do not poll Finary every hour unless a future requirement justifies it.
 
-The production schedule remains inactive while the live bridge returns
-`FINARY_FEATURE_UNAVAILABLE` for unverified liability coverage. Manual failures
-must not overwrite the previous valid current state.
+The production schedule remains inactive. The canonical `/v2/snapshot` path
+returns HTTP 200 with explicit incomplete liability coverage and null dependent
+totals; this is a valid asset snapshot, not `FINARY_FEATURE_UNAVAILABLE`.
+Phase 9 accepted one inactive manual synchronization under those semantics.
+Manual failures must not overwrite the previous valid current state.
 
 ### Phase 6 operational boundary
 
@@ -1431,10 +1433,10 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | 07 | [#13](https://github.com/notflorian/finary-chatgpt/issues/13) | Outcome B: no verified complete liability source; versioned alternative documented | Investigation complete; schema `1.0` blocker remains |
 | 08 | [#14](https://github.com/notflorian/finary-chatgpt/issues/14) | Outcome A: protected Clerk session persistence | Restart reuse live-verified; periodic MFA remains after expiry/revocation |
 | v2 migration | [#23](https://github.com/notflorian/finary-chatgpt/issues/23) | Explicit liability coverage API, canonical Sheets schema, and inactive workflows | Protected workbook migration and same-day acceptance passed |
-| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Reassess under the accepted schema-2.0 incomplete-coverage criteria |
+| 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Accepted under schema 2.0; sanitized evidence recorded |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Before activation |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Before activation |
-| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #15, #16, #17 |
+| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | #16, #17 |
 | 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | #18 |
 
 Issue #13 produced the explicit versioned completeness design because no
@@ -1446,8 +1448,10 @@ under explicit incomplete coverage without claiming net worth or changing
 last-known complete liabilities. The pre-production v1 workbook/workflow
 artifacts were removed after protected live migration and same-day idempotency
 acceptance. Issue #14 verified routine restart session reuse without persisting
-MFA material or bearer JWTs. Production remains gated on inactive end-to-end,
-Compose/CI readiness, and activation issues; the daily schedule remains disabled.
+MFA material or bearer JWTs. Issue #15 accepted the inactive canonical
+end-to-end path; see `docs/end-to-end-acceptance.md`. Production remains gated
+on Compose/CI readiness and explicit activation; the daily schedule remains
+disabled.
 
 ## 34. Final acceptance checklist
 

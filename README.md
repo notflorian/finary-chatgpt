@@ -7,13 +7,17 @@ Finary portfolio data available to Google Sheets and ChatGPT:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-Phases 1 through 8 implement the bridge and operational pipeline. The live
+Phases 1 through 9 implement and accept the bridge and inactive operational
+pipeline. The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
 a narrowly scoped, bridge-only persisted Clerk session after live restart
 verification. Private Finary fields remain confined to the adapter and
 normalizer. The canonical daily workflow remains inactive pending the separate
 production activation gate.
+
+Phase 9's sanitized acceptance evidence is recorded in
+[`docs/end-to-end-acceptance.md`](docs/end-to-end-acceptance.md).
 
 ## Prerequisites
 
@@ -150,14 +154,18 @@ Phase 6 operational guarantees:
 
 ## Current status and next operational gates
 
-Phases 1 through 8 are implemented. Issue #23 implements and live-verifies the
-canonical schema `2.0` contract, workbook, and inactive workflows. It does not
-enable production scheduling.
+Phases 1 through 9 are implemented. Issue #23 implemented the canonical schema
+`2.0` contract, workbook, and inactive workflows. Phase 9 then accepted the
+merged end-to-end path with a protected-session restart, sanitized live v2
+snapshot, one inactive manual synchronization, workbook integrity checks, and
+credential-free lifecycle/recovery tests. It does not enable production
+scheduling.
 Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
-liability collection. The daily production schedule therefore remains disabled,
-and the live bridge correctly refuses to publish a misleading snapshot.
+liability collection. The daily production schedule therefore remains disabled.
+The canonical v2 bridge publishes truthful asset state with explicit incomplete
+coverage while withholding liability-dependent totals.
 
 Phase 8 reached
 [Outcome A](docs/finary-authentication-investigation.md). After one explicit
@@ -173,13 +181,15 @@ issue numbers are #13–#19:
 1. [Resolve liability coverage and snapshot completeness (#13)](https://github.com/notflorian/finary-chatgpt/issues/13): Outcome B documented; schema `1.0` remains fail-safe.
 2. [Implement secure non-interactive Finary authentication (#14)](https://github.com/notflorian/finary-chatgpt/issues/14): Outcome A implemented and restart-verified; periodic human MFA remains necessary after expiry or revocation.
 3. [Adopt schema 2.0 explicit liability coverage (#23)](https://github.com/notflorian/finary-chatgpt/issues/23): implemented as the canonical pre-production workflow/workbook contract and live-accepted while inactive.
-4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): reassess after #23 is merged.
+4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): accepted under schema 2.0; see the [sanitized evidence](docs/end-to-end-acceptance.md).
 5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16).
 6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17).
-7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #15–#17.
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18), blocked by #16 and #17.
 8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), blocked by #18.
 
-Issue #13 remains an evidence-backed Outcome B and production blocker. The
+Issue #13 remains an evidence-backed Outcome B and an explicit limitation of
+liability/net-worth analysis. Schema 2.0 allows truthful asset synchronization
+without weakening that limitation. The
 Phase 9 prerequisite investigation confirmed that the organization-scoped
 overview and credits surfaces are callable, but every membership returned an
 empty credit collection and no representative record or complete-zero contract.
@@ -200,6 +210,8 @@ unique keys, and enum values without calling Google APIs.
 
 The completed migration evidence and promotion decision are documented in
 [`docs/schema-v2-migration-plan.md`](docs/schema-v2-migration-plan.md).
+The final inactive end-to-end acceptance is documented in
+[`docs/end-to-end-acceptance.md`](docs/end-to-end-acceptance.md).
 
 ## Security and scope
 

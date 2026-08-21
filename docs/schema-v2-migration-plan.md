@@ -149,9 +149,14 @@ later gate.
 - ChatGPT-facing data dictionary forbids net-worth inference;
 - schema, n8n, operational, secret, and private-data regressions.
 
-## Revised Phase 9 acceptance after migration
+## Phase 9 acceptance after migration
 
 Schema `2.0` live acceptance observed HTTP 200 with `UNAVAILABLE` liability
 coverage, null liability and net-worth totals, correct asset synchronization,
 and same-day idempotency. Incomplete data cannot alter last-known complete
 liabilities. These criteria do not apply to the retained `/v1/snapshot` API.
+Phase 9 subsequently rechecked the merged canonical path, protected restart and
+refresh behavior, one inactive manual run, workbook ownership, and deterministic
+lifecycle/recovery tests. The sanitized result is recorded in
+[`end-to-end-acceptance.md`](end-to-end-acceptance.md). Production scheduling
+remains disabled.
