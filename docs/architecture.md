@@ -232,10 +232,13 @@ Suggested response:
 
 The monetary totals may be calculated by the bridge or n8n, but a single source of truth must be selected and documented.
 
-Recommended approach:
+Implemented approach:
 
-- bridge computes normalized component values
-- n8n recomputes summary totals as a consistency check
+- the bridge computes authoritative normalized totals;
+- n8n copies those totals, validates their internal relationships, and derives
+  only the known-EUR position analytics defined by the Sheets schema;
+- n8n never recalculates gross assets from positions or adds account and
+  position values together.
 
 Phase 3 uses non-collection account balances as the sole source for
 `gross_assets_eur`. It never adds position values to account balances. An
@@ -890,7 +893,7 @@ Europe/Paris
 daily
 ```
 
-Conceptual workflow:
+Implemented workflow (`n8n/workflows/finary-daily-sync.json`):
 
 ```text
 Manual Trigger -----+
@@ -907,7 +910,10 @@ HTTP GET /v1/snapshot
 Validate snapshot
                     |
                     v
-Load asset_overrides
+Load canonical schema and validate workbook headers
+                    |
+                    v
+Load asset_overrides and current state
                     |
                     v
 Apply overrides
@@ -916,31 +922,22 @@ Apply overrides
 Calculate totals and weights
                     |
                     v
-Load current accounts and positions
-                    |
-                    v
 Detect disappeared records
                     |
-          +---------+---------+
-          |                   |
-          v                   v
-Upsert accounts       Upsert positions
-                              |
-                              v
-                    Mark missing inactive
-                              |
-                              v
-                    Upsert position history
-                              |
-                              v
-                    Upsert liabilities
-                              |
-                              v
-                    Upsert portfolio_daily
-                              |
-                              v
-                    Append sync_runs SUCCESS
+Build and validate every target row
+                    |
+                    v
+Upsert accounts -> positions -> liabilities -> history -> daily
+                    |
+                    v
+Record terminal sync_runs telemetry
 ```
+
+Every Google Sheets append-or-update operation uses the canonical Phase 4
+unique key. Read-only header probes and in-memory row validation finish before
+the first portfolio write. Structured bridge errors branch only to sanitized
+failed telemetry and cannot reach current, history, or daily writes. Operational
+setup is documented in `docs/n8n-daily-sync.md`.
 
 ## 20. Synchronization transaction strategy
 
@@ -1021,7 +1018,7 @@ n8n-level validation:
 
 - compare counts with previous successful run
 - detect unexpected empty snapshot
-- recompute totals
+- verify authoritative totals without recalculating gross assets from positions
 - check portfolio weight sum
 - detect duplicate overrides
 - check day-over-day net-worth movement
