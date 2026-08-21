@@ -223,7 +223,9 @@ def test_workflow_uses_expected_triggers_and_runtime_schema(
     assert _node(workflow, "Manual Trigger")["type"] == "n8n-nodes-base.manualTrigger"
     schema_request = _node(workflow, "Fetch Canonical Schema")
     assert "FINARY_SCHEMA_URL" in schema_request["parameters"]["url"]
-    assert "docs/google-sheets-schema.json" in schema_request["parameters"]["url"]
+    assert "http://schema-server/google-sheets-schema.json" in (
+        schema_request["parameters"]["url"]
+    )
 
 
 def test_only_standard_nodes_and_no_manual_sheet_writes(

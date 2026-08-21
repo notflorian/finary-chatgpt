@@ -19,7 +19,14 @@ Before importing the workflow:
 6. Assign the same Google Sheets credential to each Google Sheets node. The
    exported workflow deliberately contains no credential identifier.
 7. Run the Manual Trigger once and inspect the terminal `sync_runs` row.
-8. Publish/activate the workflow to enable its daily schedule.
+8. Import `n8n/workflows/finary-error-handler.json`, assign its Google Sheets
+   credential, publish it, and select it in the daily workflow Settings as the
+   error workflow. Imported IDs are instance-specific, so this link is manual.
+   Publishing this Error Trigger workflow creates no schedule or external
+   endpoint.
+9. Keep the daily workflow unpublished/inactive while verified liability
+   coverage is unavailable. Activate its schedule only after a complete manual
+   snapshot succeeds.
 
 The workflow does not create, clear, reformat, or repair the workbook. A missing
 sheet or shifted header aborts before portfolio writes.
@@ -30,7 +37,7 @@ sheet or shifted header aborts before portfolio writes.
 | --- | --- | --- |
 | `FINARY_GOOGLE_SHEET_ID` | Yes | Spreadsheet ID from the workbook URL |
 | `FINARY_BRIDGE_URL` | No | Bridge base URL; defaults to `http://finary-bridge:8000` |
-| `FINARY_SCHEMA_URL` | No | URL serving the canonical Phase 4 JSON; defaults to this repository's `main` branch raw URL |
+| `FINARY_SCHEMA_URL` | No | Canonical Phase 4 JSON URL; Compose defaults to `http://schema-server/google-sheets-schema.json` |
 | `FINARY_BRIDGE_API_KEY` | No | Sent as `X-API-Key`; no value is embedded in the workflow |
 
 For a bridge running directly on the same host, set `FINARY_BRIDGE_URL` to an
@@ -67,6 +74,12 @@ Every Google Sheets read node has n8n's `Execute Once` setting enabled. Chained
 read nodes must not execute once per row returned by the preceding sheet: doing
 so would multiply API calls as current and telemetry sheets grow, exhaust the
 per-user Google Sheets quota, and make run duration depend on workbook size.
+
+Every Google Sheets node has a bounded native retry policy: three total attempts
+with five seconds between attempts. n8n 2.35.5 supports a fixed retry delay,
+not native exponential backoff. Write nodes intentionally do not use `Execute
+Once`, because all selected rows must be written. The daily workflow has a
+300-second execution timeout.
 
 The validation gate rejects unsupported or error responses, naive timestamps,
 non-EUR schema 1.0 references, suspicious empty accounts or positions, missing
@@ -149,6 +162,9 @@ or the workbook `README` sheet.
   mutation. Null portfolio totals remain blank.
 
 Validation errors raised after Google state is loaded stop the workflow before
-the first portfolio write. The dedicated error workflow, detailed error routing,
-last-success tracking, and operator recovery runbook are intentionally deferred
-to Phase 6.
+the first portfolio write. Structured bridge failures write one sanitized
+`FAILED` row through the main workflow and complete normally. Other uncaught
+node failures are handled by `Finary - Error Handler`, which writes only to
+`sync_runs`, never overwrites a terminal run ID, and never copies raw exception
+text or stacks into Sheets. Monitoring and recovery are documented in
+`docs/operations.md`.

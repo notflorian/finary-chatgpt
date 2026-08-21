@@ -593,7 +593,7 @@ Definition of done:
 
 ### Phase 6 - Error handling and operations
 
-Add:
+Implemented:
 
 - n8n error workflow
 - run diagnostics
@@ -604,17 +604,18 @@ Add:
 - manual recovery procedure
 
 Phase 5 implementation and live verification established these mandatory
-operational constraints for Phase 6:
+operational constraints, now preserved by Phase 6:
 
 - The main workflow already records sanitized structured bridge failures before
   portfolio writes. The error workflow must cover uncaught n8n, Code node,
   Google Sheets, and mid-write failures without creating duplicate failed
   telemetry for a run that was already recorded.
-- Google Sheets enforces per-user read and write request quotas. Add bounded
-  retry with exponential backoff for retryable `429` and temporary `5xx`
-  failures, configure a finite workflow execution timeout, and document how to
-  identify and stop a stale running execution. A quota increase must not be the
-  only mitigation.
+- Google Sheets enforces per-user read and write request quotas. Every Sheets
+  node uses the bounded retry supported by n8n 2.35.5: three total attempts with
+  a fixed five-second delay. The installed runtime does not expose native
+  exponential backoff. Workflows also have finite execution timeouts, and the
+  runbook documents stale-run recovery. A quota increase is not the only
+  mitigation.
 - Preserve `Execute Once` on every Google Sheets read and preflight node. Add a
   regression check so a preceding sheet with many rows cannot multiply later
   read requests. Write nodes must continue to process every prepared row.
@@ -662,6 +663,28 @@ Definition of done:
 - the production schedule remains disabled until the bridge can return a
   complete snapshot without fabricating liability coverage
 - recovery steps are documented
+
+### Post-Phase-6 operational gates
+
+There is no numbered Phase 7. Do not invent one without an explicit issue or
+user request. The next work is gated by verified upstream capability:
+
+- Keep the production daily workflow inactive while live snapshots fail with
+  `FINARY_FEATURE_UNAVAILABLE` because liability coverage is incomplete.
+- The error-handler workflow may be published so n8n can select it; it has no
+  schedule or external trigger. Do not publish the daily scheduled workflow
+  until the activation gates pass.
+- Investigate liabilities only against a callable, observed upstream surface.
+  Never infer completeness or zero liabilities from empty nested `loans` arrays.
+- Preserve the stable downstream schema and isolate upstream changes inside the
+  adapter/normalizer wherever possible.
+- Before scheduling, verify repeatable non-interactive authentication without
+  persisting Clerk sessions, bearer tokens, TOTP secrets, or backup codes.
+- Require a complete live snapshot and an inactive manual synchronization that
+  passes idempotency, totals, history, inactive-row, telemetry, and recovery
+  checks before enabling the daily trigger.
+- Configure ChatGPT/Google Drive consumption only after a valid workbook state
+  exists; never expose Finary credentials or private upstream payloads.
 
 ## What not to implement initially
 
@@ -759,6 +782,6 @@ Before changing code:
    - files changed
    - tests run
    - unresolved assumptions
-   - next recommended phase
+   - next operational gate; do not invent a new phase
 
 If real Finary behavior conflicts with the documentation, preserve the downstream contract and adapt the bridge.

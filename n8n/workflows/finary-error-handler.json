@@ -1,0 +1,258 @@
+{
+  "id": "FinaryErrorHandler01",
+  "name": "Finary - Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "80000000-0000-4000-8000-000000000001",
+      "name": "Workflow Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.FINARY_SCHEMA_URL || 'http://schema-server/google-sheets-schema.json' }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "80000000-0000-4000-8000-000000000002",
+      "name": "Fetch Operational Schema",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.FINARY_GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "sync_runs",
+          "mode": "name"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRange",
+              "headerRow": 1,
+              "firstDataRow": 1
+            }
+          }
+        }
+      },
+      "id": "80000000-0000-4000-8000-000000000003",
+      "name": "Read Sync Runs",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const trigger = $('Workflow Error Trigger').first().json;\nconst schemaResponse = $('Fetch Operational Schema').first().json;\nconst body = schemaResponse.body ?? schemaResponse;\nconst schema = typeof body === 'string' ? JSON.parse(body) : body;\nif ((schemaResponse.statusCode ?? 200) < 200 || (schemaResponse.statusCode ?? 200) >= 300 || schema?.schema_version !== '1.0' || !schema?.sheets?.sync_runs) throw new Error('OPERATIONAL_SCHEMA_UNAVAILABLE');\nconst columns = schema.sheets.sync_runs.columns.map((column) => column.name);\nconst existingRows = $input.all().map((item) => item.json).filter((row) => row && row.run_id && row.run_id !== 'run_id');\nconst execution = trigger.execution ?? {};\nconst error = execution.error ?? {};\nconst raw = JSON.stringify({ message: error.message ?? '', description: error.description ?? '', name: error.name ?? '', node: execution.lastNodeExecuted ?? '' }).toLowerCase();\nconst step = typeof execution.lastNodeExecuted === 'string' ? execution.lastNodeExecuted : 'Unknown step';\nconst sheetSteps = new Set(['Preflight Overrides Header','Preflight Accounts Header','Preflight Positions Header','Preflight Liabilities Header','Preflight History Header','Preflight Daily Header','Preflight Sync Header','Read Asset Overrides','Read Current Accounts','Read Current Positions','Read Current Liabilities','Read Portfolio Daily','Upsert Current Accounts','Upsert Current Positions','Upsert Current Liabilities','Upsert Position History','Upsert Portfolio Daily','Record Successful Sync','Preflight Failure Sync Header','Record Failed Sync']);\nlet code = 'N8N_EXECUTION_FAILED';\nlet message = 'The synchronization workflow failed';\nif (/quota|rate.?limit|too many requests|\\b429\\b|resource_exhausted/.test(raw)) { code = 'GOOGLE_RATE_LIMITED'; message = 'Google Sheets request quota was exceeded'; }\nelse if (sheetSteps.has(step) && /auth|credential|unauthorized|forbidden|\\b401\\b|\\b403\\b/.test(raw)) { code = 'GOOGLE_AUTH_FAILED'; message = 'Google Sheets authentication failed'; }\nelse if (/execution timed out|workflow.*timeout|timeout exceeded/.test(raw)) { code = 'WORKFLOW_TIMEOUT'; message = 'The synchronization workflow timed out'; }\nelse if (sheetSteps.has(step) && /timeout|timed out|econnreset|\\b5\\d\\d\\b|temporar|unavailable/.test(raw)) { code = 'GOOGLE_TEMPORARY_FAILURE'; message = 'Google Sheets was temporarily unavailable'; }\nelse if (sheetSteps.has(step) && /header|schema|column|mapping/.test(raw)) { code = 'GOOGLE_SCHEMA_MISMATCH'; message = 'Google Sheets schema validation failed'; }\nelse if (step.startsWith('Upsert ') || step.startsWith('Record ')) { code = 'WRITE_FAILED'; message = 'A portfolio write did not complete'; }\nconst safeStep = new Set(['Fetch Canonical Schema','Fetch Snapshot','Validate Snapshot','Snapshot Is Complete','Prepare Validated Rows', ...sheetSteps]).has(step) ? step : 'Unknown step';\nconst contextRunId = execution.executionContext?.run_id ?? error.context?.run_id;\nconst runId = typeof contextRunId === 'string' && /^\\d{8}-\\d{6}$/.test(contextRunId) ? contextRunId : `n8n-execution:${String(execution.id ?? 'unknown')}`;\nconst terminal = new Set(['SUCCESS','SUCCESS_WITH_WARNINGS','FAILED']);\nconst alreadyRecorded = existingRows.some((row) => row.run_id === runId && terminal.has(row.status));\nconst successes = existingRows.filter((row) => ['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(row.status) && Number.isFinite(Date.parse(row.completed_at))).sort((a, b) => Date.parse(b.completed_at) - Date.parse(a.completed_at));\nconst completedAt = new Date().toISOString();\nconst safeStartedAt = typeof execution.startedAt === 'string' && Number.isFinite(Date.parse(execution.startedAt)) ? execution.startedAt : completedAt;\nconst row = { run_id: runId, started_at: safeStartedAt, completed_at: completedAt, status: 'FAILED', accounts_count: null, positions_count: null, liabilities_count: null, gross_assets_eur: null, liabilities_eur: null, net_worth_eur: null, previous_net_worth_eur: null, net_worth_change_pct: null, duration_ms: 0, bridge_version: null, schema_version: null, warning_count: 0, error_code: code, error_message: `${message} (${safeStep})` };\nreturn [{ json: { should_record: !alreadyRecorded, row, schema, diagnostics: { error_code: code, failing_step: safeStep, execution_id: String(execution.id ?? 'unknown'), last_success_at: successes[0]?.completed_at ?? null } } }];"
+      },
+      "id": "80000000-0000-4000-8000-000000000004",
+      "name": "Prepare Sanitized Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "record-failure",
+              "leftValue": "={{ $json.should_record }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "80000000-0000-4000-8000-000000000005",
+      "name": "Failure Is New",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prepared = $('Prepare Sanitized Failure').first().json;\nreturn [{ json: prepared.row }];"
+      },
+      "id": "80000000-0000-4000-8000-000000000006",
+      "name": "Select Failure Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.FINARY_GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "sync_runs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "run_id"
+          ],
+          "schema": "={{ $('Prepare Sanitized Failure').first().json.schema.sheets.sync_runs.columns.map((column) => ({ id: column.name, displayName: column.name, required: !column.nullable, defaultMatch: false, display: true, type: column.type === 'NUMBER' ? 'number' : column.type === 'BOOLEAN' ? 'boolean' : 'string', canBeUsedToMatch: column.name === 'run_id', removed: false })) }}"
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "error",
+          "allowEmptyValues": true
+        }
+      },
+      "id": "80000000-0000-4000-8000-000000000007",
+      "name": "Record Operational Failure",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        600,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Workflow Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Operational Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Operational Schema": {
+      "main": [
+        [
+          {
+            "node": "Read Sync Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sync Runs": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sanitized Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sanitized Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Is New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Is New": {
+      "main": [
+        [
+          {
+            "node": "Select Failure Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Select Failure Row": {
+      "main": [
+        [
+          {
+            "node": "Record Operational Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris",
+    "saveManualExecutions": true,
+    "executionTimeout": 120
+  },
+  "versionId": "80000000-0000-4000-8000-000000000008",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

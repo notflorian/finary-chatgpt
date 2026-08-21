@@ -144,6 +144,8 @@ Host machine
     +-- n8n
     |
     +-- finary-bridge
+    |
+    +-- schema-server
 ```
 
 The bridge should be reachable by n8n as:
@@ -154,7 +156,7 @@ http://finary-bridge:8000
 
 The bridge should not expose a public Internet port unless specifically required.
 
-Example conceptual `docker-compose.yml`:
+The implemented `docker-compose.yml` pins reviewed image versions and digests:
 
 ```yaml
 services:
@@ -167,7 +169,7 @@ services:
       - finary-stack
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.35.5@sha256:...
     environment:
       TZ: Europe/Paris
       GENERIC_TIMEZONE: Europe/Paris
@@ -177,6 +179,14 @@ services:
       - finary-stack
     depends_on:
       - finary-bridge
+      - schema-server
+
+  schema-server:
+    image: nginx:1.31.4@sha256:...
+    volumes:
+      - ./docs/google-sheets-schema.json:/usr/share/nginx/html/google-sheets-schema.json:ro
+    networks:
+      - finary-stack
 
 networks:
   finary-stack:
@@ -185,7 +195,8 @@ volumes:
   n8n_data:
 ```
 
-Exact versions should be pinned before production use.
+Only bridge and n8n bind localhost host ports. The schema service remains
+private to `finary-stack`.
 
 ## 5. Bridge API
 
@@ -1213,6 +1224,29 @@ Also keep a Manual Trigger for:
 
 Do not poll Finary every hour unless a future requirement justifies it.
 
+The production schedule remains inactive while the live bridge returns
+`FINARY_FEATURE_UNAVAILABLE` for unverified liability coverage. Manual failures
+must not overwrite the previous valid current state.
+
+### Phase 6 operational boundary
+
+The local Compose stack includes digest-pinned n8n 2.35.5 with a persistent
+`n8n_data` volume and a private nginx service exposing only the canonical schema
+inside the Docker network. Bridge and n8n host ports bind to localhost.
+
+All Google Sheets nodes retry at most three times with the fixed five-second
+delay supported by the pinned n8n runtime. The daily workflow times out after
+300 seconds and the error workflow after 120 seconds. Read nodes execute once
+to prevent request amplification; write nodes process every selected row.
+
+`Finary - Error Handler` is linked after import because n8n remaps workflow IDs.
+It handles uncaught failures, classifies them into stable operational codes, and
+upserts a sanitized `FAILED` row only in `sync_runs`. Existing terminal rows are
+never overwritten. Last success means the newest valid `completed_at` among
+`SUCCESS` and `SUCCESS_WITH_WARNINGS`; later failures do not replace it. See
+`docs/operations.md` for backup, restore, MFA restart, rotation, quota, upgrade,
+and recovery procedures.
+
 ## 31. Recovery scenarios
 
 ### Finary authentication failure
@@ -1268,7 +1302,10 @@ with a stable normalized snapshot.
 
 Do not build downstream automation around unverified Finary assumptions.
 
-## 33. Recommended Codex execution sequence
+## 33. Implemented phase sequence and next gates
+
+Phases 1 through 6 are implemented. The prompts below are retained as the
+historical incremental delivery sequence, not as pending work.
 
 Prompt 1:
 
@@ -1319,6 +1356,23 @@ Prompt 6:
 Implement Phase 6 only.
 Add failure handling, diagnostics, operational documentation and recovery procedures.
 ```
+
+No Phase 7 is defined. The next operational milestone is conditional activation,
+not another downstream feature phase:
+
+1. verify a callable liability source and representative non-empty structure;
+2. adapt the bridge without fabricating liability completeness or weakening the
+   stable downstream contract;
+3. verify repeatable non-interactive authentication using only upstream-supported
+   behavior and without persistent Clerk/TOTP material;
+4. obtain a complete live snapshot and complete an inactive manual sync with
+   deterministic current/history/daily keys and safe telemetry;
+5. back up n8n and the workbook before publishing the daily schedule;
+6. connect ChatGPT through Google Drive only after valid normalized workbook data
+   exists, keeping Finary credentials and private payloads outside ChatGPT.
+
+Until gates 1 through 4 pass, `FINARY_FEATURE_UNAVAILABLE` is the correct live
+result and the daily production schedule must remain disabled.
 
 ## 34. Final acceptance checklist
 

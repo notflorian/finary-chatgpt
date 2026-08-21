@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.FINARY_SCHEMA_URL || 'https://raw.githubusercontent.com/notflorian/finary-chatgpt/main/docs/google-sheets-schema.json' }}",
+        "url": "={{ $env.FINARY_SCHEMA_URL || 'http://schema-server/google-sheets-schema.json' }}",
         "options": {
           "response": {
             "response": {
@@ -130,6 +130,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [-240, -240]
     },
     {
@@ -143,6 +146,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [0, -240]
     },
     {
@@ -156,6 +162,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [240, -240]
     },
     {
@@ -169,6 +178,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [480, -240]
     },
     {
@@ -182,6 +194,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [720, -240]
     },
     {
@@ -195,6 +210,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [960, -240]
     },
     {
@@ -208,6 +226,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [1200, -240]
     },
     {
@@ -221,6 +242,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [1440, -240],
       "alwaysOutputData": true
     },
@@ -235,6 +259,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [1680, -240],
       "alwaysOutputData": true
     },
@@ -249,6 +276,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [1920, -240],
       "alwaysOutputData": true
     },
@@ -263,6 +293,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [2160, -240],
       "alwaysOutputData": true
     },
@@ -277,6 +310,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [2400, -240],
       "alwaysOutputData": true
     },
@@ -311,6 +347,9 @@
       "name": "Upsert Current Accounts",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [3120, -240]
     },
     {
@@ -333,6 +372,9 @@
       "name": "Upsert Current Positions",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [3600, -240]
     },
     {
@@ -378,6 +420,9 @@
       "name": "Upsert Current Liabilities",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [4560, -360]
     },
     {
@@ -408,6 +453,9 @@
       "name": "Upsert Position History",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [5280, -240]
     },
     {
@@ -430,6 +478,9 @@
       "name": "Upsert Portfolio Daily",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [5760, -240]
     },
     {
@@ -452,6 +503,9 @@
       "name": "Record Successful Sync",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [6240, -240]
     },
     {
@@ -465,6 +519,9 @@
       "executeOnce": true,
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [-240, 480]
     },
     {
@@ -490,6 +547,9 @@
       "name": "Record Failed Sync",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [240, 480]
     }
   ],
@@ -536,7 +596,8 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "Europe/Paris",
-    "saveManualExecutions": true
+    "saveManualExecutions": true,
+    "executionTimeout": 300
   },
   "versionId": "70000000-0000-4000-8000-000000000001",
   "meta": {"templateCredsSetupCompleted": false},
