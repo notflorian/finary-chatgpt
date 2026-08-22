@@ -6,6 +6,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPOSITORY_ROOT / "docs/google-sheets-schema.json"
 RUNBOOK_PATH = REPOSITORY_ROOT / "docs/chatgpt-connection.md"
+KNOWLEDGE_PATH = REPOSITORY_ROOT / "docs/finary-portfolio-data-knowledge.md"
 
 
 def _schema() -> dict[str, object]:
@@ -119,3 +120,29 @@ def test_chatgpt_runbook_preserves_consumer_and_revocation_boundaries() -> None:
         "No custom MCP, plugin, proxy, webhook, public URL",
     ):
         assert phrase in runbook
+
+
+def test_custom_gpt_knowledge_reference_covers_workbook_semantics() -> None:
+    reference = KNOWLEDGE_PATH.read_text(encoding="utf-8")
+    normalized_reference = " ".join(reference.split()).lower()
+
+    for sheet in _schema()["sheets"]:
+        assert f"`{sheet}`" in reference
+
+    for phrase in (
+        "newest valid `completed_at`",
+        "`SUCCESS_WITH_WARNINGS`",
+        "`is_active = TRUE`",
+        "it never means zero",
+        "no speculative foreign-exchange conversion",
+        "Never calculate gross assets by adding account balances and position",
+        "`PARTIAL_POSITION_EUR_COVERAGE`",
+        "They are not, by themselves, investment returns",
+        "external cashflows are complete",
+        "finary:{account_id}:asset:{position_kind}:{asset_id}",
+        "ISO 8601 with an explicit timezone offset",
+    ):
+        assert phrase.lower() in normalized_reference
+
+    assert "Personal Investment Policy" in reference
+    assert "does not replace the custom GPT's behavioral Instructions" in reference

@@ -31,6 +31,10 @@ sanitized live-stack migration evidence is recorded in
 activation record is [`docs/production-activation.md`](docs/production-activation.md).
 The separate ChatGPT authorization, interpretation, and revocation procedure is
 [`docs/chatgpt-connection.md`](docs/chatgpt-connection.md).
+The English, text-forward Knowledge reference for a custom GPT is
+[`docs/finary-portfolio-data-knowledge.md`](docs/finary-portfolio-data-knowledge.md);
+it documents workbook semantics without duplicating live portfolio data or
+behavioral investment instructions.
 
 ## Prerequisites
 

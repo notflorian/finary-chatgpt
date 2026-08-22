@@ -57,19 +57,27 @@ Official product references:
 The exact labels may vary by ChatGPT plan and UI version. Perform these actions
 semantically rather than relying on a fixed screenshot:
 
-1. In ChatGPT settings, open the Apps or connected-apps area and select Google
+1. For the custom GPT, upload
+   `docs/finary-portfolio-data-knowledge.md` as a Knowledge file. Keep behavioral
+   rules and the investment-policy priority in the GPT Instructions; this file
+   is reference material for the workbook contract. Also upload the separate
+   Personal Investment Policy as its own Knowledge file.
+2. In ChatGPT settings, open the Apps or connected-apps area and select Google
    Drive.
-2. Connect the user's Google account through ChatGPT's own OAuth flow. Review
+3. Connect the user's Google account through ChatGPT's own OAuth flow. Review
    the displayed scope and accept only the minimum currently supported scope.
-3. Do not copy anything from n8n and do not change the workbook sharing mode.
-4. Wait for initial sync/indexing if the product indicates it is still in
+4. Do not copy anything from n8n and do not change the workbook sharing mode.
+5. Wait for initial sync/indexing if the product indicates it is still in
    progress; OpenAI notes that initial synchronization may take time.
-5. In a new ChatGPT conversation, ask it to locate the exact private workbook
+6. In a new ChatGPT conversation, ask it to locate the exact private workbook
    **Finary Portfolio Data**. Reject backup, obsolete v1, test, and exported
    copies. Use title, current schema `2.0`, ten-tab structure, and recent valid
    telemetry to distinguish the canonical file; never paste its Drive ID.
-6. Instruct ChatGPT to read the workbook `README` sheet before interpreting any
-   financial table and to use only this workbook for the acceptance run.
+7. Instruct ChatGPT to consult the uploaded **Finary Portfolio Data — ChatGPT
+   knowledge reference**, then read the live workbook `README` sheet before
+   interpreting any financial table. Use only this workbook for the acceptance
+   run; the uploaded reference explains semantics but is not a static copy of
+   portfolio data.
 
 ## Workbook interpretation contract
 
