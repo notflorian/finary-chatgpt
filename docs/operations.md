@@ -11,7 +11,7 @@ Phase 12 approval. It is the only production schedule and runs at 07:30 in
 `Europe/Paris`. The repository export remains inactive for safe import. Schema
 `2.0` returns truthful asset state with explicit `PARTIAL`/`UNAVAILABLE`
 coverage and never fabricates liability-dependent totals. The first natural
-scheduled execution is still pending; see `production-activation.md`.
+scheduled execution passed acceptance; see `production-activation.md`.
 
 The activation path is tracked in GitHub. Liability investigation
 [#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
@@ -28,9 +28,9 @@ Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
 [#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented;
 all four GitHub-hosted checks have been observed green. Production activation
-[#18](https://github.com/notflorian/finary-chatgpt/issues/18) is active pending
-the first natural scheduled-run acceptance. ChatGPT connection
-[#19](https://github.com/notflorian/finary-chatgpt/issues/19) has not started.
+[#18](https://github.com/notflorian/finary-chatgpt/issues/18) passed its live
+activation checks and is completed by merging its PR. ChatGPT connection
+[#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows that merge.
 
 ## Start and verify the local stack
 

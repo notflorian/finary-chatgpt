@@ -38,8 +38,8 @@ Trigger execution. It completed with `SUCCESS_WITH_WARNINGS` under explicit
 liability write path, retained deterministic keys, and left every manual sheet
 unchanged. See `end-to-end-acceptance.md` for sanitized evidence. The
 repository export remains unpublished and inactive. Phase 12 published the
-single protected live schedule; its first natural execution is pending. See
-`production-activation.md`.
+single protected live schedule; its first natural execution passed the
+production acceptance audit. See `production-activation.md`.
 
 ## Schema 2.0 coverage behavior
 

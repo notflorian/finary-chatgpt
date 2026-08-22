@@ -4,8 +4,9 @@
 
 `Finary - Daily Sync` was published in the protected local n8n runtime on
 2026-08-22 after explicit user approval. The schedule is `30 7 * * *` in
-`Europe/Paris`; the first natural scheduled execution is pending. The
-repository export remains inactive so imports cannot start a schedule.
+`Europe/Paris`. Its first natural scheduled execution passed acceptance on
+2026-08-22. The repository export remains inactive so imports cannot start a
+schedule.
 
 ## Activated revision and gates
 
@@ -40,21 +41,39 @@ blank, manual sheets were unchanged, deterministic keys remained unique, and
 the liability sheet was not modified. No private values or identifiers are
 recorded here.
 
-## Activation and monitoring
+## Activation and first scheduled execution
 
 Publication did not trigger an extra execution. Exactly one active daily
 schedule targets `/v2/snapshot`; the error handler remains linked and has no
-schedule. Accept the first natural 07:30 run only if it produces `SUCCESS` or
-understood `SUCCESS_WITH_WARNINGS`, preserves schema/coverage/null semantics,
-advances one telemetry row, retains deterministic keys, and leaves manual
-sheets unchanged.
+schedule.
 
-If that run fails or an unattended run becomes unsafe, immediately unpublish
-the daily workflow using the n8n UI or the supported `unpublish:workflow`
+The first natural execution started at 07:41 Europe/Paris and completed in n8n
+without a workflow error. Its terminal telemetry was
+`SUCCESS_WITH_WARNINGS`, schema `2.0`, and liability coverage `UNAVAILABLE`.
+The only warning categories remained `LIABILITY_COVERAGE_UNAVAILABLE` and
+`PARTIAL_POSITION_EUR_COVERAGE`. The audit verified:
+
+- unique run, account, position, history, and daily keys;
+- category-aware position identities and valid account references;
+- active current rows advanced to the scheduled run;
+- the daily row referenced the same run;
+- liability and net-worth totals remained blank under unavailable coverage;
+- the liability sheet matched the pre-activation checkpoint; and
+- `README`, `allocation_targets`, `asset_overrides`, and `cashflows` matched the
+  pre-activation checkpoint.
+
+No portfolio values, workbook identifiers, upstream identifiers, or runtime
+credential identifiers are recorded here.
+
+## Monitoring and recovery
+
+If a future scheduled run fails or an unattended run becomes unsafe,
+immediately unpublish the daily workflow using the n8n UI or the supported
+`unpublish:workflow`
 command documented in `operations.md`. Do not delete workflows, volumes,
 history, workbook data, or the error handler. Treat the synchronization as
 stale after more than 48 hours without a successful terminal run while the host
 is expected to be online.
 
-Issue #18 remains open until the first natural scheduled execution is accepted.
-Do not start issue #19 before that acceptance.
+The Phase 12 activation gate is accepted. Merge its PR to complete issue #18,
+then begin issue #19 as a separate scope.

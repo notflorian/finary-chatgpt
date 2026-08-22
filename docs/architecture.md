@@ -1287,7 +1287,7 @@ Also keep a Manual Trigger for:
 Do not poll Finary every hour unless a future requirement justifies it.
 
 The protected live production schedule is active after Phase 12 preflight and
-explicit approval; its first natural scheduled execution is pending. The
+explicit approval; its first natural scheduled execution passed acceptance. The
 repository export remains inactive for safe imports. Phase 10 migrated the live
 bridge, schema service, and persistent n8n instance into the repository Compose
 project. The canonical `/v2/snapshot` path
@@ -1440,8 +1440,8 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | 09 | [#15](https://github.com/notflorian/finary-chatgpt/issues/15) | Complete live snapshot and inactive end-to-end acceptance | Accepted under schema 2.0; sanitized evidence recorded |
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Accepted; protected restore and restart persistence verified |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented; all four GitHub-hosted checks observed green |
-| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Live schedule published; first natural run pending acceptance |
-| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | Do not start until #18 accepts the first scheduled run |
+| 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Live schedule published; first natural run accepted |
+| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | Begin after the Phase 12 PR is merged |
 
 Issue #13 produced the explicit versioned completeness design because no
 complete source could be proven. Issue #23 implements that design: the

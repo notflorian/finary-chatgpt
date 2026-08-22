@@ -719,10 +719,10 @@ to GitHub issues #13–#19 and are the authoritative next work:
    `static-analysis`, `repository-contracts`, and `n8n-import` checks. All four
    GitHub-hosted checks have been observed green.
 7. #18 — the protected live schedule was published after all four stable checks
-   were green and activation was explicitly approved. Its first natural 07:30
-   execution is pending acceptance.
-8. #19 — connect ChatGPT to the validated workbook only after #18 accepts that
-   first scheduled execution; do not start it yet.
+   were green and activation was explicitly approved. Its first natural
+   execution passed the production acceptance audit.
+8. #19 — connect ChatGPT to the validated workbook after the Phase 12 PR is
+   merged; do not begin it as part of Phase 12.
 
 These cross-cutting issues are operational milestones, not permission to weaken
 the existing contracts. Preserve these gates:
@@ -752,8 +752,8 @@ the existing contracts. Preserve these gates:
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
 - Phase 12 satisfied CI readiness and explicit activation approval before
-  enabling the daily trigger. Monitor and accept the first natural scheduled
-  execution before beginning #19.
+  enabling the daily trigger. The first natural execution was accepted; merge
+  the Phase 12 PR before beginning #19.
 - Preserve the Phase 11 CI boundary: GitHub-hosted runners only, `contents: read`,
   full-SHA action pins, explicit Python and Node patch pins, no
   `pull_request_target`, no production secrets, and no live-test flags.

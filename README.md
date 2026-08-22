@@ -11,7 +11,8 @@ Phases 1 through 10 implement and accept the bridge and operational pipeline.
 Phase 11 adds credential-free GitHub Actions quality gates; all four
 GitHub-hosted checks have been observed green. Phase 12 published the single
 live `Finary - Daily Sync` workflow after an explicit production preflight. Its
-first natural scheduled execution is still pending. The live
+first natural scheduled execution passed the full structural acceptance audit.
+The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
 a narrowly scoped, bridge-only persisted Clerk session after live restart
@@ -190,8 +191,9 @@ merged end-to-end path with a protected-session restart, sanitized live v2
 snapshot, one inactive manual synchronization, workbook integrity checks, and
 credential-free lifecycle/recovery tests. Phase 12 published the protected live
 schedule after a second successful inactive manual preflight. The first natural
-07:30 execution is pending, so issue #18 remains the active acceptance gate and
-issue #19 has not started.
+scheduled execution then passed the same schema, idempotency, null-semantics,
+manual-sheet, and last-known-valid-state checks. Issue #19 remains the next step
+after issue #18's activation PR is merged.
 Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
@@ -216,8 +218,8 @@ issue numbers are #13–#19:
 4. [Complete live snapshot and end-to-end acceptance (#15)](https://github.com/notflorian/finary-chatgpt/issues/15): accepted under schema 2.0; see the [sanitized evidence](docs/end-to-end-acceptance.md).
 5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16): accepted; the repository Compose project now owns all three live services and persistent n8n state.
 6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17): implemented; all four GitHub-hosted checks have been observed green.
-7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): live schedule published; first natural scheduled execution pending.
-8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), not started until #18 accepts the first scheduled run.
+7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): live schedule published and first natural execution accepted; completion is recorded by the Phase 12 PR.
+8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), next after the Phase 12 PR is merged.
 
 Issue #13 remains an evidence-backed Outcome B and an explicit limitation of
 liability/net-worth analysis. Schema 2.0 allows truthful asset synchronization

@@ -109,7 +109,7 @@ remaining roadmap is:
 1. #16 — repository Compose migration accepted; see `compose-migration.md`;
 2. #17 — CI quality gates implemented; all four GitHub-hosted checks observed
    green;
-3. #18 — live schedule published after green CI; first natural run pending;
-4. #19 — connect ChatGPT only after #18 accepts that scheduled run.
+3. #18 — live schedule published after green CI; first natural run accepted;
+4. #19 — connect ChatGPT after the Phase 12 PR is merged.
 
-**PRODUCTION SCHEDULE IS ACTIVE; FIRST NATURAL RUN IS PENDING.**
+**PRODUCTION SCHEDULE IS ACTIVE; FIRST NATURAL RUN PASSED ACCEPTANCE.**

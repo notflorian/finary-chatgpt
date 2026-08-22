@@ -32,9 +32,9 @@ def test_activation_document_preserves_operational_gates() -> None:
     record = (REPOSITORY_ROOT / "docs/production-activation.md").read_text()
     operations = (REPOSITORY_ROOT / "docs/operations.md").read_text()
 
-    assert "first natural scheduled execution is pending" in record
+    assert "first natural scheduled execution passed acceptance" in record
     assert "repository export remains inactive" in record
-    assert "Do not start issue #19" in record
+    assert "then begin issue #19 as a separate scope" in record
     assert "unpublish:workflow" in operations
     assert "more than 48 hours" in operations
     assert "docker compose down -v" in operations
