@@ -6,10 +6,12 @@ does not change the Phase 5 synchronization semantics.
 
 ## Safety state
 
-Keep the canonical daily workflow **inactive** until the production activation
-gate is approved. Schema `2.0` returns truthful asset state with explicit
-`PARTIAL`/`UNAVAILABLE` coverage. Phase 9 accepted its workbook and inactive
-workflow end to end; no implementation step enables scheduling.
+The protected live `Finary - Daily Sync` workflow is published after explicit
+Phase 12 approval. It is the only production schedule and runs at 07:30 in
+`Europe/Paris`. The repository export remains inactive for safe import. Schema
+`2.0` returns truthful asset state with explicit `PARTIAL`/`UNAVAILABLE`
+coverage and never fabricates liability-dependent totals. The first natural
+scheduled execution passed acceptance; see `production-activation.md`.
 
 The activation path is tracked in GitHub. Liability investigation
 [#13](https://github.com/notflorian/finary-chatgpt/issues/13) produced the
@@ -26,10 +28,9 @@ Compose migration [#16](https://github.com/notflorian/finary-chatgpt/issues/16)
 is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
 [#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented;
 all four GitHub-hosted checks have been observed green. Production activation
-remains a separate explicit gate in
-[#18](https://github.com/notflorian/finary-chatgpt/issues/18). ChatGPT connection
-[#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows only after
-activation has produced a validated workbook state.
+[#18](https://github.com/notflorian/finary-chatgpt/issues/18) passed its live
+activation checks and is completed by merging its PR. ChatGPT connection
+[#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows that merge.
 
 ## Start and verify the local stack
 
@@ -102,8 +103,8 @@ configure the four stable names as required pull-request checks through a
 separate authorized repository-settings change; Phase 11 does not mutate
 branch protection.
 
-A green Phase 11 run is necessary but not sufficient for scheduling. Issue #18
-must still explicitly approve activation after its operational preflight.
+A green Phase 11 run was necessary but not sufficient for scheduling. Issue
+#18 received explicit activation approval after its operational preflight.
 
 ## Import and configure workflows
 
@@ -177,6 +178,72 @@ inspect `warning_count` and the documented partial-EUR/count-change warnings.
 For a stale `RUNNING` execution, open it, note the last executed node, use n8n's
 Stop control, and follow the timeout or partial-write recovery path. Never start
 a second run while the first is still stopping.
+
+## Production schedule operations
+
+The live `Finary - Daily Sync` workflow is the only production-capable daily
+workflow. Its schedule is `30 7 * * *` in `Europe/Paris`. The repository export
+remains inactive so importing it cannot start a schedule accidentally; live
+publication state belongs only to the protected n8n runtime.
+
+### Immediate kill-switch
+
+Disable the schedule first whenever an unattended run is unsafe or the first
+scheduled run fails. In the n8n editor, open `Finary - Daily Sync` and use the
+supported **Unpublish** action. The equivalent pinned-runtime CLI is:
+
+```bash
+docker compose exec -T n8n n8n unpublish:workflow --id=<live-workflow-id>
+```
+
+Resolve the live ID with n8n's supported workflow list/export command; never
+place an instance-specific ID in repository files. Verify afterwards that the
+daily workflow is inactive and that no other active Schedule Trigger calls
+`/v2/snapshot`. Unpublishing must not delete the workflow, `n8n_data`, the
+workbook, execution history, or `finary_session_data`, and it must not stop the
+error handler. Never use `docker compose down -v` as an incident response.
+
+### Initial scheduled-run policy
+
+After activation, review the first natural 07:30 execution without changing the
+cron. Accept `SUCCESS` or only understood `SUCCESS_WITH_WARNINGS`. Verify schema
+`2.0`, explicit liability coverage, deterministic current/history/daily keys,
+one new telemetry row, unchanged manual sheets, and correct last-success
+selection. If the first scheduled execution is `FAILED`, unpublish immediately
+before recovery. For `PARTIAL` or `UNAVAILABLE`, liability and net-worth totals
+must remain blank and `liabilities_current` must remain untouched.
+
+Classify failures before reactivation:
+
+- `FINARY_AUTH_FAILED`: unpublish, perform one transient MFA bootstrap, verify
+  `/v2/snapshot`, and require a successful manual run;
+- `GOOGLE_AUTH_FAILED`: unpublish, reconnect the credential, verify every
+  Sheets-node binding, and require a successful manual run;
+- `GOOGLE_SCHEMA_MISMATCH`: unpublish, compare canonical headers, repair
+  deliberately, and never auto-rewrite the workbook;
+- `SNAPSHOT_VALIDATION_FAILED`: unpublish and investigate the bridge/upstream
+  contract without accepting a suspicious empty portfolio;
+- `WRITE_FAILED` or `WORKFLOW_TIMEOUT`: unpublish, identify the last completed
+  write, preserve all rows, repair, and rerun the same business date;
+- `GOOGLE_RATE_LIMITED` or `GOOGLE_TEMPORARY_FAILURE`: let bounded retries end,
+  then unpublish if the execution failed, wait for recovery, and run manually.
+
+`SUCCESS_WITH_WARNINGS` is not automatically a failure. Expected categories
+include incomplete liability coverage, partial known-EUR analytical coverage,
+and understood configured count or net-worth movement thresholds. Investigate
+any other category before leaving the schedule active.
+
+### Routine monitoring and staleness
+
+After a scheduled execution inspect the n8n result and terminal `sync_runs` row:
+status, `liability_coverage`, `warning_count`, newest successful completion,
+unexpected account/position count movement, duration, and `error_code` on
+failure. Raw node payloads are needed only for controlled diagnosis.
+
+Treat synchronization as stale when no `SUCCESS` or `SUCCESS_WITH_WARNINGS` has
+completed for more than 48 hours while the host is expected to be online. Do
+not fabricate portfolio updates during a stale period; inspect service health,
+authentication, Google access, execution state, and telemetry instead.
 
 ## Failure recovery
 
@@ -302,7 +369,15 @@ the repaired run produces different deterministic keys or unexplained totals.
 
 ## Backup and restore
 
-Before upgrades or credential rotation:
+Create a fresh production checkpoint before n8n upgrades, encryption-key
+rotation, major workflow/schema migration, or any risky recovery operation.
+The checkpoint must include the complete `n8n_data` volume, the exact matching
+`N8N_ENCRYPTION_KEY` preserved separately, and a private canonical-workbook
+copy/export. Verify an owner-only archive and SHA-256 checksum. Do not back up
+`finary_session_data`; a disaster-recovered bridge requires a fresh MFA
+bootstrap.
+
+Before those operations:
 
 1. Stop n8n: `docker compose stop n8n`.
 2. Back up the `n8n_data` named volume with a trusted local Docker-volume backup
@@ -372,6 +447,21 @@ cannot be used; do not overwrite it to hide an encryption-key mismatch. Because
 perform a fresh transient MFA bootstrap. Keep the daily workflow inactive until
 the restored owner, credential, workflows, history, schema, snapshot, workbook,
 and idempotency checks all pass manually.
+
+Canonical production restore acceptance is deliberately inactive-first:
+
+1. unpublish the daily workflow or keep the restored copy unpublished;
+2. stop n8n and restore the complete archive into an empty replacement volume;
+3. provide the matching encryption key and start Compose;
+4. verify owner state, credential decryptability, workflows, linkage, and
+   execution history;
+5. restore or verify the private workbook where necessary;
+6. perform a fresh transient Finary MFA bootstrap because Clerk state is not
+   backed up;
+7. run one successful manual synchronization and validate deterministic state;
+8. only then publish the single canonical daily workflow again.
+
+Never restore production state directly into an active scheduler.
 
 ## Rotation and upgrades
 

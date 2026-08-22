@@ -99,6 +99,7 @@ volumes are distinct.
 
 Phase 10 itself did not add CI, enable the daily schedule, or connect ChatGPT.
 Phase 11 CI is implemented and all four GitHub-hosted checks have been observed
-green. Activation and ChatGPT access remain issues #18 and #19.
+green. Phase 12 subsequently published the single live schedule and accepted
+its first natural execution. ChatGPT access remains issue #19.
 
-**PRODUCTION SCHEDULE REMAINS DISABLED.**
+**PRODUCTION SCHEDULE IS ACTIVE; FIRST NATURAL RUN PASSED ACCEPTANCE.**

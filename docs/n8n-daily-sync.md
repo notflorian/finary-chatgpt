@@ -24,10 +24,10 @@ Before importing the workflow:
    error workflow. Imported IDs are instance-specific, so this link is manual.
    Publishing this Error Trigger workflow creates no schedule or external
    endpoint.
-9. Keep the daily workflow unpublished/inactive until the separate production
-   activation gate is approved. Phase 8 documents the protected Clerk-session
-   Outcome A in `docs/finary-authentication-investigation.md`; routine bridge
-   restarts can reuse it.
+9. Keep a newly imported daily workflow unpublished until the activation
+   preflight is complete. The canonical protected live workflow is published;
+   the repository export stays inactive as a safe-import artifact. Phase 8
+   documents protected Clerk-session reuse.
 
 The workflow does not create, clear, reformat, or repair the workbook. A missing
 sheet or shifted header aborts before portfolio writes.
@@ -37,7 +37,9 @@ Trigger execution. It completed with `SUCCESS_WITH_WARNINGS` under explicit
 `UNAVAILABLE` liability coverage, preserved null dependent totals, skipped the
 liability write path, retained deterministic keys, and left every manual sheet
 unchanged. See `end-to-end-acceptance.md` for sanitized evidence. The
-Schedule Trigger remains unpublished and inactive.
+repository export remains unpublished and inactive. Phase 12 published the
+single protected live schedule; its first natural execution passed the
+production acceptance audit. See `production-activation.md`.
 
 ## Schema 2.0 coverage behavior
 
