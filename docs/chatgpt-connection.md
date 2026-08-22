@@ -51,33 +51,58 @@ Official product references:
 - [Google Drive app with sync — self-service setup](https://help.openai.com/en/articles/10948259-google-drive-app-with-sync-self-service-setup)
 - [Google app for ChatGPT — data controls FAQ](https://help.openai.com/en/articles/10408842-google-app-for-chatgpt-data-controls-faq)
 - [Apps in ChatGPT](https://help.openai.com/en/articles/11487775-connectors-in-chatgpt)
+- [Projects in ChatGPT](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)
 
-## Connect and select the workbook
+## Current product-surface decision: use a Project
+
+As observed on 2026-08-22, the custom-GPT editor/runtime available to this
+personal ChatGPT account does not expose the connected Google Drive app to the
+custom GPT. Therefore a custom GPT cannot currently combine this project's
+reusable investment instructions with live access to **Finary Portfolio Data**
+on the verified product surface.
+
+This is a scoped observation, not a universal statement about every ChatGPT
+plan or workspace. OpenAI documents Apps as a possible GPT capability, but
+availability depends on plan, workspace settings, permissions, region, and
+product surface. Do not switch back to the custom-GPT route unless Google Drive
+access is explicitly available there and the complete semantic acceptance
+matrix is rerun.
+
+The supported configuration for this repository is a private ChatGPT Project.
+Projects support project-specific instructions, uploaded reference files, and
+Google Drive file or folder links as project sources. OpenAI currently states
+that Google Drive content added within a Project is not synced in advance;
+ChatGPT searches and accesses it on demand. The live workbook must therefore
+remain a linked Google Drive source, not an uploaded static workbook copy.
+
+## Configure the Project and select the workbook
 
 The exact labels may vary by ChatGPT plan and UI version. Perform these actions
 semantically rather than relying on a fixed screenshot:
 
-1. For the custom GPT, upload
-   `docs/finary-portfolio-data-knowledge.md` as a Knowledge file. Keep behavioral
-   rules and the investment-policy priority in the GPT Instructions; this file
-   is reference material for the workbook contract. Also upload the separate
-   Personal Investment Policy as its own Knowledge file.
-2. In ChatGPT settings, open the Apps or connected-apps area and select Google
+1. Create a private ChatGPT Project for the investment assistant. Do not use a
+   custom GPT for the current configuration.
+2. Put the behavioral prompt and investment-policy priority in the Project
+   Instructions.
+3. Add `docs/finary-portfolio-data-knowledge.md` and the separate Personal
+   Investment Policy as Project reference files. The technical file is
+   reference material for the workbook contract, not current portfolio state.
+4. In ChatGPT settings, open the Apps or connected-apps area and select Google
    Drive.
-3. Connect the user's Google account through ChatGPT's own OAuth flow. Review
+5. Connect the user's Google account through ChatGPT's own OAuth flow. Review
    the displayed scope and accept only the minimum currently supported scope.
-4. Do not copy anything from n8n and do not change the workbook sharing mode.
-5. Wait for initial sync/indexing if the product indicates it is still in
-   progress; OpenAI notes that initial synchronization may take time.
-6. In a new ChatGPT conversation, ask it to locate the exact private workbook
-   **Finary Portfolio Data**. Reject backup, obsolete v1, test, and exported
-   copies. Use title, current schema `2.0`, ten-tab structure, and recent valid
-   telemetry to distinguish the canonical file; never paste its Drive ID.
-7. Instruct ChatGPT to consult the uploaded **Finary Portfolio Data — ChatGPT
-   knowledge reference**, then read the live workbook `README` sheet before
-   interpreting any financial table. Use only this workbook for the acceptance
-   run; the uploaded reference explains semantics but is not a static copy of
-   portfolio data.
+6. In the Project's sources area, add the exact private **Finary Portfolio
+   Data** Google Drive link. Do not upload or export a static copy, copy anything
+   from n8n, change workbook sharing, or record the Drive ID in this repository.
+7. In a new Project chat, locate that linked workbook. Reject backup, obsolete
+   v1, test, and exported copies. Use title, schema `2.0`, ten-tab structure,
+   and recent valid telemetry to confirm the canonical file.
+8. Instruct ChatGPT to consult **Finary Portfolio Data — ChatGPT knowledge
+   reference**, then read the live workbook `README` sheet before interpreting
+   any financial table. Use only this workbook for the acceptance run.
+9. Run the complete representative acceptance matrix below inside the Project.
+   Until it passes, record the Project configuration as pending rather than
+   extending the earlier generic ChatGPT acceptance claim to this new surface.
 
 ## Workbook interpretation contract
 
@@ -144,22 +169,26 @@ duplicate sync layer is part of this architecture.
 
 ## Revocation and reconnection
 
-To remove access, disconnect Google Drive from ChatGPT's Apps/connected-apps
+To remove Project-level use first remove the Google Drive link from the
+Project's sources or delete the private Project. To remove ChatGPT's underlying
+Google access, disconnect Google Drive from ChatGPT's Apps/connected-apps
 settings. If desired, also revoke the ChatGPT/OpenAI grant in the Google
-account's third-party access controls. OpenAI documents that disconnecting
-stops future access and removes the synced index under its stated retention
-process; it does not change the source files.
+account's third-party access controls. These actions do not change the source
+workbook.
 
 Do not revoke or edit the n8n Google Sheets credential. Confirm n8n remains
 healthy, the workflow stays published, and no workbook data changed. A full
 disconnect/reconnect independence test is optional because it is a separate
 authorization lifecycle operation. To reconnect, repeat ChatGPT's Google OAuth
-flow, reselect the canonical workbook, read `README`, and rerun at least test A.
+flow, re-add the workbook link to the Project, read `README`, and rerun at least
+test A.
 
 ## Troubleshooting
 
 - Workbook not found: confirm the correct Google identity, private file access,
-  app sync status, exact title, schema `2.0`, and ten tabs. Do not use a backup.
+  Google Drive connection, linked Project source, exact title, schema `2.0`,
+  and ten tabs. Project use is on-demand and does not pre-sync Drive content.
+  Do not use a backup or upload a static workbook copy.
 - Data appears stale: derive the newest valid `completed_at` from `sync_runs`.
   If it is over 48 hours old, stop current-state interpretation and use the
   production recovery steps in `operations.md`.

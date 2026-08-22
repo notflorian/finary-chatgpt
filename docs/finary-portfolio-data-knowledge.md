@@ -5,14 +5,17 @@
 This file is reference material for interpreting the canonical private Google
 workbook named **Finary Portfolio Data**. It describes the workbook's stable
 schema and financial-data semantics. It does not contain investment-policy
-rules and does not replace the custom GPT's behavioral Instructions or the
-separate **Personal Investment Policy** knowledge document.
+rules and does not replace the ChatGPT Project's behavioral Instructions or the
+separate **Personal Investment Policy** reference document.
 
 When portfolio data is needed, use the live canonical workbook through the
-connected Google Drive app. Reject backup, test, exported, obsolete v1, or
-similarly named copies. Read the workbook's `README` tab before interpreting
-the other tabs. The workbook is the factual source for portfolio state; this
-file explains how to interpret it.
+linked Google Drive source in the private ChatGPT Project. The currently
+verified personal-account custom GPT surface does not expose Google Drive, so
+do not use this file inside a custom GPT as a substitute for live workbook
+access. Reject backup, test, exported, obsolete v1, or similarly named copies.
+Read the workbook's `README` tab before interpreting the other tabs. The
+workbook is the factual source for portfolio state; this file explains how to
+interpret it.
 
 ## Workbook tabs
 

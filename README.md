@@ -31,10 +31,19 @@ sanitized live-stack migration evidence is recorded in
 activation record is [`docs/production-activation.md`](docs/production-activation.md).
 The separate ChatGPT authorization, interpretation, and revocation procedure is
 [`docs/chatgpt-connection.md`](docs/chatgpt-connection.md).
-The English, text-forward Knowledge reference for a custom GPT is
+The English, text-forward Project reference is
 [`docs/finary-portfolio-data-knowledge.md`](docs/finary-portfolio-data-knowledge.md);
 it documents workbook semantics without duplicating live portfolio data or
 behavioral investment instructions.
+
+On the personal ChatGPT surface verified on 2026-08-22, custom GPTs do not
+expose the connected Google Drive app. The supported reusable configuration is
+therefore a private ChatGPT Project containing the behavioral instructions and
+two reference files, with the live workbook added as a Google Drive Project
+source. Drive content is accessed on demand inside the Project rather than
+pre-synced there. This observed limitation may differ by plan or workspace; see
+[`docs/chatgpt-connection.md`](docs/chatgpt-connection.md) for the scoped
+decision and setup.
 
 ## Prerequisites
 

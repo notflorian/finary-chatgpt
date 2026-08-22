@@ -1178,6 +1178,14 @@ user-authorized Google Drive connection and never reuses n8n's Google OAuth
 credential. Revoking ChatGPT access must not affect n8n, the workbook, or the
 production schedule.
 
+On the personal ChatGPT product surface verified on 2026-08-22, the custom GPT
+does not expose the connected Google Drive app. The supported consumer is a
+private ChatGPT Project with project-specific instructions and reference files;
+the canonical workbook is added as a Google Drive Project source and accessed
+on demand. Do not upload a static workbook copy as a substitute for live data.
+This is an observed account/product-surface constraint, not a claim that Apps
+are unavailable to every custom GPT on every managed workspace.
+
 The current ChatGPT Pro Google Drive sync authorization may permit ChatGPT to
 see and download all files in the authorized Drive account. This is broader
 than per-workbook access, so the architecture claims an intended data boundary

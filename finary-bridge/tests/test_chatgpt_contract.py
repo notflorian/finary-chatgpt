@@ -122,7 +122,7 @@ def test_chatgpt_runbook_preserves_consumer_and_revocation_boundaries() -> None:
         assert phrase in runbook
 
 
-def test_custom_gpt_knowledge_reference_covers_workbook_semantics() -> None:
+def test_project_reference_covers_workbook_semantics() -> None:
     reference = KNOWLEDGE_PATH.read_text(encoding="utf-8")
     normalized_reference = " ".join(reference.split()).lower()
 
@@ -145,4 +145,19 @@ def test_custom_gpt_knowledge_reference_covers_workbook_semantics() -> None:
         assert phrase.lower() in normalized_reference
 
     assert "Personal Investment Policy" in reference
-    assert "does not replace the custom GPT's behavioral Instructions" in reference
+    assert "does not replace the ChatGPT Project's behavioral Instructions" in reference
+
+
+def test_current_chatgpt_surface_uses_project_instead_of_custom_gpt() -> None:
+    runbook = RUNBOOK_PATH.read_text(encoding="utf-8")
+    normalized_runbook = " ".join(runbook.split())
+
+    for phrase in (
+        "Current product-surface decision: use a Project",
+        "custom-GPT editor/runtime",
+        "scoped observation, not a universal statement",
+        "Google Drive content added within a Project is not synced in advance",
+        "add the exact private **Finary Portfolio Data** Google Drive link",
+        "Do not upload or export a static copy",
+    ):
+        assert phrase in normalized_runbook

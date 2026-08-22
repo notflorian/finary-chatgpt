@@ -775,6 +775,15 @@ the existing contracts. Preserve these gates:
 - ChatGPT reads only the private normalized workbook through its own
   user-authorized Google Drive connection. Never reuse or export n8n's Google
   credential, tokens, client secret, credential database, or encryption key.
+- The personal ChatGPT surface verified on 2026-08-22 does not expose Google
+  Drive inside the custom GPT. Configure a private ChatGPT Project instead:
+  keep behavioral rules in Project Instructions, add the policy and workbook
+  interpretation guide as Project references, and add the live canonical
+  workbook as a Google Drive Project source. Project Drive access is on demand,
+  not pre-synced. Do not treat a static workbook upload as current state.
+- Treat this as a scoped product-surface observation. Do not claim that every
+  managed workspace lacks Apps in custom GPTs, and do not switch back to that
+  route without an explicit availability check and full semantic retest.
 - The currently documented ChatGPT Pro Google Drive authorization can cover
   all Drive files, not one workbook. Do not claim per-file technical isolation;
   intentionally use only `Finary Portfolio Data` and keep it private.
