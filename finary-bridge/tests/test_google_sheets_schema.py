@@ -148,6 +148,8 @@ def test_required_sheets_and_order_are_canonical() -> None:
         "unavailable_liability_rule",
         "last_known_liability_rule",
         "allocation_rule",
+        "last_success_rule",
+        "performance_rule",
     ]
     for sheet_name, expected_headers in EXPECTED_HEADERS.items():
         assert tuple(_column_names(schema["sheets"][sheet_name])) == expected_headers

@@ -1173,13 +1173,44 @@ n8n should authenticate to Google Sheets through an n8n credential.
 
 Do not store Google OAuth tokens in repository files.
 
-Keep the workbook private unless deliberately shared.
+Keep the workbook private. ChatGPT accesses it through a separate,
+user-authorized Google Drive connection and never reuses n8n's Google OAuth
+credential. Revoking ChatGPT access must not affect n8n, the workbook, or the
+production schedule.
 
-ChatGPT accesses the workbook through the user's Google Drive connection, independently from n8n's Google credentials.
+The current ChatGPT Pro Google Drive sync authorization may permit ChatGPT to
+see and download all files in the authorized Drive account. This is broader
+than per-workbook access, so the architecture claims an intended data boundary
+around `Finary Portfolio Data`, not technical per-file OAuth isolation. Use the
+narrowest product-supported scope and do not make the workbook public.
 
 ## 26. ChatGPT usage model
 
-The Google Sheet is designed so ChatGPT can answer questions such as:
+Before any financial interpretation, ChatGPT reads the workbook `README` and
+derives the newest valid synchronization from the newest `completed_at` among
+`SUCCESS` and `SUCCESS_WITH_WARNINGS`. A later `FAILED` row does not advance
+freshness. State is stale after 48 hours without a valid completion while
+production should be running.
+
+For current questions, ChatGPT uses only `is_active = TRUE` account and
+position rows associated with the newest valid run context. Blank cells remain
+unknown rather than zero. `portfolio_daily.gross_assets_eur` is the
+authoritative account-balance total; positions are analytical components and
+must not be added to accounts or substituted for gross assets.
+
+Allocation uses active positions with verified `market_value_eur` only. It is
+known-EUR position coverage and may be partial, especially when telemetry
+contains `PARTIAL_POSITION_EUR_COVERAGE`. It is never silently described as a
+full gross-portfolio reconciliation.
+
+Liability interpretation begins with the latest valid
+`portfolio_daily.liability_coverage`. Only `COMPLETE` permits authoritative
+current liabilities and net worth. Under `PARTIAL` or `UNAVAILABLE`, blank
+liability/net-worth totals remain unknown and any retained
+`liabilities_current` rows are only last-known complete state.
+
+The Google Sheet is then designed so ChatGPT can answer analytical questions
+such as:
 
 ```text
 Analyze positions_current where is_active = TRUE.
@@ -1199,11 +1230,12 @@ Using portfolio_daily, describe how my portfolio changed since January 1.
 Using positions_history, identify which positions contributed most to changes in portfolio value.
 ```
 
-```text
-Given a new contribution, show how it could be allocated to reduce drift without selling.
-```
-
 The workbook README should make clear that `asset_overrides` is authoritative for final classification.
+Phase 13 permits summary, calculation, descriptive drift comparison, and
+historical explanation. It does not add automated buy/sell instructions,
+rebalancing, trade execution, or an investment recommendation engine. The full
+operator and semantic acceptance procedure is in
+[`chatgpt-connection.md`](chatgpt-connection.md).
 
 ## 27. Performance versus contributions
 
@@ -1441,7 +1473,7 @@ numbers are global across issues and pull requests, so they map to #13–#19:
 | 10 | [#16](https://github.com/notflorian/finary-chatgpt/issues/16) | Migrate the live stack to repository Compose | Accepted; protected restore and restart persistence verified |
 | 11 | [#17](https://github.com/notflorian/finary-chatgpt/issues/17) | Add CI quality gates | Implemented; all four GitHub-hosted checks observed green |
 | 12 | [#18](https://github.com/notflorian/finary-chatgpt/issues/18) | Activate production synchronization safely | Live schedule published; first natural run accepted |
-| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | Begin after the Phase 12 PR is merged |
+| 13 | [#19](https://github.com/notflorian/finary-chatgpt/issues/19) | Connect ChatGPT to the validated workbook | Accepted: separate Google authorization, workbook README, semantic matrix, and access-independence check passed |
 
 Issue #13 produced the explicit versioned completeness design because no
 complete source could be proven. Issue #23 implements that design: the
@@ -1500,6 +1532,7 @@ The implementation is ready when all of the following are true:
 [ ] same-day rerun creates no duplicates
 [ ] next-day run creates historical rows
 [ ] Google Sheet remains private
-[ ] ChatGPT can read the workbook through Google Drive
+[x] ChatGPT can read the workbook through Google Drive and passed the Phase 13
+    semantic and access-independence acceptance checks
 [ ] upstream schema changes can be fixed only in the bridge
 ```
