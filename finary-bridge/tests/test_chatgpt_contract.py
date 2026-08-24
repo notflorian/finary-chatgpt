@@ -5,7 +5,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPOSITORY_ROOT / "docs/google-sheets-schema.json"
-RUNBOOK_PATH = REPOSITORY_ROOT / "docs/chatgpt-connection.md"
+RUNBOOK_PATH = REPOSITORY_ROOT / "docs/chatgpt.md"
 KNOWLEDGE_PATH = REPOSITORY_ROOT / "docs/finary-portfolio-data-knowledge.md"
 
 
@@ -108,18 +108,16 @@ def test_workbook_schema_has_no_secret_bearing_fields() -> None:
 
 def test_chatgpt_runbook_preserves_consumer_and_revocation_boundaries() -> None:
     runbook = RUNBOOK_PATH.read_text(encoding="utf-8")
+    normalized_runbook = " ".join(runbook.split())
 
     for phrase in (
-        "independent of the Google Sheets OAuth",
-        "blank cell is unknown/unavailable, never zero",
-        "must not be added to account",
-        "last-known complete liability state",
-        "later failures do not advance it",
-        "not investment performance",
-        "ACTUAL_DISCONNECT_RECONNECT_TEST=PASS",
-        "No custom MCP, plugin, proxy, webhook, public URL",
+        "Google Sheets OAuth credential and the ChatGPT Google Drive connection are independent",
+        "blank currency and numeric cells as unknown, never zero",
+        "liabilities and net worth are unknown, not zero",
+        "does not revoke the separate Google OAuth credential stored in n8n",
+        "does not authorize automated purchases, sales, or transfers",
     ):
-        assert phrase in runbook
+        assert phrase in normalized_runbook
 
 
 def test_project_reference_covers_workbook_semantics() -> None:
@@ -148,16 +146,16 @@ def test_project_reference_covers_workbook_semantics() -> None:
     assert "does not replace the ChatGPT Project's behavioral Instructions" in reference
 
 
-def test_current_chatgpt_surface_uses_project_instead_of_custom_gpt() -> None:
+def test_chatgpt_surface_uses_project_instead_of_custom_gpt() -> None:
     runbook = RUNBOOK_PATH.read_text(encoding="utf-8")
     normalized_runbook = " ".join(runbook.split())
 
     for phrase in (
-        "Current product-surface decision: use a Project",
-        "custom-GPT editor/runtime",
-        "scoped observation, not a universal statement",
-        "Google Drive content added within a Project is not synced in advance",
-        "add the exact private **Finary Portfolio Data** Google Drive link",
-        "Do not upload or export a static copy",
+        "Use a private ChatGPT **Project**",
+        "custom-GPT editor/runtime did not expose the Google Drive connection",
+        "scoped product limitation",
+        "Google Drive files added to a Project are retrieved on demand",
+        "Add the exact private **Finary Portfolio Data** spreadsheet link",
+        "Do not export a static workbook copy",
     ):
         assert phrase in normalized_runbook

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 V2_SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema.json"
-V2_DOCUMENTATION_PATH = ROOT / "docs" / "google-sheets-schema.md"
+V2_DOCUMENTATION_PATH = ROOT / "docs" / "data-model.md"
 
 
 def _schema() -> dict[str, object]:
@@ -55,13 +55,14 @@ def test_v2_coverage_columns_have_deterministic_order_and_nullability() -> None:
     )["nullable"] is True
 
 
-def test_v2_data_dictionary_documents_migration_and_unknown_semantics() -> None:
+def test_v2_data_model_documents_coverage_and_unknown_semantics() -> None:
     documentation = V2_DOCUMENTATION_PATH.read_text(encoding="utf-8")
+    compact_documentation = " ".join(documentation.split())
     for phrase in (
-        "Only `COMPLETE` may update `liabilities_current`",
-        "blank. Blank never means zero",
-        "passed live acceptance",
-        "FINARY_GOOGLE_SHEET_ID",
-        "no parallel v1",
+        "Only `COMPLETE` permits numeric `liabilities_eur`",
+        "Blank means unknown",
+        "schema `2.0`",
+        "`PARTIAL` or `UNAVAILABLE`",
+        "single machine-readable source",
     ):
-        assert phrase in documentation
+        assert phrase in compact_documentation

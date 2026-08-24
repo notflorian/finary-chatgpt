@@ -1,6 +1,6 @@
-"""Static application metadata for the bootstrap phase."""
+"""Static application metadata."""
 
 from typing import Final
 
 SERVICE_NAME: Final = "finary-bridge"
-SERVICE_VERSION: Final = "0.1.0"
+SERVICE_VERSION: Final = "1.0.0"

@@ -1,4 +1,4 @@
-"""Credential-free regression checks for the Phase 11 CI boundary."""
+"""Credential-free regression checks for the CI boundary."""
 
 from __future__ import annotations
 

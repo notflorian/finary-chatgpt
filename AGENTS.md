@@ -1,903 +1,241 @@
 # AGENTS.md
 
-## Project
+## Mission
 
-Build a reliable local integration pipeline:
+Maintain a reliable local integration pipeline:
 
+```text
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
+```
 
-The goal is to make the user's Finary portfolio available to ChatGPT through a structured Google Sheet while keeping Finary credentials out of ChatGPT and Google Sheets.
+The bridge isolates Finary's private API and exposes stable normalized data.
+n8n validates and synchronizes that data into a deterministic analytical
+workbook. ChatGPT reads the workbook without receiving Finary credentials or raw
+upstream payloads.
 
-## Core principles
+## Start every task
 
-1. Treat Finary as an unstable upstream dependency.
-2. Never let n8n depend directly on Finary's private API schema.
-3. Put all Finary-specific parsing and authentication logic inside `finary-bridge`.
-4. Expose a stable, versioned internal API from `finary-bridge`.
-5. Store normalized portfolio data in Google Sheets.
-6. Keep current-state tables separate from append-only history tables.
-7. Prefer deterministic identifiers and idempotent synchronization.
-8. Never delete historical portfolio rows.
-9. Never store Finary credentials in Google Sheets.
-10. Never expose Finary credentials to ChatGPT.
-11. Keep the system local-first and self-hostable.
-12. Make each implementation phase independently testable.
+Before changing code or documentation:
 
-## Repository layout
+1. Read this file and `docs/architecture.md`.
+2. Inspect the repository, tests, and working-tree status.
+3. Treat implemented code, fixtures, and `docs/google-sheets-schema.json` as more
+   authoritative than prose that conflicts with them.
+4. Keep the requested scope narrow and preserve unrelated user changes.
+5. Run checks proportional to the change and inspect the final diff.
 
-Target structure:
+## Repository map
 
 ```text
 finary-chatgpt/
 ├── AGENTS.md
 ├── README.md
+├── LICENSE
 ├── .env.example
 ├── docker-compose.yml
 ├── finary-bridge/
 │   ├── Dockerfile
 │   ├── pyproject.toml
 │   ├── app/
-│   │   ├── __init__.py
 │   │   ├── main.py
 │   │   ├── config.py
 │   │   ├── finary_client.py
+│   │   ├── finary_session_store.py
 │   │   ├── models.py
 │   │   ├── normalizer.py
-│   │   └── services/
-│   │       └── snapshot_service.py
+│   │   └── services/snapshot_service.py
 │   └── tests/
-│       ├── test_health.py
-│       ├── test_models.py
-│       ├── test_normalizer.py
-│       └── fixtures/
-├── n8n/
-│   └── workflows/
-│       ├── finary-daily-sync.json
-│       └── finary-error-handler.json
+├── n8n/workflows/
+│   ├── finary-daily-sync.json
+│   └── finary-error-handler.json
+├── scripts/
 └── docs/
     ├── architecture.md
-    ├── google-sheets-schema.md
-    └── operations.md
+    ├── data-model.md
+    ├── operations.md
+    ├── chatgpt.md
+    ├── development.md
+    ├── finary-portfolio-data-knowledge.md
+    └── google-sheets-schema.json
 ```
 
-Do not create files outside this structure unless justified.
+Do not add new top-level structure without a clear architectural reason.
 
-## Technology choices
+## Technical baseline
 
-### finary-bridge
+- Python 3.12+, FastAPI, Pydantic v2, Uvicorn
+- `curl-cffi` inside the Finary adapter
+- pytest, Ruff, mypy
+- self-hosted n8n using standard nodes
+- Google Sheets schema `2.0`
+- `Europe/Paris` schedules and business dates
+- ISO 8601 timestamps with explicit timezone offsets
 
-Use:
+Code, identifiers, comments, filenames, logs, API fields, and commit messages
+must be in English. Prefer small typed functions, immutable models where useful,
+dependency injection, deterministic transformations, and structured logging.
 
-- Python 3.12+
-- FastAPI
-- Pydantic v2
-- Uvicorn
-- httpx where HTTP calls are required
-- pytest
-- ruff
-- mypy where practical
+## Architectural boundaries
 
-Use a Finary client adapter isolated behind an internal interface.
+### Finary adapter
 
-If `finary_uapi` is used, wrap it in `finary_client.py`. No other module should import `finary_uapi` directly.
+All private Finary authentication, endpoints, response shapes, and exception
+translation belong in `finary_client.py`, `finary_session_store.py`, or a closely
+related adapter module. No other module may import an upstream Finary library or
+depend on raw response schemas.
 
-### n8n
+Do not invent endpoints, fields, authentication flows, pagination, currencies,
+or liability support. Base adapter changes on the installed client, upstream
+source, anonymized fixtures, or an explicitly authorized live check.
 
-Assume self-hosted n8n.
+### Normalization
 
-Use standard n8n nodes where possible:
+`normalizer.py` performs pure category-specific transformations. The snapshot
+service orchestrates adapter calls, cross-reference validation, totals, and
+stable model construction. FastAPI route functions remain HTTP boundaries only.
 
-- Schedule Trigger
-- Manual Trigger
-- HTTP Request
-- Code
-- Google Sheets
-- Error Trigger
+Use dedicated adapter position collections as the canonical position source.
+Never also normalize nested account asset arrays. Associate positions only with
+the verified `holdings_account_id`; do not silently fall back to nested account
+objects.
 
-Avoid unnecessary community nodes.
-
-### Google Sheets
-
-Use one workbook named:
-
-`Finary Portfolio Data`
-
-Sheets:
-
-- README
-- accounts_current
-- positions_current
-- liabilities_current
-- positions_history
-- portfolio_daily
-- allocation_targets
-- asset_overrides
-- cashflows
-- sync_runs
-
-## Coding conventions
-
-Code, identifiers, variables, comments, filenames, logs, API field names and commit messages must be in English.
-
-User-facing documentation may be in English unless otherwise requested.
-
-Prefer:
-
-- small functions
-- explicit types
-- immutable models where practical
-- deterministic transformations
-- dependency injection for upstream clients
-- structured logging
-- clear error classes
-
-Avoid:
-
-- global mutable state
-- hidden side effects
-- hardcoded credentials
-- Finary-specific fields leaking into downstream models
-- silent error handling
-- deleting historical data
-- coupling n8n to private Finary response shapes
-
-## Security requirements
-
-Never commit secrets.
-
-Use environment variables:
+Canonical keys are:
 
 ```text
-FINARY_EMAIL=
-FINARY_PASSWORD=
-FINARY_MFA_CODE=
-FINARY_SESSION_PATH=
-FINARY_BRIDGE_API_KEY=
-FINARY_BRIDGE_URL=
-FINARY_GOOGLE_SHEET_ID=
-FINARY_SCHEMA_URL=
-N8N_ENCRYPTION_KEY=
-TZ=Europe/Paris
+account_key     = finary:account:{account_id}
+source_asset_id = {position_kind}:{asset_id}
+position_key    = finary:{account_id}:asset:{position_kind}:{asset_id}
+history_key     = {snapshot_date}:{position_key}
 ```
 
-`FINARY_MFA_CODE` should only be used if required by the upstream authentication flow.
+Canonicalize upstream identifiers to strings. Position kind is mandatory
+because numeric IDs can collide across Finary collections.
 
-Persisted Clerk session state is permitted only for the verified refresh
-mechanism. It must contain exactly the minimum session ID and `__client` cookie
-value in a protected bridge-only local store. Never persist TOTP secrets,
-backup codes, one-time MFA codes, bearer JWTs, browser profiles, or raw
-authentication responses. Never expose the session store to n8n, Google Sheets,
-ChatGPT, Git, workflow exports, logs, diagnostics, or normal backups.
+### Currency and totals
 
-Provide `.env.example` with empty values.
+Populate an `*_eur` field only when currency provenance proves EUR or a verified
+conversion exists. Never treat `display_*` fields as proof of EUR. Preserve
+unknown numeric values as null/blank, not zero or text placeholders. Reject
+non-finite values.
 
-Do not log:
+Non-collection account balances are authoritative for `gross_assets_eur`.
+Positions are analytical components. Never add position totals to account
+balances.
 
-- passwords
-- session cookies
-- bearer tokens
-- MFA secrets
-- full raw authentication payloads
+Liability coverage is explicit: `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`. Only
+`COMPLETE` can establish liability totals or update liability current state.
+Empty embedded loan arrays do not prove zero liabilities. With incomplete
+coverage, liabilities and net worth remain null.
 
-The bridge should support an optional internal API key for calls from n8n.
+Classify assets conservatively. Do not guess from names or tickers. The stable
+top-level classes are defined by `AssetClass`; enabled `asset_overrides` rows are
+authoritative after normalization.
 
-The bridge must not be publicly exposed by default.
+### Stable API
 
-## Internal API contract
+- `GET /health` returns service metadata without contacting Finary or reading
+  authentication state.
+- `GET /v2/snapshot` is canonical and returns schema `2.0` normalized data with
+  explicit liability coverage.
+- `GET /v1/snapshot` is a strict legacy route that remains fail-safe when a
+  complete snapshot cannot be built.
+- Structured errors use `{error: {code, message, retryable}}` and never expose
+  raw upstream details.
 
-The bridge must expose:
+Keep `/v2/snapshot` backward compatible within schema major version `2`. Make a
+coordinated schema, workflow, workbook, tests, and documentation change for any
+breaking downstream contract revision.
 
-### GET /health
+### Google Sheets and n8n
 
-Response:
+`docs/google-sheets-schema.json` is the single machine-readable workbook
+contract. Preserve its sheet order, headers, types, nullability, ownership,
+enums, and key formats. Documentation summarizes it but must not become a second
+field-level source of truth.
 
-```json
-{
-  "status": "ok",
-  "service": "finary-bridge",
-  "version": "0.1.0"
-}
+Current sheets use deterministic upserts. Missing accounts or positions become
+`is_active = FALSE`; they are not deleted. Historical rows are never deleted,
+and same-day history uses `history_key` to update rather than duplicate.
+
+The synchronization workflow must validate the complete snapshot and prepared
+rows before portfolio writes. A failed or malformed snapshot may write sanitized
+`sync_runs` telemetry but must not alter the last valid portfolio state.
+
+Never overwrite the manual `allocation_targets`, `asset_overrides`, or
+`cashflows` sheets. Reads and preflight Google Sheets nodes use `Execute Once`;
+row writes must process every prepared row. Preserve finite execution timeouts
+and bounded retries.
+
+Repository workflow exports stay inactive so imports are safe. Runtime
+publishing is an operator action described in `docs/operations.md`.
+
+## Authentication and secrets
+
+Never commit or log credentials, passwords, MFA values, TOTP secrets, backup
+codes, cookies, bearer tokens, Google OAuth material, n8n credential IDs, or raw
+private portfolio payloads.
+
+Use the environment variables documented in `.env.example`. The optional bridge
+API key protects snapshot routes from other local-network clients. The bridge is
+bound to localhost by default and must not be made public without an explicit
+security design.
+
+The session store may persist only the verified minimum Clerk restart state:
+the session identifier and production `__client` cookie. Bearer JWTs remain
+memory-only. The session volume is bridge-only, mode-restricted, excluded from
+backups, and cleared when rejected. HTTP routes must never prompt interactively.
+
+Finary authentication material must not enter n8n. Google OAuth material must
+not enter the bridge, workflow exports, or repository files.
+
+Fixtures and examples must be synthetic and anonymized. Never capture real data
+into the repository before sanitizing it.
+
+## Operational invariants
+
+- The Compose stack owns `finary-bridge`, `schema-server`, and `n8n` on one
+  private network; only bridge and n8n bind localhost ports.
+- `finary_session_data` and `n8n_data` are separate named volumes.
+- The schema server exposes the canonical JSON to n8n without credentials.
+- The scheduled workflow runs at 07:30 `Europe/Paris` when published.
+- `SUCCESS` and `SUCCESS_WITH_WARNINGS` are valid completed sync states. A later
+  `FAILED` row does not replace the newest successful state.
+- A state older than 48 hours is operationally stale.
+- Google and n8n errors written to telemetry must be sanitized and bounded.
+- Back up n8n state and the encryption key separately. Do not routinely use
+  `docker compose down -v` and do not back up Finary session state.
+
+## Testing
+
+Normal tests must be credential-free and must not contact Finary, Google, or
+public services. Inject fake clients at the FastAPI boundary and use anonymized
+fixtures for adapter and normalization tests.
+
+Run the complete local gate from the repository root:
+
+```bash
+cd finary-bridge
+python -m pytest -m "not live" --ignore=tests/live
+ruff check app tests
+mypy app
+cd ..
+python scripts/validate-json.py
+docker compose config --quiet
+bash scripts/validate-n8n-imports.sh
 ```
 
-This endpoint must not contact Finary.
-
-### GET /v1/snapshot
-
-Returns the normalized portfolio snapshot described in `docs/architecture.md`.
-
-The endpoint may contact Finary.
-
-It must return normalized data only. Do not expose the raw upstream payload.
-
-### GET /v2/snapshot
-
-Returns the canonical coverage-aware normalized portfolio snapshot described in
-`docs/architecture.md`. It may contact Finary and must return normalized data
-only.
-
-`coverage.liabilities` is `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`.
-`liabilities_eur` and `net_worth_eur` are numeric only for `COMPLETE`; they are
-null for incomplete coverage. The canonical n8n workflow consumes this route.
-
-Before public release `1.0`, the retained `/v1/snapshot` route is fail-safe but
-is not a backward-compatibility promise.
-
-### Error format
-
-Use a consistent error response:
-
-```json
-{
-  "error": {
-    "code": "FINARY_AUTH_FAILED",
-    "message": "Unable to authenticate with Finary",
-    "retryable": false
-  }
-}
-```
-
-Do not include secrets or raw upstream authentication responses.
-
-## Stable downstream models
-
-The bridge owns the translation from private Finary fields to stable internal fields.
-
-At minimum model:
-
-- PortfolioSnapshot
-- Account
-- Position
-- Liability
-
-All monetary amounts sent downstream must include an EUR-normalized value when possible.
-
-Never use display names as primary identifiers.
-
-Prefer stable upstream IDs when available.
-
-Construct downstream keys such as:
-
-```text
-finary:account:{account_id}
-{position_kind}:{asset_id}
-finary:{account_id}:asset:{position_kind}:{asset_id}
-finary:liability:{liability_id}
-```
-
-## Asset classification
-
-Normalized top-level classes:
-
-```text
-EQUITY
-BOND
-CASH
-REAL_ESTATE
-SCPI
-PRIVATE_EQUITY
-CRYPTO
-COMMODITY
-LIFE_INSURANCE_FUND
-OTHER
-```
-
-Subclasses may include:
-
-```text
-WORLD_EQUITY
-US_EQUITY
-EURO_EQUITY
-EMERGING_EQUITY
-EURO_GOV_BOND
-EURO_CORP_BOND
-GLOBAL_BOND
-HIGH_YIELD
-CASH_EUR
-GOLD
-```
-
-Do not make aggressive classification guesses.
-
-When uncertain, use `OTHER` and preserve useful upstream metadata.
-
-Google Sheets `asset_overrides` is authoritative over automatic classification.
-
-## Synchronization behavior
-
-Current-state sheets must use upsert semantics.
-
-History sheets must use date-scoped deterministic keys.
-
-Never delete a position that disappears from a new snapshot.
-
-Instead set:
-
-```text
-is_active = FALSE
-```
-
-for current-state records that were present previously but are no longer returned.
-
-Historical rows must remain unchanged except when re-running the same day's snapshot with the same deterministic history key.
-
-## Idempotency
-
-Running the same snapshot multiple times must not create duplicate current-state rows.
-
-For daily history, use deterministic keys:
-
-```text
-{snapshot_date}:{position_key}
-```
-
-For `portfolio_daily`, use:
-
-```text
-snapshot_date
-```
-
-as the logical unique key.
-
-## Validation gates
-
-Before writing a snapshot downstream, validate:
-
-- snapshot timestamp exists
-- currency is present
-- account keys are unique
-- position keys are unique
-- liability keys are unique
-- monetary values are finite numbers
-- no NaN or infinity values
-- position account references are valid
-- gross asset total is not negative
-- liabilities total is not negative
-
-The synchronization workflow should reject obviously broken snapshots such as:
-
-- zero accounts when previous successful runs had accounts
-- empty positions when previous successful runs had positions
-- missing required IDs
-- duplicate position keys
-
-A large net-worth move should generate a warning rather than automatically fail unless clearly malformed.
-
-Suggested warning threshold:
-
-```text
-absolute day-over-day net worth change > 20%
-```
-
-## Logging
-
-Use structured logs.
-
-Each synchronization run should have a `run_id`.
-
-Recommended format:
-
-```text
-YYYYMMDD-HHMMSS
-```
-
-All bridge requests invoked by n8n should accept or generate a correlation identifier.
-
-Do not log private upstream payloads at INFO level.
-
-## Time zone
-
-Use:
-
-```text
-Europe/Paris
-```
-
-for schedules and business dates.
-
-Store timestamps as ISO 8601 with timezone.
-
-Example:
-
-```text
-2026-08-20T07:30:12+02:00
-```
-
-## Implementation phases
-
-Codex must implement the project incrementally.
-
-### Phase 1 - Repository bootstrap
-
-Create:
-
-- project structure
-- `.env.example`
-- Dockerfile
-- docker-compose
-- FastAPI app
-- `/health`
-- tests
-- lint configuration
-- README with local run commands
-
-Definition of done:
-
-- `docker compose up` starts the bridge
-- `GET /health` returns HTTP 200
-- tests pass
-- no Finary integration yet
-
-Do not implement Phase 2 until Phase 1 is working.
-
-### Phase 2 - Finary client adapter
-
-Implement:
-
-- Finary client abstraction
-- authentication adapter
-- upstream account retrieval
-- upstream position retrieval
-- upstream liability retrieval if available
-- fixture-based tests for upstream normalization
-
-Definition of done:
-
-- Finary-specific code exists only in `finary_client.py` and closely related adapter code
-- raw response fixtures can be normalized in tests
-- authentication secrets are not logged
-
-If the upstream API differs from expectations, inspect real responses and update fixtures before continuing.
-
-### Phase 3 - Stable snapshot API
-
-Implement:
-
-- Pydantic models
-- normalization
-- EUR values
-- stable keys
-- `/v1/snapshot`
-- response validation
-- structured errors
-
-Phase 2 live verification established these mandatory normalization constraints:
-
-- Finary account IDs are strings, while position IDs may be numeric. Convert
-  every upstream identifier to a canonical string before key generation.
-- Position IDs come from separate asset-category namespaces. Include the
-  adapter position kind in `source_asset_id` or `position_key` so equal numeric
-  IDs from different categories cannot collide.
-- Use the dedicated adapter position collections as the canonical position
-  source. Do not also normalize asset arrays nested inside account records,
-  because that would double-count the same upstream holdings.
-- Link positions to accounts using the verified `holdings_account_id` field.
-  Treat nested `account` and `bank_account` objects as non-authoritative
-  upstream details unless a fixture proves a required fallback.
-- Do not assume fields prefixed with `display_` are EUR. An amount may populate
-  an `*_eur` field only when its currency provenance proves it is EUR or a
-  verified FX conversion is available. Reject a snapshot whose totals cannot
-  be normalized reliably instead of silently relabeling or omitting amounts.
-- Select and document exactly one gross-assets source and explicit exclusion
-  rules for aggregate or collection accounts. Never sum both account balances
-  and position values into gross assets.
-- Metadata exposed downstream must use an explicit allowlist of stable,
-  non-sensitive keys. Never copy complete upstream records, nested institution
-  objects, account identifiers, addresses, or raw private payloads into
-  `metadata`.
-- The verified upstream surface has no usable liability representation yet.
-  Empty embedded `loans` arrays do not prove that liabilities are zero. Map the
-  adapter's unavailable-feature error to a structured API error; do not publish
-  `liabilities_eur = 0` or a net-worth figure as if liability coverage were
-  complete.
-- Live authentication requires a fresh TOTP or email-code challenge to create a
-  new Clerk session. `/v1/snapshot` must never prompt interactively. Phase 3
-  added no persistence; the later approved Phase 8 store may reuse the minimum
-  verified session state but must never persist bearer JWTs, backup codes,
-  one-time MFA codes, or TOTP secrets.
-
-Definition of done:
-
-- `/v1/snapshot` returns only the stable internal schema
-- no private Finary schema leaks to n8n
-- tests cover malformed upstream data
-- duplicate IDs are rejected
-- tests cover equal numeric position IDs in different asset categories
-- tests prove account and nested position data are not double-counted
-- every populated EUR field has verified currency provenance
-- unavailable liabilities produce an explicit structured error rather than a
-  misleading zero-liability snapshot
-
-### Phase 4 - Google Sheets schema
-
-Create documentation and initialization helpers for:
-
-- README
-- accounts_current
-- positions_current
-- liabilities_current
-- positions_history
-- portfolio_daily
-- allocation_targets
-- asset_overrides
-- cashflows
-- sync_runs
-
-Phase 4 must preserve the implemented Phase 3 contract:
-
-- Treat `source_asset_id` and `position_key` as category-aware identifiers;
-  never remove the position kind from either key.
-- Allow position currency and EUR-derived fields to be blank when Phase 3
-  cannot prove EUR provenance. Do not coerce unknown amounts to zero or infer
-  EUR from `display_*` values.
-- Treat a structured snapshot error as the absence of a complete snapshot.
-  In particular, unavailable liability coverage must not create zero-valued
-  liability or net-worth rows, and must not overwrite prior valid data.
-- Keep account balances as the authoritative source for gross assets. Position
-  values are analytical components and must not be added to account balances.
-- Keep the metadata allowlist empty unless a later verified contract change
-  explicitly introduces stable, non-sensitive metadata fields.
-- Document automated, manual, nullable, and derived columns distinctly so the
-  later n8n workflow can preserve null semantics and ownership boundaries.
-
-Definition of done:
-
-- every column is documented
-- every sheet has a unique-key strategy
-- data types are documented
-- nullable fields and unknown-value behavior are documented
-- sample rows are provided
-
-Do not hardcode a user's financial values in repository fixtures.
-
-### Phase 5 - n8n synchronization workflow
-
-Create importable workflow JSON.
-
-The workflow must:
-
-1. support Manual Trigger
-2. support Schedule Trigger
-3. call the canonical `/v2/snapshot`
-4. validate the snapshot
-5. read `asset_overrides`
-6. apply overrides
-7. calculate portfolio totals and weights
-8. upsert current accounts
-9. upsert current positions
-10. mark missing current positions inactive
-11. upsert current liabilities
-12. upsert daily position history
-13. upsert portfolio daily summary
-14. append a `sync_runs` record
-15. fail safely without destroying previous valid data
-
-Phase 5 must use `docs/google-sheets-schema.json` as the canonical source for
-sheet names, ordered headers, types, ownership, nullability, enums, and key
-formats. It must preserve these Phase 4 rules:
-
-- Validate the complete snapshot and all derived rows before any portfolio
-  write. A structured bridge error may append failed `sync_runs` telemetry but
-  must not update, clear, or deactivate portfolio rows.
-- Preserve blank cells as unknown values. Never coerce a nullable currency or
-  numeric field to zero, `N/A`, `unknown`, or the text `null`.
-- Copy the authoritative Phase 3 `gross_assets_eur` account-balance total and
-  use account balances only for consistency checking. Never add position values
-  to account balances.
-- Calculate position weights and asset-class percentages only over active
-  positions with known `market_value_eur`. Treat the result as known-EUR
-  coverage, not full gross-portfolio reconciliation, when any active position
-  lacks a verified EUR value.
-- A valid schema `2.0` asset snapshot with `PARTIAL` or `UNAVAILABLE` liability
-  coverage may update asset current/history/daily rows with null liability and
-  net-worth totals. It must never write, clear, or inactivate
-  `liabilities_current`, and unavailable coverage is never zero liabilities.
-- Never overwrite the manual `allocation_targets`, `asset_overrides`, or
-  `cashflows` sheets. Apply enabled overrides using the documented exact-match
-  precedence and reject ambiguous matches.
-- Use decimal fractions for percentages, `TRUE`/`FALSE` for booleans,
-  Europe/Paris business dates, and timezone-aware ISO 8601 timestamps.
-- Preserve all category-aware IDs and deterministic current/history/daily keys
-  exactly as defined in the Phase 4 schema.
-- Configure every Google Sheets read or preflight node with `Execute Once`.
-  Chained reads must never execute once per row returned by the previous sheet,
-  because that amplifies API requests as the workbook grows and exhausts the
-  per-user Google Sheets quota. Do not apply `Execute Once` to row write nodes.
-
-Definition of done:
-
-- workflow JSON imports successfully into n8n
-- running twice with identical input produces no duplicates
-- a missing position becomes inactive
-- same-day history is updated rather than duplicated
-- next-day history creates a new row
-- nullable values remain blank rather than becoming zero placeholders
-- manual sheets are not overwritten
-
-### Phase 6 - Error handling and operations
-
-Implemented:
-
-- n8n error workflow
-- run diagnostics
-- last successful synchronization tracking
-- documentation for credential rotation
-- backup and restore guidance
-- failure scenarios
-- manual recovery procedure
-
-Phase 5 implementation and live verification established these mandatory
-operational constraints, now preserved by Phase 6:
-
-- The main workflow already records sanitized structured bridge failures before
-  portfolio writes. The error workflow must cover uncaught n8n, Code node,
-  Google Sheets, and mid-write failures without creating duplicate failed
-  telemetry for a run that was already recorded.
-- Google Sheets enforces per-user read and write request quotas. Every Sheets
-  node uses the bounded retry supported by n8n 2.35.5: three total attempts with
-  a fixed five-second delay. The installed runtime does not expose native
-  exponential backoff. Workflows also have finite execution timeouts, and the
-  runbook documents stale-run recovery. A quota increase is not the only
-  mitigation.
-- Preserve `Execute Once` on every Google Sheets read and preflight node. Add a
-  regression check so a preceding sheet with many rows cannot multiply later
-  read requests. Write nodes must continue to process every prepared row.
-- Sanitize Google and n8n errors before writing `sync_runs` or sending a
-  notification. Do not expose spreadsheet IDs, OAuth material, project details,
-  raw node payloads, credentials, tokens, cookies, MFA values, or private
-  portfolio rows. Use stable error categories and include only a safe failing
-  step name when useful.
-- Derive the last successful synchronization from the newest `SUCCESS` or
-  `SUCCESS_WITH_WARNINGS` telemetry row. A later `FAILED` row must not replace
-  or obscure the last-known-valid state.
-- A private GitHub repository cannot serve the canonical schema through an
-  unauthenticated raw GitHub URL. Provide and document a local, credential-free
-  schema-serving path reachable from n8n, and keep
-  the version-matched canonical JSON as the single source for each workflow.
-- `docker compose` must start the operational local stack, including n8n with a
-  persistent data volume and a network-reachable canonical schema source. Do
-  not embed Google OAuth credentials or n8n credential IDs in repository files.
-- A new bridge process may require a fresh TOTP or prepared email-code challenge
-  when no valid protected Clerk session exists. Document the exact bootstrap,
-  restart, expiry, and revocation procedure. HTTP routes must never prompt.
-- The verified adapter still has no complete liability feature. The canonical
-  `/v2/snapshot` returns truthful asset state with explicit incomplete coverage
-  and null liability-dependent totals. Phase 9 accepted the inactive end-to-end
-  path. Phase 12 published the protected live workflow after green Phase 11 CI
-  and explicit approval; the repository export stays inactive. Never treat
-  incomplete coverage as zero merely to enable scheduling.
-- The Google Sheets credential must be assigned to every Sheets node on both
-  success and failure branches after import. Operations documentation must
-  include this check and distinguish credential errors from quota errors.
-
-Definition of done:
-
-- failed Finary authentication does not alter current portfolio data
-- malformed snapshots do not overwrite valid current data
-- error runs are visible in `sync_runs`
-- uncaught n8n and Google Sheets failures produce sanitized, non-duplicated
-  diagnostics when telemetry remains writable
-- retryable Google Sheets quota and temporary service failures use bounded
-  backoff, and executions cannot remain running indefinitely
-- the full local stack and canonical schema source start through Docker Compose
-- last-success reporting ignores later failed runs and identifies the newest
-  valid synchronization
-- restart, MFA bootstrap, Google credential assignment, quota recovery, and
-  partial-write repair procedures are documented and tested where practical
-- the production schedule remains disabled until the remaining CI and explicit
-  activation gates are approved
-- recovery steps are documented
-
-### Post-Phase-6 operational gates
-
-The user explicitly approved a post-Phase-6 roadmap. Roadmap ordinals 07–13 map
-to GitHub issues #13–#19 and are the authoritative next work:
-
-1. #13 — Outcome B completed: no verified complete liability source; schema
-   `1.0` remains fail-safe and the schema `2.0` coverage design is
-   documented in `docs/liability-coverage-investigation.md`.
-2. #14 — Outcome A completed: a minimal protected Clerk session store was
-   implemented and live-verified across fresh clients and a separate process;
-   the evidence is documented in `docs/finary-authentication-investigation.md`.
-3. #23 — explicit schema `2.0` liability coverage is implemented in the v2 API
-   and promoted to the canonical pre-production workbook and inactive workflow
-   names after protected live migration and same-day idempotency acceptance.
-   `/v1/snapshot` remains temporarily available and fail-safe, but it is not a
-   pre-1.0 compatibility promise. Unused v1 workbook/workflow artifacts were
-   removed because they were never production.
-4. #15 — Phase 9 accepted the canonical schema-2.0 inactive end-to-end path.
-   A bridge restart reused the protected session, `/v2/snapshot` passed
-   sanitized structural checks, one inactive manual synchronization completed
-   with explicit incomplete coverage, and workbook/manual-sheet integrity plus
-   deterministic lifecycle and recovery checks passed. Evidence is documented
-   in `docs/end-to-end-acceptance.md`.
-5. #16 — completed: the live bridge, schema server, persistent n8n state,
-   workflows, credential, and execution history were migrated to the repository
-   Compose project after a protected backup and isolated restore test. Restart
-   persistence and service-volume isolation were verified. Evidence is in
-   `docs/compose-migration.md`.
-6. #17 — implemented: credential-free GitHub-hosted CI runs the stable `tests`,
-   `static-analysis`, `repository-contracts`, and `n8n-import` checks. All four
-   GitHub-hosted checks have been observed green.
-7. #18 — the protected live schedule was published after all four stable checks
-   were green and activation was explicitly approved. Its first natural
-   execution passed the production acceptance audit.
-8. #19 — accepted: ChatGPT authorized Google Drive independently from n8n,
-   read the canonical private workbook README, passed the semantic matrix, and
-   passed the disconnect/reconnect independence check. Close through the Phase
-   13 PR after review and merge.
-
-These cross-cutting issues are operational milestones, not permission to weaken
-the existing contracts. Preserve these gates:
-
-- Keep the repository daily-workflow export inactive for safe imports. The
-  protected live workflow is published; use the documented Unpublish action as
-  the immediate kill-switch if a production gate fails.
-- The error-handler workflow may be published so n8n can select it; it has no
-  schedule or external trigger. Do not publish the daily scheduled workflow
-  until the activation gates pass.
-- Investigate liabilities only against a callable, observed upstream surface.
-  Never infer completeness or zero liabilities from empty nested `loans` arrays.
-- Preserve the Phase 7 `FinaryRawLiabilities.coverage` distinction. Only
-  `COMPLETE` can make an empty collection a known zero; `PARTIAL` and
-  `UNAVAILABLE` must remain fail-safe in schema `1.0`.
-- Preserve the implemented schema `2.0` contract: incomplete coverage keeps
-  liability/net-worth totals null, never modifies `liabilities_current`, and
-  writes explicit coverage to daily and telemetry rows. The unsuffixed Sheets
-  schema and workflow exports are the only canonical downstream artifacts.
-- Preserve the stable downstream schema and isolate upstream changes inside the
-  adapter/normalizer wherever possible.
-- Preserve the Phase 8 Outcome A boundary. Persist only the verified Clerk
-  session ID and `__client` cookie in the bridge-only protected store; keep
-  bearer JWTs in memory and never persist TOTP seeds, backup codes, one-time
-  factors, browser profiles, mailbox credentials, or raw auth payloads.
-- Treat the persisted session as bearer-equivalent, server-revocable, and
-  bounded by upstream session expiry. Rejected state must be cleared and return
-  `FINARY_AUTH_FAILED`; manual MFA is then required again.
-- Phase 12 satisfied CI readiness and explicit activation approval before
-  enabling the daily trigger. The first natural execution was accepted and PR
-  #29 is merged. Phase 13 accepted the actual ChatGPT-side connection, query
-  matrix, and access-independence check without weakening the consumer boundary.
-- Preserve the Phase 11 CI boundary: GitHub-hosted runners only, `contents: read`,
-  full-SHA action pins, explicit Python and Node patch pins, no
-  `pull_request_target`, no production secrets, and no live-test flags.
-- Normal CI must exclude live tests with both `-m "not live"` and
-  `--ignore=tests/live`. The Node-backed workflow tests must execute rather than
-  skip because Node is missing.
-- Keep the stable CI check names `tests`, `static-analysis`,
-  `repository-contracts`, and `n8n-import`. Import validation must derive the
-  digest-pinned n8n 2.35.5 image from Compose and run each workflow in an
-  ephemeral `--network none` container without executing or activating it.
-- Configure ChatGPT/Google Drive consumption only after a valid workbook state
-  exists; never expose Finary credentials or private upstream payloads.
-
-### Phase 13 final consumer boundary
-
-- ChatGPT reads only the private normalized workbook through its own
-  user-authorized Google Drive connection. Never reuse or export n8n's Google
-  credential, tokens, client secret, credential database, or encryption key.
-- The personal ChatGPT surface verified on 2026-08-22 does not expose Google
-  Drive inside the custom GPT. Configure a private ChatGPT Project instead:
-  keep behavioral rules in Project Instructions, add the policy and workbook
-  interpretation guide as Project references, and add the live canonical
-  workbook as a Google Drive Project source. Project Drive access is on demand,
-  not pre-synced. Do not treat a static workbook upload as current state.
-- Treat this as a scoped product-surface observation. Do not claim that every
-  managed workspace lacks Apps in custom GPTs, and do not switch back to that
-  route without an explicit availability check and full semantic retest.
-- The currently documented ChatGPT Pro Google Drive authorization can cover
-  all Drive files, not one workbook. Do not claim per-file technical isolation;
-  intentionally use only `Finary Portfolio Data` and keep it private.
-- Read the workbook `README` before financial tables. Current accounts and
-  positions require `is_active = TRUE`; blank means unknown, never zero.
-- `gross_assets_eur` is authoritative. Never add position values to accounts
-  or describe partial known-EUR position coverage as the full portfolio.
-- `liability_coverage` controls liability and net-worth validity. Under
-  `PARTIAL` or `UNAVAILABLE`, retained liability rows are last-known complete
-  state and net worth is unknown.
-- Select the newest valid synchronization by `completed_at` among `SUCCESS`
-  and `SUCCESS_WITH_WARNINGS`; a later `FAILED` row does not replace it.
-- Valuation change is not investment performance unless external cashflows are
-  complete enough to separate contributions and withdrawals.
-- Do not expose raw/private integration material, unrestricted logs, or runtime
-  identifiers. No custom MCP, plugin, proxy, webhook, or public workbook is
-  part of the current architecture.
-
-## What not to implement initially
-
-Do not add these unless explicitly requested:
-
-- public cloud deployment
-- public API exposure
-- Kubernetes
-- Terraform
-- Redis
-- PostgreSQL
-- message queues
-- OAuth provider implementation
-- custom ChatGPT MCP server
-- automated trading
-- bank transaction ingestion
-- financial recommendation engine
-
-The first goal is reliable portfolio synchronization, not infrastructure complexity.
+Live tests remain opt-in. They must print structural results only, never values
+or secrets, and must be skipped by default in CI. See `docs/development.md`.
+
+Before finishing, also inspect `git diff`, search changed files for secrets or
+private data, and check that documentation links resolve.
 
 ## Git discipline
 
-Prefer one logical commit per phase or coherent unit.
-
-Suggested commits:
-
-```text
-chore: bootstrap finary bridge
-feat: add finary client adapter
-feat: normalize portfolio snapshot
-docs: define google sheets schema
-feat: add n8n portfolio sync workflow
-feat: add sync validation and monitoring
-```
-
-Do not rewrite unrelated files.
-
-Do not make broad architectural changes without explaining why.
-
-## Testing strategy
-
-At minimum:
-
-### Unit tests
-
-- key generation
-- Finary-to-internal normalization
-- asset classification
-- EUR conversion behavior
-- malformed input rejection
-- totals calculation
-
-### API tests
-
-- health endpoint
-- snapshot endpoint success
-- snapshot endpoint authentication failure
-- malformed upstream payload
-- upstream timeout
-
-### Integration tests
-
-Use fixtures and mock upstream calls.
-
-Do not require live Finary credentials for the normal test suite.
-
-A live smoke test may be implemented separately and skipped by default.
-
-## Definition of project success
-
-The project is successful when:
-
-1. Finary can be queried through the bridge.
-2. The bridge exposes a stable normalized snapshot.
-3. n8n synchronizes it to Google Sheets without duplicates.
-4. Current positions reflect the latest state.
-5. Historical positions remain available by date.
-6. Missing positions are marked inactive rather than deleted.
-7. Daily portfolio totals are preserved.
-8. ChatGPT can read the Google Sheet and reason over normalized data.
-9. Finary credentials never reach Google Sheets or ChatGPT.
-10. A Finary upstream schema change can be fixed inside the bridge without changing the downstream schema.
-
-## Instructions for Codex when starting work
-
-Before changing code:
-
-1. Read this file.
-2. Read `docs/architecture.md`.
-3. Inspect the current repository state.
-4. Identify the current implementation phase.
-5. Implement only the requested phase unless a small prerequisite is necessary.
-6. Run relevant tests and linting.
-7. Summarize:
-   - files changed
-   - tests run
-   - unresolved assumptions
-   - next roadmap issue and its unmet dependencies
-
-If real Finary behavior conflicts with the documentation, preserve the downstream contract and adapt the bridge.
+- Preserve unrelated work and do not rewrite user changes.
+- Prefer one coherent commit per change.
+- Do not commit, push, open a pull request, tag, or publish a release unless the
+  user explicitly asks.
+- Never weaken validation or security controls merely to make a check pass.
+- Report files changed, commands and results, assumptions, and remaining
+  operational or release blockers.

@@ -1,4 +1,4 @@
-"""Tests for Phase 3 snapshot orchestration."""
+"""Tests for normalized snapshot orchestration."""
 
 from __future__ import annotations
 

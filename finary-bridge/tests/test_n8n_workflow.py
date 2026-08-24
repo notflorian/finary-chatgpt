@@ -1,4 +1,4 @@
-"""Executable and structural checks for the Phase 5 n8n workflow."""
+"""Executable and structural checks for the n8n synchronization workflow."""
 
 from __future__ import annotations
 

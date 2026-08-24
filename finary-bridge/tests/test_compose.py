@@ -1,4 +1,4 @@
-"""Credential-free structural checks for the canonical Phase 10 stack."""
+"""Credential-free structural checks for the canonical Compose stack."""
 
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ def test_repository_configuration_contains_no_live_secret_or_credential_binding(
     assert '"credentials"' not in workflows
 
 
-def test_canonical_daily_workflow_remains_inactive_after_migration() -> None:
+def test_canonical_daily_workflow_export_remains_inactive() -> None:
     workflow = json.loads(DAILY_PATH.read_text(encoding="utf-8"))
 
     assert workflow["name"] == "Finary - Daily Sync"

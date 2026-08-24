@@ -1,4 +1,4 @@
-"""Regression checks for the Phase 8 accepted authentication boundary."""
+"""Regression checks for the protected authentication boundary."""
 
 from __future__ import annotations
 
@@ -83,14 +83,13 @@ def test_production_daily_workflow_remains_inactive() -> None:
     assert workflow["active"] is False
 
 
-def test_phase8_decision_and_security_boundary_are_documented() -> None:
-    investigation = (_REPOSITORY_ROOT / "docs/finary-authentication-investigation.md").read_text(
-        encoding="utf-8"
-    )
+def test_session_security_boundary_is_documented() -> None:
+    architecture = (_REPOSITORY_ROOT / "docs/architecture.md").read_text(encoding="utf-8")
+    operations = (_REPOSITORY_ROOT / "docs/operations.md").read_text(encoding="utf-8")
 
-    assert "Outcome A: secure persisted Clerk session accepted" in investigation
-    assert "Clerk session identifier" in investigation
-    assert "production `__client` cookie" in investigation
-    assert "does not persist that JWT" in investigation
-    assert "not backed up" in investigation
-    assert "remaining production activation\ngates still apply" in investigation
+    assert "Clerk session identifier" in architecture
+    assert "production `__client` cookie" in architecture
+    assert "bearer JWTs remain in memory" in architecture
+    assert "session file uses mode\n`0600`" in architecture
+    assert "Do **not** back up `finary_session_data`" in operations
+    assert "fresh interactive Finary bootstrap" in operations

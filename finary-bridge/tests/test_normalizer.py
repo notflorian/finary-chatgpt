@@ -1,4 +1,4 @@
-"""Fixture-based tests for deterministic Phase 3 normalization."""
+"""Fixture-based tests for deterministic portfolio normalization."""
 
 from __future__ import annotations
 
