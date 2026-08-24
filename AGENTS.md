@@ -721,8 +721,10 @@ to GitHub issues #13–#19 and are the authoritative next work:
 7. #18 — the protected live schedule was published after all four stable checks
    were green and activation was explicitly approved. Its first natural
    execution passed the production acceptance audit.
-8. #19 — connect ChatGPT to the validated workbook after the Phase 12 PR is
-   merged; do not begin it as part of Phase 12.
+8. #19 — accepted: ChatGPT authorized Google Drive independently from n8n,
+   read the canonical private workbook README, passed the semantic matrix, and
+   passed the disconnect/reconnect independence check. Close through the Phase
+   13 PR after review and merge.
 
 These cross-cutting issues are operational milestones, not permission to weaken
 the existing contracts. Preserve these gates:
@@ -752,8 +754,9 @@ the existing contracts. Preserve these gates:
   bounded by upstream session expiry. Rejected state must be cleared and return
   `FINARY_AUTH_FAILED`; manual MFA is then required again.
 - Phase 12 satisfied CI readiness and explicit activation approval before
-  enabling the daily trigger. The first natural execution was accepted; merge
-  the Phase 12 PR before beginning #19.
+  enabling the daily trigger. The first natural execution was accepted and PR
+  #29 is merged. Phase 13 accepted the actual ChatGPT-side connection, query
+  matrix, and access-independence check without weakening the consumer boundary.
 - Preserve the Phase 11 CI boundary: GitHub-hosted runners only, `contents: read`,
   full-SHA action pins, explicit Python and Node patch pins, no
   `pull_request_target`, no production secrets, and no live-test flags.
@@ -766,6 +769,38 @@ the existing contracts. Preserve these gates:
   ephemeral `--network none` container without executing or activating it.
 - Configure ChatGPT/Google Drive consumption only after a valid workbook state
   exists; never expose Finary credentials or private upstream payloads.
+
+### Phase 13 final consumer boundary
+
+- ChatGPT reads only the private normalized workbook through its own
+  user-authorized Google Drive connection. Never reuse or export n8n's Google
+  credential, tokens, client secret, credential database, or encryption key.
+- The personal ChatGPT surface verified on 2026-08-22 does not expose Google
+  Drive inside the custom GPT. Configure a private ChatGPT Project instead:
+  keep behavioral rules in Project Instructions, add the policy and workbook
+  interpretation guide as Project references, and add the live canonical
+  workbook as a Google Drive Project source. Project Drive access is on demand,
+  not pre-synced. Do not treat a static workbook upload as current state.
+- Treat this as a scoped product-surface observation. Do not claim that every
+  managed workspace lacks Apps in custom GPTs, and do not switch back to that
+  route without an explicit availability check and full semantic retest.
+- The currently documented ChatGPT Pro Google Drive authorization can cover
+  all Drive files, not one workbook. Do not claim per-file technical isolation;
+  intentionally use only `Finary Portfolio Data` and keep it private.
+- Read the workbook `README` before financial tables. Current accounts and
+  positions require `is_active = TRUE`; blank means unknown, never zero.
+- `gross_assets_eur` is authoritative. Never add position values to accounts
+  or describe partial known-EUR position coverage as the full portfolio.
+- `liability_coverage` controls liability and net-worth validity. Under
+  `PARTIAL` or `UNAVAILABLE`, retained liability rows are last-known complete
+  state and net worth is unknown.
+- Select the newest valid synchronization by `completed_at` among `SUCCESS`
+  and `SUCCESS_WITH_WARNINGS`; a later `FAILED` row does not replace it.
+- Valuation change is not investment performance unless external cashflows are
+  complete enough to separate contributions and withdrawals.
+- Do not expose raw/private integration material, unrestricted logs, or runtime
+  identifiers. No custom MCP, plugin, proxy, webhook, or public workbook is
+  part of the current architecture.
 
 ## What not to implement initially
 

@@ -108,8 +108,17 @@ Required initialized entries include:
 | `unavailable_liability_rule` | `UNAVAILABLE means no authoritative liability collection` |
 | `last_known_liability_rule` | `liabilities_current may contain last-known COMPLETE data` |
 | `allocation_rule` | `allocation percentages exclude liabilities and use only known-EUR active positions` |
+| `last_success_rule` | `the latest valid synchronization is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS` |
+| `performance_rule` | `valuation changes are not investment performance unless external cashflows are complete` |
 
 Synthetic example: `timezone | Europe/Paris | Business dates and schedules use Europe/Paris.`
+
+For current-state questions, select the valid `sync_runs` row with the newest
+`completed_at`; physical row order is not authoritative, and a later `FAILED`
+row does not advance freshness. Historical valuation changes may be described
+as valuation or composition changes, but not as investment returns unless the
+external `cashflows` data is complete enough to separate contributions and
+withdrawals.
 
 ## 5. `accounts_current`
 

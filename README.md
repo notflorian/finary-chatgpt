@@ -12,6 +12,10 @@ Phase 11 adds credential-free GitHub Actions quality gates; all four
 GitHub-hosted checks have been observed green. Phase 12 published the single
 live `Finary - Daily Sync` workflow after an explicit production preflight. Its
 first natural scheduled execution passed the full structural acceptance audit.
+Phase 13 connected ChatGPT to the private normalized workbook through a
+separate user-authorized Google Drive connection. The complete semantic matrix
+and the disconnect/reconnect independence check passed without exposing Finary
+or n8n credentials to ChatGPT.
 The live
 liability investigation could not prove complete coverage, so issue #23 makes
 schema `2.0` the canonical workbook and workflow contract. Phase 8 accepts
@@ -25,6 +29,21 @@ Phase 9's sanitized application acceptance evidence is recorded in
 sanitized live-stack migration evidence is recorded in
 [`docs/compose-migration.md`](docs/compose-migration.md). Phase 12's sanitized
 activation record is [`docs/production-activation.md`](docs/production-activation.md).
+The separate ChatGPT authorization, interpretation, and revocation procedure is
+[`docs/chatgpt-connection.md`](docs/chatgpt-connection.md).
+The English, text-forward Project reference is
+[`docs/finary-portfolio-data-knowledge.md`](docs/finary-portfolio-data-knowledge.md);
+it documents workbook semantics without duplicating live portfolio data or
+behavioral investment instructions.
+
+On the personal ChatGPT surface verified on 2026-08-22, custom GPTs do not
+expose the connected Google Drive app. The supported reusable configuration is
+therefore a private ChatGPT Project containing the behavioral instructions and
+two reference files, with the live workbook added as a Google Drive Project
+source. Drive content is accessed on demand inside the Project rather than
+pre-synced there. This observed limitation may differ by plan or workspace; see
+[`docs/chatgpt-connection.md`](docs/chatgpt-connection.md) for the scoped
+decision and setup.
 
 ## Prerequisites
 
@@ -192,8 +211,10 @@ snapshot, one inactive manual synchronization, workbook integrity checks, and
 credential-free lifecycle/recovery tests. Phase 12 published the protected live
 schedule after a second successful inactive manual preflight. The first natural
 scheduled execution then passed the same schema, idempotency, null-semantics,
-manual-sheet, and last-known-valid-state checks. Issue #19 remains the next step
-after issue #18's activation PR is merged.
+manual-sheet, and last-known-valid-state checks. Phase 13 then accepted the
+separate ChatGPT Google Drive connection and semantic matrix. Production
+synchronization continues independently through n8n; ChatGPT receives only
+normalized workbook data.
 Phase 7 reached
 [Outcome B](docs/liability-coverage-investigation.md): neither `finary_uapi`
 0.2.3 nor the additional organization-scoped traffic evidence proves a complete
@@ -219,7 +240,7 @@ issue numbers are #13–#19:
 5. [Migrate the live stack to repository Docker Compose (#16)](https://github.com/notflorian/finary-chatgpt/issues/16): accepted; the repository Compose project now owns all three live services and persistent n8n state.
 6. [Add CI quality gates (#17)](https://github.com/notflorian/finary-chatgpt/issues/17): implemented; all four GitHub-hosted checks have been observed green.
 7. [Activate production synchronization safely (#18)](https://github.com/notflorian/finary-chatgpt/issues/18): live schedule published and first natural execution accepted; completion is recorded by the Phase 12 PR.
-8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19), next after the Phase 12 PR is merged.
+8. [Connect ChatGPT to the validated workbook (#19)](https://github.com/notflorian/finary-chatgpt/issues/19): accepted; ChatGPT read the canonical private workbook and passed the semantic and access-independence checks.
 
 Issue #13 remains an evidence-backed Outcome B and an explicit limitation of
 liability/net-worth analysis. Schema 2.0 allows truthful asset synchronization
@@ -227,13 +248,21 @@ without weakening that limitation. The
 Phase 9 prerequisite investigation confirmed that the organization-scoped
 overview and credits surfaces are callable, but every membership returned an
 empty credit collection and no representative record or complete-zero contract.
-Issue #14 resolves the routine restart-authentication blocker without enabling
-the schedule. Schema `2.0` is the inactive canonical path and passed protected
-workbook migration and same-day idempotency acceptance.
+Issue #14 resolved the routine restart-authentication blocker before
+production activation. Schema `2.0` is the active canonical path and passed
+protected workbook migration, same-day idempotency, and scheduled acceptance.
 Persisted Clerk state is allowed only in the minimal protected bridge store;
 never persist TOTP secrets, backup codes, one-time MFA codes, or bearer JWTs,
 and never interpret empty nested `loans` arrays as zero liabilities. ChatGPT
 must never receive Finary credentials or raw private API payloads.
+
+ChatGPT must read the workbook `README` first, filter current rows by
+`is_active = TRUE`, treat blanks as unknown, use authoritative gross assets
+rather than adding positions, qualify known-EUR allocation coverage, and state
+net worth only when liability coverage is `COMPLETE`. The newest valid
+synchronization is selected by `completed_at` across `SUCCESS` and
+`SUCCESS_WITH_WARNINGS`; valuation changes are not investment performance
+without sufficiently complete external cashflows.
 
 The Google Sheets schema is documented in
 [`docs/google-sheets-schema.md`](docs/google-sheets-schema.md). Its canonical,

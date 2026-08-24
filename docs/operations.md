@@ -29,8 +29,12 @@ is accepted; sanitized evidence is recorded in `compose-migration.md`. CI
 [#17](https://github.com/notflorian/finary-chatgpt/issues/17) is implemented;
 all four GitHub-hosted checks have been observed green. Production activation
 [#18](https://github.com/notflorian/finary-chatgpt/issues/18) passed its live
-activation checks and is completed by merging its PR. ChatGPT connection
-[#19](https://github.com/notflorian/finary-chatgpt/issues/19) follows that merge.
+activation checks and was completed by merging PR #29. ChatGPT connection
+[#19](https://github.com/notflorian/finary-chatgpt/issues/19) is accepted:
+ChatGPT's separate Google authorization located the private canonical workbook,
+read its README, passed the semantic matrix, and passed the disconnect/reconnect
+independence check. Close the issue through the Phase 13 PR after review and
+merge.
 
 ## Start and verify the local stack
 
@@ -244,6 +248,35 @@ Treat synchronization as stale when no `SUCCESS` or `SUCCESS_WITH_WARNINGS` has
 completed for more than 48 hours while the host is expected to be online. Do
 not fabricate portfolio updates during a stale period; inspect service health,
 authentication, Google access, execution state, and telemetry instead.
+
+## ChatGPT Google connection operations
+
+Follow [`chatgpt-connection.md`](chatgpt-connection.md). ChatGPT uses its own
+user-authorized Google Drive app; it must never receive or reuse the n8n Google
+Sheets credential. Keep the workbook private. Current ChatGPT Pro Google Drive
+sync authorization may cover all Drive files rather than one workbook, so
+select only **Finary Portfolio Data** for this integration and do not claim
+technical per-file restriction when the authorization screen does not offer it.
+
+Before answering a current portfolio question, select the newest
+`sync_runs.completed_at` whose status is `SUCCESS` or
+`SUCCESS_WITH_WARNINGS`. A later `FAILED` row does not advance freshness. Warn
+and stop presenting state as current when that completion is older than 48
+hours while production should be running.
+
+To revoke ChatGPT access, disconnect Google Drive in ChatGPT's Apps settings
+and optionally revoke the ChatGPT/OpenAI grant in the Google account's
+third-party access controls. Do not change the n8n credential,
+`N8N_ENCRYPTION_KEY`, Finary session, workbook sharing, or schedule. Confirm the
+live workflow stays published and healthy. Reconnect through ChatGPT's own
+Google OAuth flow, select the canonical workbook, read its `README`, and rerun
+the basic last-success semantic check. UI labels may vary by product version.
+
+ChatGPT receives only normalized workbook tables. Never upload runtime logs,
+`.env`, expanded Compose output, n8n databases/exports, OAuth material, Clerk
+state, Finary credentials, MFA material, raw upstream payloads, or workbook
+identifiers for troubleshooting. Disconnecting ChatGPT is a read-side access
+change and must not interrupt the independent production pipeline.
 
 ## Failure recovery
 

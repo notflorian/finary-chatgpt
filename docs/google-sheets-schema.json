@@ -35,7 +35,9 @@
     {"key": "partial_liability_rule", "value": "PARTIAL records are not a complete debt set and are not written to liabilities_current", "description": "Only COMPLETE coverage may modify liabilities_current."},
     {"key": "unavailable_liability_rule", "value": "UNAVAILABLE means no authoritative liability collection", "description": "Gross assets remain analyzable while liability and net-worth totals remain blank."},
     {"key": "last_known_liability_rule", "value": "liabilities_current may contain last-known COMPLETE data", "description": "PARTIAL or UNAVAILABLE asset snapshots preserve the last-known complete liability state."},
-    {"key": "allocation_rule", "value": "allocation percentages exclude liabilities and use only known-EUR active positions", "description": "Allocation may describe partial known-EUR coverage."}
+    {"key": "allocation_rule", "value": "allocation percentages exclude liabilities and use only known-EUR active positions", "description": "Allocation may describe partial known-EUR coverage."},
+    {"key": "last_success_rule", "value": "the latest valid synchronization is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS", "description": "A later FAILED row does not replace the latest valid synchronization."},
+    {"key": "performance_rule", "value": "valuation changes are not investment performance unless external cashflows are complete", "description": "Contributions and withdrawals must be separable before a valuation change may be described as investment performance."}
   ],
   "enums": {
     "asset_class": ["EQUITY", "BOND", "CASH", "REAL_ESTATE", "SCPI", "PRIVATE_EQUITY", "CRYPTO", "COMMODITY", "LIFE_INSURANCE_FUND", "OTHER"],
