@@ -1,4 +1,4 @@
-"""Structural and executable checks for Phase 6 operations."""
+"""Structural and executable checks for production operations."""
 
 from __future__ import annotations
 

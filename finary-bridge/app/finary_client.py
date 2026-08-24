@@ -496,7 +496,7 @@ class FinaryApiClient:
             "Accept-Encoding": "identity",
             "Origin": _APP_ROOT,
             "Referer": _APP_ROOT,
-            "User-Agent": "finary-bridge/0.1.0",
+            "User-Agent": "finary-bridge/1.0.0",
         }
         try:
             response = self._session.post(
@@ -617,7 +617,7 @@ class FinaryApiClient:
             "Accept-Encoding": "identity",
             "Origin": _APP_ROOT,
             "Referer": _APP_ROOT,
-            "User-Agent": "finary-bridge/0.1.0",
+            "User-Agent": "finary-bridge/1.0.0",
         }
         try:
             response = self._session.post(

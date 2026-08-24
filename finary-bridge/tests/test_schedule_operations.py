@@ -1,3 +1,5 @@
+"""Checks for safe workflow scheduling and operational controls."""
+
 import json
 from pathlib import Path
 
@@ -28,13 +30,11 @@ def test_repository_workflow_stays_safe_to_import() -> None:
     )
 
 
-def test_activation_document_preserves_operational_gates() -> None:
-    record = (REPOSITORY_ROOT / "docs/production-activation.md").read_text()
+def test_operations_document_preserves_schedule_controls() -> None:
     operations = (REPOSITORY_ROOT / "docs/operations.md").read_text()
 
-    assert "first natural scheduled execution passed acceptance" in record
-    assert "repository export remains inactive" in record
-    assert "then begin issue #19 as a separate scope" in record
+    assert "repository workflow exports are inactive for safe import" in operations
+    assert "07:30 `Europe/Paris`" in operations
     assert "unpublish:workflow" in operations
-    assert "more than 48 hours" in operations
+    assert "older than 48 hours" in operations
     assert "docker compose down -v" in operations

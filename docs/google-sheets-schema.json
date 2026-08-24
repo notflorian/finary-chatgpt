@@ -240,7 +240,7 @@
       ]
     },
     "cashflows": {
-      "purpose": "User-maintained external flows and transfers; no performance calculation is performed in Phase 4.",
+      "purpose": "User-maintained external flows and transfers; the application does not calculate investment performance.",
       "sheet_ownership": "manual",
       "unique_key": "cashflow_key",
       "update_behavior": "User-managed only; portfolio synchronization must never overwrite rows.",

@@ -1,11 +1,24 @@
 """Tests for local diagnostics endpoints."""
 
 import asyncio
+import tomllib
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
 
+from app.config import SERVICE_VERSION
 from app.main import app, get_finary_client
+
+BRIDGE_ROOT = Path(__file__).parents[1]
+
+
+def test_package_and_service_versions_agree() -> None:
+    project = tomllib.loads(
+        (BRIDGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+
+    assert project["project"]["version"] == SERVICE_VERSION == "1.0.0"
 
 
 def test_health_returns_expected_service_metadata() -> None:
@@ -24,7 +37,7 @@ def test_health_returns_expected_service_metadata() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "finary-bridge",
-        "version": "0.1.0",
+        "version": "1.0.0",
     }
 
 

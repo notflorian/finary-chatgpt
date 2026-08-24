@@ -1,4 +1,4 @@
-"""Contract tests for the Phase 4 Google Sheets schema definition."""
+"""Contract tests for the Google Sheets schema definition."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from app.models import Account, AssetClass, Liability, Position
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema.json"
-DOCUMENTATION_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema.md"
+DOCUMENTATION_PATH = REPOSITORY_ROOT / "docs" / "data-model.md"
 
 REQUIRED_SHEETS = (
     "README",
@@ -94,26 +94,6 @@ def _schema() -> dict[str, Any]:
 
 def _column_names(sheet: dict[str, Any]) -> list[str]:
     return [column["name"] for column in sheet["columns"]]
-
-
-def _documented_columns(markdown: str, sheet_name: str) -> list[str]:
-    section_marker = f"`{sheet_name}`"
-    section_start = next(
-        index
-        for index, line in enumerate(markdown.splitlines())
-        if line.startswith("## ") and section_marker in line
-    )
-    lines = markdown.splitlines()[section_start:]
-    table_start = next(
-        index for index, line in enumerate(lines) if line.startswith("| Column |")
-    )
-    rows: list[str] = []
-    for line in lines[table_start + 2 :]:
-        if not line.startswith("|"):
-            break
-        first_cell = line.split("|", maxsplit=2)[1].strip()
-        rows.append(first_cell.strip("`"))
-    return rows
 
 
 def test_required_sheets_and_order_are_canonical() -> None:
@@ -213,7 +193,7 @@ def test_nullable_eur_and_currency_fields_preserve_unknown_values() -> None:
     assert schema["null_cell"] == ""
 
 
-def test_phase_3_models_map_without_raw_metadata_columns() -> None:
+def test_stable_models_map_without_raw_metadata_columns() -> None:
     sheets = _schema()["sheets"]
     account_columns = set(_column_names(sheets["accounts_current"]))
     position_columns = set(_column_names(sheets["positions_current"]))
@@ -228,7 +208,7 @@ def test_phase_3_models_map_without_raw_metadata_columns() -> None:
         assert "metadata_json" not in names
 
 
-def test_phase_3_entity_nullability_matches_stable_models() -> None:
+def test_entity_nullability_matches_stable_models() -> None:
     schema = _schema()["sheets"]
     mappings = (
         (Account, schema["accounts_current"]),
@@ -246,15 +226,15 @@ def test_phase_3_entity_nullability_matches_stable_models() -> None:
 
 def test_category_aware_key_contract_is_documented() -> None:
     markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
+    compact_markdown = " ".join(markdown.split())
 
-    assert "source_asset_id = {position_kind}:{asset_id}" in markdown
+    assert "source_asset_id = {position_kind}:{asset_id}" in compact_markdown
     assert (
         "position_key = finary:{account_id}:asset:{position_kind}:{asset_id}"
-        in markdown
+        in compact_markdown
     )
-    assert "{snapshot_date}:{position_key}" in markdown
-    assert "securities:1001" in markdown
-    assert "cryptos:1001" in markdown
+    assert "{snapshot_date}:{position_key}" in compact_markdown
+    assert "equal numeric IDs" in compact_markdown
 
 
 def test_manual_enums_and_percentage_representation_are_complete() -> None:
@@ -300,12 +280,14 @@ def test_manual_enums_and_percentage_representation_are_complete() -> None:
     assert "`0.75` means 75%" in markdown
 
 
-def test_markdown_column_tables_match_canonical_schema() -> None:
+def test_data_model_documents_canonical_schema_without_field_duplication() -> None:
     schema = _schema()
     markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
+    compact_markdown = " ".join(markdown.split())
 
-    for sheet_name, sheet in schema["sheets"].items():
-        assert _documented_columns(markdown, sheet_name) == _column_names(sheet)
+    assert "single machine-readable source" in compact_markdown
+    for sheet_name in schema["sheets"]:
+        assert f"`{sheet_name}`" in markdown
 
 
 def test_definition_is_data_only_and_has_no_google_credentials() -> None:

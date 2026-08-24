@@ -1,4 +1,4 @@
-"""Shared anonymized Phase 2 fixtures for Phase 3 tests."""
+"""Shared anonymized Finary fixtures for normalization tests."""
 
 from __future__ import annotations
 
