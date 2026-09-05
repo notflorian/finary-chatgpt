@@ -216,7 +216,8 @@ tickers, or ISINs:
 - position key: `finary:{account_id}:asset:{position_kind}:{asset_id}`
 - history key: `{snapshot_date}:{position_key}`
 - daily portfolio key: `{snapshot_date}`
-- synchronization run ID: `YYYYMMDD-HHMMSS`
+- synchronization run ID: opaque `n8n-execution:{execution_id}` for current
+  runs; older timestamp-shaped IDs remain valid legacy strings
 
 The position kind is part of position identity because the same numeric asset ID
 may exist in different upstream categories. Preserve category-aware IDs exactly.
@@ -225,3 +226,6 @@ Business dates use `YYYY-MM-DD` in the `Europe/Paris` timezone. Timestamps are
 ISO 8601 with an explicit timezone offset. Parse timestamps as instants before
 comparison; do not treat an ambiguous local timestamp or lexical row order as
 chronological authority.
+
+Treat `run_id` as an opaque equality key. Never sort it, parse a timestamp from
+it, or reconstruct it from a business date.

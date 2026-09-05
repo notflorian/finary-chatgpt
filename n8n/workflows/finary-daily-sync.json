@@ -36,7 +36,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const now = new Date();\nconst parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(now).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));\nconst localMillis = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));\nconst offsetMinutes = Math.round((localMillis - now.getTime()) / 60000);\nconst sign = offsetMinutes >= 0 ? '+' : '-';\nconst absoluteOffset = Math.abs(offsetMinutes);\nconst offset = `${sign}${String(Math.floor(absoluteOffset / 60)).padStart(2, '0')}:${String(absoluteOffset % 60).padStart(2, '0')}`;\nconst localTimestamp = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;\nreturn [{ json: { run_id: `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}${parts.second}`, started_at: localTimestamp, started_epoch_ms: now.getTime() } }];"
+        "jsCode": "const now = new Date();\nconst parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(now).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));\nconst localMillis = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));\nconst offsetMinutes = Math.round((localMillis - now.getTime()) / 60000);\nconst sign = offsetMinutes >= 0 ? '+' : '-';\nconst absoluteOffset = Math.abs(offsetMinutes);\nconst offset = `${sign}${String(Math.floor(absoluteOffset / 60)).padStart(2, '0')}:${String(absoluteOffset % 60).padStart(2, '0')}`;\nconst localTimestamp = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;\nreturn [{ json: { run_id: `n8n-execution:${String($execution.id)}`, started_at: localTimestamp, started_epoch_ms: now.getTime() } }];"
       },
       "id": "10000000-0000-4000-8000-000000000003",
       "name": "Initialize Run",
@@ -883,7 +883,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "return $('Prepare Validated Rows').first().json.sync_run_rows.map((json) => ({ json }));"
+        "jsCode": "const prepared = $('Prepare Validated Rows').first().json;\nconst expectedRunId = `n8n-execution:${String($execution.id)}`;\nif (prepared.sync_run_rows[0]?.run_id !== expectedRunId) throw new Error('STALE_EXECUTION_IDENTITY');\nreturn prepared.sync_run_rows.map((json) => ({ json }));"
       },
       "id": "40000000-0000-4000-8000-000000000010",
       "name": "Select Success Run",

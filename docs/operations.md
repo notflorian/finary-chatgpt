@@ -134,6 +134,12 @@ be mapped reliably to old runs, so those rows are valuations rather than proven
 complete memberships. The first successful schema `2.1` run establishes a
 selectable complete state for its Europe/Paris date.
 
+Workbooks already on schema `2.1` need no column change for opaque execution
+identities. Import the corrected inactive workflow exports and keep existing
+timestamp-shaped `run_id` values unchanged; equality-based history selection
+continues to interpret them. New executions use the
+`n8n-execution:{execution_id}` form.
+
 ## n8n installation checklist
 
 After importing both JSON exports:
@@ -266,12 +272,21 @@ occurs after some upserts:
 2. identify the last completed write node and the affected `run_id`;
 3. verify manual sheets and last-known liability state were not altered;
 4. fix the underlying credential, quota, or header problem;
-5. rerun the same logical date manually;
+5. start a full new workflow execution for the same logical date;
 6. verify deterministic keys repaired rows without duplicates and that the
    successful run's history membership passes the count and daily-run checks;
-7. verify one terminal telemetry row remains for the run.
+7. verify one terminal telemetry row remains for the new run.
 
 Do not delete current or historical rows as a recovery shortcut.
+
+Sheets node retries configured inside a running execution retain its opaque
+`n8n-execution:{execution_id}` identity and are idempotent. The n8n action that
+retries a saved failed execution creates a new n8n execution but can reuse saved
+node output containing the old identity. The workflow blocks terminal success
+when it detects that mismatch. Use a full new workflow execution after a
+partial-write failure. Retrying only `Record Successful Sync` is safe when the
+execution had already completed every required portfolio write and reached that
+final node.
 
 ## Backup and restore
 

@@ -111,7 +111,10 @@ def test_required_sheets_and_order_are_canonical() -> None:
         "position_key": "finary:{account_id}:asset:{position_kind}:{asset_id}",
         "history_key": "{snapshot_date}:{position_key}",
         "portfolio_daily": "{snapshot_date}",
-        "run_id": "YYYYMMDD-HHMMSS",
+        "run_id": (
+            "opaque n8n-execution:{execution_id}; "
+            "legacy timestamp identifiers remain valid strings"
+        ),
     }
     assert [entry["key"] for entry in schema["readme_entries"]] == [
         "reference_currency",

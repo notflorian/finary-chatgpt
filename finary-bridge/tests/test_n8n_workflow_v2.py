@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +65,19 @@ def _run_validation(
             "Fetch Canonical Schema": [{"statusCode": 200, "body": schema}],
         },
         input_rows=[{"statusCode": 200, "body": snapshot}],
+    )[0]["json"]
+
+
+def _initialize_run(
+    workflow: dict[str, Any], *, execution_id: str, now: str
+) -> dict[str, Any]:
+    return _run_code_node(
+        workflow,
+        "Initialize Run",
+        named_rows={},
+        input_rows=[{}],
+        execution_id=execution_id,
+        now=now,
     )[0]["json"]
 
 
@@ -322,6 +336,249 @@ def test_success_marker_follows_history_and_daily_writes(
             [{"node": target, "type": "main", "index": 0}]
         ]
     assert "Record Successful Sync" not in workflow["connections"]
+
+
+@pytest.mark.parametrize(
+    ("first_time", "second_time"),
+    [
+        ("2026-09-05T12:00:00.100Z", "2026-09-05T12:00:00.900Z"),
+        ("2026-09-05T12:00:00.100Z", "2026-09-05T12:00:00.100Z"),
+        ("2026-10-25T00:30:00Z", "2026-10-25T01:30:00Z"),
+    ],
+)
+def test_initialize_run_uses_distinct_n8n_execution_identity(
+    workflow: dict[str, Any], first_time: str, second_time: str
+) -> None:
+    first = _initialize_run(workflow, execution_id="4101", now=first_time)
+    second = _initialize_run(workflow, execution_id="4102", now=second_time)
+
+    assert first["run_id"] == "n8n-execution:4101"
+    assert second["run_id"] == "n8n-execution:4102"
+    assert first["run_id"] != second["run_id"]
+
+
+def test_same_second_partial_rewrite_cannot_borrow_successful_completion(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    workbook = _empty_workbook()
+    first_run = _initialize_run(
+        workflow,
+        execution_id="4201",
+        now="2026-09-05T12:00:00.100Z",
+    )
+    first = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot("2026-09-05T14:00:00.100+02:00"),
+        workbook,
+        first_run["run_id"],
+    )
+    _apply_prepared_writes(
+        schema,
+        workbook,
+        first,
+        completed_at="2026-09-05T12:00:01Z",
+    )
+    selected = _latest_complete_position_state(workbook, "2026-09-05")
+    assert selected is not None
+    assert sum(row["market_value_eur"] for row in selected[1]) == 150.0
+
+    second_run = _initialize_run(
+        workflow,
+        execution_id="4202",
+        now="2026-09-05T12:00:00.900Z",
+    )
+    second = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot(
+            "2026-09-05T14:00:00.900+02:00",
+            first_value=110.0,
+        ),
+        workbook,
+        second_run["run_id"],
+    )
+    _apply_prepared_writes(schema, workbook, second, history_limit=1)
+
+    assert sum(row["market_value_eur"] for row in workbook["positions_history"]) == 160.0
+    assert workbook["portfolio_daily"][0]["gross_assets_eur"] == 150.0
+    assert _latest_complete_position_state(workbook, "2026-09-05") is None
+
+
+def test_execution_identity_propagates_to_rows_and_correlation(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    run = _initialize_run(
+        workflow,
+        execution_id="4301",
+        now="2026-09-05T12:10:00Z",
+    )
+    prepared = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot("2026-09-05T14:10:00+02:00"),
+        _empty_workbook(),
+        run["run_id"],
+    )
+
+    assert all(row["last_seen_run_id"] == run["run_id"] for row in prepared["account_rows"])
+    assert all(row["last_seen_run_id"] == run["run_id"] for row in prepared["position_rows"])
+    assert all(row["last_seen_run_id"] == run["run_id"] for row in prepared["liability_rows"])
+    assert all(row["run_id"] == run["run_id"] for row in prepared["history_rows"])
+    assert prepared["daily_rows"][0]["run_id"] == run["run_id"]
+    assert prepared["sync_run_rows"][0]["run_id"] == run["run_id"]
+
+    snapshot_node = _node(workflow, "Fetch Snapshot")
+    correlation = next(
+        header
+        for header in snapshot_node["parameters"]["headerParameters"]["parameters"]
+        if header["name"] == "X-Correlation-ID"
+    )
+    assert correlation["value"] == "={{ $('Initialize Run').first().json.run_id }}"
+
+
+def test_interleaved_executions_are_incomplete_until_fresh_recovery(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    workbook = _empty_workbook()
+    first = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot("2026-09-05T14:20:00+02:00"),
+        workbook,
+        _initialize_run(
+            workflow,
+            execution_id="4401",
+            now="2026-09-05T12:20:00Z",
+        )["run_id"],
+    )
+    second = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot(
+            "2026-09-05T14:20:01+02:00",
+            first_value=110.0,
+        ),
+        workbook,
+        _initialize_run(
+            workflow,
+            execution_id="4402",
+            now="2026-09-05T12:20:01Z",
+        )["run_id"],
+    )
+
+    workbook["positions_history"] = _upsert(
+        workbook["positions_history"],
+        first["history_rows"][:1],
+        schema["sheets"]["positions_history"]["unique_key"],
+    )
+    workbook["positions_history"] = _upsert(
+        workbook["positions_history"],
+        second["history_rows"][1:],
+        schema["sheets"]["positions_history"]["unique_key"],
+    )
+    workbook["portfolio_daily"] = _upsert(
+        workbook["portfolio_daily"],
+        first["daily_rows"],
+        schema["sheets"]["portfolio_daily"]["unique_key"],
+    )
+    workbook["sync_runs"] = _upsert(
+        workbook["sync_runs"],
+        first["sync_run_rows"],
+        schema["sheets"]["sync_runs"]["unique_key"],
+    )
+    assert _latest_complete_position_state(workbook, "2026-09-05") is None
+
+    workbook["portfolio_daily"] = _upsert(
+        workbook["portfolio_daily"],
+        second["daily_rows"],
+        schema["sheets"]["portfolio_daily"]["unique_key"],
+    )
+    workbook["sync_runs"] = _upsert(
+        workbook["sync_runs"],
+        second["sync_run_rows"],
+        schema["sheets"]["sync_runs"]["unique_key"],
+    )
+    assert _latest_complete_position_state(workbook, "2026-09-05") is None
+
+    recovery = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot(
+            "2026-09-05T14:30:00+02:00",
+            first_value=110.0,
+        ),
+        workbook,
+        _initialize_run(
+            workflow,
+            execution_id="4403",
+            now="2026-09-05T12:30:00Z",
+        )["run_id"],
+    )
+    _apply_prepared_writes(
+        schema,
+        workbook,
+        recovery,
+        completed_at="2026-09-05T12:31:00Z",
+    )
+    selected = _latest_complete_position_state(workbook, "2026-09-05")
+    assert selected is not None
+    assert selected[0]["run_id"] == "n8n-execution:4403"
+    assert {row["market_value_eur"] for row in selected[1]} == {110.0, 50.0}
+
+
+def test_repeating_prepared_writes_is_idempotent(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    workbook = _empty_workbook()
+    prepared = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot("2026-09-05T14:40:00+02:00"),
+        workbook,
+        _initialize_run(
+            workflow,
+            execution_id="4501",
+            now="2026-09-05T12:40:00Z",
+        )["run_id"],
+    )
+
+    _apply_prepared_writes(schema, workbook, prepared)
+    first_state = deepcopy(workbook)
+    _apply_prepared_writes(schema, workbook, prepared)
+
+    assert workbook == first_state
+
+
+def test_saved_data_retry_cannot_publish_stale_execution_identity(
+    workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    prepared = _prepare_for_run(
+        workflow,
+        schema,
+        _known_eur_snapshot("2026-09-05T14:50:00+02:00"),
+        _empty_workbook(),
+        "n8n-execution:4601",
+    )
+
+    matching = _run_code_node(
+        workflow,
+        "Select Success Run",
+        named_rows={"Prepare Validated Rows": [prepared]},
+        input_rows=[{}],
+        execution_id="4601",
+    )
+    assert matching[0]["json"]["run_id"] == "n8n-execution:4601"
+
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        _run_code_node(
+            workflow,
+            "Select Success Run",
+            named_rows={"Prepare Validated Rows": [prepared]},
+            input_rows=[{}],
+            execution_id="4602",
+        )
+    assert "STALE_EXECUTION_IDENTITY" in error.value.stderr
 
 
 def test_text_schema_full_response_shape_passes_validation(

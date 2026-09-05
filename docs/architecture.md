@@ -234,7 +234,8 @@ bootstrap.
 The daily workflow supports manual execution and a 07:30 `Europe/Paris`
 schedule. It:
 
-1. loads workbook schema `2.1` from the internal schema server;
+1. resolves one opaque `run_id` from n8n's persisted execution ID and loads
+   workbook schema `2.1` from the internal schema server;
 2. requests `/v2/snapshot`;
 3. validates schema, entities, keys, headers, and safety gates;
 4. reads and applies exact-match asset overrides;
@@ -252,11 +253,19 @@ is written last; partial Google Sheets writes can invalidate the prior same-day
 state, but the mismatch is detectable and a retry repairs deterministic keys.
 Manual sheets are never synchronization-owned.
 
+Native node retries stay inside the same n8n execution and retain its identity.
+A saved-data execution retry receives a new n8n execution ID but can retain
+earlier node output, so the workflow checks identity again immediately before
+publishing success. A stale saved identity cannot create a successful terminal
+marker; recovery then requires a full new execution, except when only the final
+terminal Sheets write itself is being retried after all required writes passed.
+
 Structured bridge failures stop before portfolio writes and may record sanitized
-failed telemetry. The linked error workflow handles uncaught n8n or Google
-Sheets failures without overwriting an existing terminal record for the same
-run. Both workflows use finite timeouts, and Sheets operations use bounded
-retries. Read nodes execute once to prevent quota amplification.
+failed telemetry. The linked error workflow derives correlation from the
+originating failed n8n execution supplied by the Error Trigger, never from the
+error workflow's own execution or wall-clock time. Both workflows use finite
+timeouts, and Sheets operations use bounded retries. Read nodes execute once to
+prevent quota amplification.
 
 ## Versioning
 

@@ -13,7 +13,7 @@
     "position_key": "finary:{account_id}:asset:{position_kind}:{asset_id}",
     "history_key": "{snapshot_date}:{position_key}",
     "portfolio_daily": "{snapshot_date}",
-    "run_id": "YYYYMMDD-HHMMSS"
+    "run_id": "opaque n8n-execution:{execution_id}; legacy timestamp identifiers remain valid strings"
   },
   "override_matching_precedence": ["source_asset_id", "isin", "ticker", "name_match"],
   "cashflow_sign_convention": {
@@ -260,10 +260,10 @@
       "purpose": "Append-oriented synchronization telemetry, not portfolio state.",
       "sheet_ownership": "derived",
       "unique_key": "run_id",
-      "update_behavior": "Append one terminal run record; retrying the same run_id updates that telemetry row only.",
+      "update_behavior": "Append one terminal record per originating n8n execution; native node retries retain that execution identity.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
-        {"name": "run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "sync run context; YYYYMMDD-HHMMSS"},
+        {"name": "run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "opaque originating n8n execution identity; legacy values remain valid"},
         {"name": "started_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
         {"name": "completed_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
         {"name": "status", "type": "ENUM", "nullable": false, "ownership": "derived", "source": "sync outcome"},
