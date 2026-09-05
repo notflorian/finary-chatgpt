@@ -24,6 +24,29 @@ Before changing code or documentation:
 4. Keep the requested scope narrow and preserve unrelated user changes.
 5. Run checks proportional to the change and inspect the final diff.
 
+### Start a new feature or bugfix
+
+Before implementation, prepare a dedicated branch from updated `main`:
+
+```bash
+git checkout main && git pull --ff-only && git switch -c codex/issue-<number>-<short-description>
+```
+
+- Replace the placeholders with the actual issue number and a concise English
+  kebab-case description. If no issue number is available, use
+  `codex/<short-description>`; never invent an issue number.
+- Check `git status --short` and the current branch first. Preserve local work;
+  do not automatically stash, discard, or commit changes to run this sequence.
+  If local changes or another worktree prevent safe preparation, report the
+  blocker before making implementation changes.
+- Continue an existing feature or bugfix on its existing branch. Do not restart
+  this sequence for follow-up messages on the same task. An explicit user
+  instruction to use another base or branch takes precedence.
+- Stop if checkout, pull, or branch creation fails. Do not reset a diverged
+  `main`, overwrite an existing branch, or proceed from a stale base.
+- Verify the new branch is checked out before editing. Use `git switch -c`
+  rather than `git branch -c`, which copies a branch without checking it out.
+
 ## Repository map
 
 ```text
