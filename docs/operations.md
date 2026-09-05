@@ -41,6 +41,70 @@ docker compose down
 Do not use `docker compose down -v` during routine operation. It deletes n8n
 state and the protected Finary session volume.
 
+### Automatic restart and its limits
+
+All three services use `restart: unless-stopped`. Docker restarts containers
+after an unexpected process exit and resumes running containers when the daemon
+returns. An intentional `docker compose stop finary-bridge` remains respected,
+including across daemon restarts; use `docker compose start finary-bridge` to
+resume it. `docker compose down` removes containers but preserves named volumes
+unless `-v` is supplied. See the official
+[Docker restart policy documentation](https://docs.docker.com/engine/containers/start-containers-automatically/),
+including the successful-start condition of at least 10 seconds of uptime.
+
+An `unhealthy` health check alone does not trigger this restart policy. Restarting
+does not repair revoked Finary credentials or guarantee a successful upstream
+synchronization. Compose's `service_healthy` dependencies gate Compose startup;
+they do not continuously enforce readiness or order daemon-driven recovery.
+Verify `/health`, the schema endpoint, and n8n's `/healthz` after recovery.
+
+To deploy only this policy change, an operator can run
+`docker compose up -d --no-deps finary-bridge` from the existing project. This
+may recreate the bridge and briefly interrupt requests, while reusing its
+`finary_session_data` volume and leaving `n8n_data` separate. A plain
+`docker compose restart` does not apply a changed Compose configuration.
+
+### Isolated recovery verification
+
+Never run failure injection against production. Use a unique Compose project
+name, a temporary configuration resolved with `--env-file /dev/null` and an
+explicit synthetic environment, fresh project-scoped volumes, and dynamically
+assigned localhost ports where supported (otherwise probe `/health` inside the
+container). Disable external network access for test containers; keep workflows
+inactive and use only local health endpoints. Do not mount any existing session
+or n8n volume or store sentinel data as a session file.
+
+1. Start the disposable bridge with the canonical image/build, health check,
+   and restart policy. Write a synthetic sentinel to its dedicated session
+   volume and another to the separate test n8n volume using a network-disabled
+   helper. Record the container ID and `RestartCount` with `docker inspect`.
+2. Wait for `/health` and at least 10 seconds of continuous container uptime.
+   Through `docker compose --env-file /dev/null -p "$test_project"
+   -f "$test_config" exec -T finary-bridge`, execute
+   `python -c 'import os, signal; os.kill(1, signal.SIGTERM)'` to terminate PID 1
+   from inside the container. Uvicorn handles `SIGTERM` and exits without
+   Docker marking it as an operator stop. Do not use `compose restart` or an
+   operator stop as a process-exit simulation.
+3. Within 60 seconds, require the same container ID, an increased restart count,
+   and a successful `/health` response. Read and compare both sentinels.
+4. Run `docker compose --env-file /dev/null -p "$test_project"
+   -f "$test_config" stop finary-bridge`.
+   Observe for 15 seconds and require that the container stays stopped with no
+   restart-count increase. Read both sentinels using network-disabled helpers
+   attached only to their respective disposable volumes.
+5. Test daemon/host recovery only on a dedicated disposable daemon or VM. Start
+   the test services, wait for health and 10 seconds of uptime, then restart
+   that daemon/VM. Check local service availability and both sentinels. Repeat
+   with the bridge intentionally stopped and require it to stay stopped. A
+   unique project does not authorize restarting a shared daemon or host.
+6. Clean up only the disposable project's containers, network, volumes, helper
+   containers, and temporary files. Scope every command to the recorded test
+   project/resources; never prune or remove production volumes.
+
+Configuration checks, process-exit recovery, and daemon/host recovery are
+separate evidence. Health and sentinel checks do not prove synchronization;
+any additional snapshot/workflow test must use fake upstreams and a Sheets stub.
+
 ## Required runtime configuration
 
 Keep `.env` mode-restricted and outside version control. The important

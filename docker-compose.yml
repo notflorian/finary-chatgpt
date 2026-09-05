@@ -2,6 +2,7 @@ services:
   finary-bridge:
     build:
       context: ./finary-bridge
+    restart: unless-stopped
     environment:
       FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
       FINARY_EMAIL: ${FINARY_EMAIL:-}
