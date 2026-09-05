@@ -25,7 +25,7 @@ Before connecting ChatGPT:
 
 - the daily synchronization has produced at least one `SUCCESS` or
   `SUCCESS_WITH_WARNINGS` row;
-- the workbook headers match schema `2.0`;
+- the workbook headers match schema `2.1`;
 - the workbook contains no Finary credentials, cookies, tokens, or raw payloads;
 - Google sharing is restricted to the intended user or workspace;
 - you have a personal investment policy suitable for use as the primary
@@ -91,14 +91,17 @@ For a portfolio-wide question, ChatGPT should:
    state;
 4. use `portfolio_daily.gross_assets_eur` as the authoritative gross-assets
    total;
-5. treat blank currency and numeric cells as unknown, never zero;
-6. interpret `liabilities_eur` and `net_worth_eur` only when liability coverage
+5. for the selected date, take `portfolio_daily.run_id`, require its matching
+   successful `sync_runs` row, then select same-date history rows with that
+   `run_id` and verify their count and unique position keys;
+6. treat blank currency and numeric cells as unknown, never zero;
+7. interpret `liabilities_eur` and `net_worth_eur` only when liability coverage
    is `COMPLETE`;
-7. describe allocation figures as the known-EUR active-position subset when
+8. describe allocation figures as the known-EUR active-position subset when
    `PARTIAL_POSITION_EUR_COVERAGE` is present;
-8. apply enabled manual targets and overrides according to their documented
+9. apply enabled manual targets and overrides according to their documented
    semantics;
-9. distinguish valuation history from investment performance, especially when
+10. distinguish valuation history from investment performance, especially when
    cashflows are incomplete.
 
 With incomplete liability coverage, liabilities and net worth are unknown, not

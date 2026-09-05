@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "workbook_name": "Finary Portfolio Data",
   "timezone": "Europe/Paris",
   "reference_currency": "EUR",
@@ -13,7 +13,7 @@
     "position_key": "finary:{account_id}:asset:{position_kind}:{asset_id}",
     "history_key": "{snapshot_date}:{position_key}",
     "portfolio_daily": "{snapshot_date}",
-    "run_id": "YYYYMMDD-HHMMSS"
+    "run_id": "opaque n8n-execution:{execution_id}; legacy timestamp identifiers remain valid strings"
   },
   "override_matching_precedence": ["source_asset_id", "isin", "ticker", "name_match"],
   "cashflow_sign_convention": {
@@ -25,7 +25,7 @@
     {"key": "reference_currency", "value": "EUR", "description": "All explicitly EUR-normalized workbook values use EUR."},
     {"key": "timezone", "value": "Europe/Paris", "description": "Business dates and schedules use Europe/Paris."},
     {"key": "current_state_rule", "value": "_current sheets contain the latest known valid state, including retained inactive rows", "description": "Inactive current rows are retained rather than deleted."},
-    {"key": "history_rule", "value": "positions_history contains daily position snapshots", "description": "Same-date deterministic keys are updated; later dates create rows."},
+    {"key": "history_rule", "value": "positions_history rows belong to the successful run_id that wrote them", "description": "For a date, take portfolio_daily.run_id, require its successful terminal sync_runs row, then select only matching history rows and verify positions_count and unique position_key values before treating membership as complete."},
     {"key": "override_rule", "value": "asset_overrides is authoritative over automatic classification", "description": "Enabled exact-match overrides determine final classification."},
     {"key": "null_rule", "value": "blank means unknown or unavailable; blank never means zero", "description": "Numeric nulls are empty cells, not text or zero placeholders."},
     {"key": "eur_rule", "value": "position EUR fields exist only with verified EUR provenance", "description": "No display-field inference or speculative conversion is allowed."},
@@ -36,7 +36,7 @@
     {"key": "unavailable_liability_rule", "value": "UNAVAILABLE means no authoritative liability collection", "description": "Gross assets remain analyzable while liability and net-worth totals remain blank."},
     {"key": "last_known_liability_rule", "value": "liabilities_current may contain last-known COMPLETE data", "description": "PARTIAL or UNAVAILABLE asset snapshots preserve the last-known complete liability state."},
     {"key": "allocation_rule", "value": "allocation percentages exclude liabilities and use only known-EUR active positions", "description": "Allocation may describe partial known-EUR coverage."},
-    {"key": "last_success_rule", "value": "the latest valid synchronization is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS", "description": "A later FAILED row does not replace the latest valid synchronization."},
+    {"key": "last_success_rule", "value": "the latest valid synchronization is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS", "description": "A later FAILED row does not replace the latest valid synchronization, but history cardinality and portfolio_daily.run_id must still match that successful run."},
     {"key": "performance_rule", "value": "valuation changes are not investment performance unless external cashflows are complete", "description": "Contributions and withdrawals must be separable before a valuation change may be described as investment performance."}
   ],
   "enums": {
@@ -137,10 +137,10 @@
       ]
     },
     "positions_history": {
-      "purpose": "Date-scoped immutable-retention history of normalized positions.",
+      "purpose": "Date-scoped retained history with explicit successful-run membership.",
       "sheet_ownership": "automated",
       "unique_key": "history_key",
-      "update_behavior": "Upsert the same date and position_key; create a new row on a later date.",
+      "update_behavior": "Upsert the same date and position_key with the current run_id; create a new row on a later date.",
       "deletion_behavior": "Never delete historical rows.",
       "columns": [
         {"name": "history_key", "type": "STRING", "nullable": false, "ownership": "derived", "source": "{snapshot_date}:{Position.position_key}"},
@@ -159,7 +159,8 @@
         {"name": "currency", "type": "STRING", "nullable": true, "ownership": "automated", "source": "Position.currency"},
         {"name": "fx_to_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Position.fx_to_eur"},
         {"name": "market_value_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Position.market_value_eur"},
-        {"name": "cost_basis_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Position.cost_basis_eur"}
+        {"name": "cost_basis_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Position.cost_basis_eur"},
+        {"name": "run_id", "type": "STRING", "nullable": true, "ownership": "derived", "source": "sync run context; blank only on legacy rows written before schema 2.1"}
       ]
     },
     "portfolio_daily": {
@@ -259,10 +260,10 @@
       "purpose": "Append-oriented synchronization telemetry, not portfolio state.",
       "sheet_ownership": "derived",
       "unique_key": "run_id",
-      "update_behavior": "Append one terminal run record; retrying the same run_id updates that telemetry row only.",
+      "update_behavior": "Append one terminal record per originating n8n execution; native node retries retain that execution identity.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
-        {"name": "run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "sync run context; YYYYMMDD-HHMMSS"},
+        {"name": "run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "opaque originating n8n execution identity; legacy values remain valid"},
         {"name": "started_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
         {"name": "completed_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
         {"name": "status", "type": "ENUM", "nullable": false, "ownership": "derived", "source": "sync outcome"},

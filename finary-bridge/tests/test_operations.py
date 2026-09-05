@@ -54,13 +54,20 @@ const $input = {{ all: () => inputRows.map((json) => ({{ json }})) }};
     return json.loads(completed.stdout)[0]["json"]
 
 
-def _trigger(message: str, step: str = "Read Current Positions") -> dict[str, Any]:
+def _trigger(
+    message: str,
+    step: str = "Read Current Positions",
+    *,
+    execution_id: str = "execution-42",
+    retry_of: str | None = None,
+) -> dict[str, Any]:
     return {
         "execution": {
-            "id": "execution-42",
+            "id": execution_id,
             "error": {"message": message, "stack": "private stack"},
             "lastNodeExecuted": step,
             "mode": "trigger",
+            "retryOf": retry_of,
         },
         "workflow": {"id": "daily", "name": "Finary - Daily Sync"},
     }
@@ -169,6 +176,41 @@ def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures() -
     result = _run_error_classifier(_trigger("failure"), existing)
     assert result["should_record"] is False
     assert result["diagnostics"]["last_success_at"] == ("2026-08-20T08:00:00+02:00")
+
+
+def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identity() -> None:
+    existing = [
+        {
+            "run_id": "n8n-execution:original-41",
+            "status": "SUCCESS",
+            "completed_at": "2026-09-05T12:00:00Z",
+        }
+    ]
+    result = _run_error_classifier(
+        _trigger(
+            "synthetic retry failure",
+            execution_id="retry-42",
+            retry_of="original-41",
+        ),
+        existing,
+    )
+
+    assert result["row"]["run_id"] == "n8n-execution:retry-42"
+    assert result["diagnostics"]["execution_id"] == "retry-42"
+    assert result["should_record"] is True
+    persisted = {row["run_id"]: row for row in existing}
+    persisted[result["row"]["run_id"]] = result["row"]
+    assert persisted["n8n-execution:original-41"]["status"] == "SUCCESS"
+    assert persisted["n8n-execution:retry-42"]["status"] == "FAILED"
+
+
+def test_error_workflow_refuses_missing_source_execution_identity() -> None:
+    trigger = _trigger("synthetic failure")
+    del trigger["execution"]["id"]
+
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        _run_error_classifier(trigger, [])
+    assert "SOURCE_EXECUTION_ID_UNAVAILABLE" in error.value.stderr
 
 
 def test_compose_defines_persistent_local_operational_services() -> None:

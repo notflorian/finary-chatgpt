@@ -19,7 +19,7 @@ interpret it.
 
 ## Workbook tabs
 
-The canonical schema version is `2.0` and contains exactly these ten tabs:
+The canonical workbook schema version is `2.1` and contains exactly these ten tabs:
 
 - `README`: human- and machine-readable interpretation rules for the workbook.
 - `accounts_current`: latest known valid normalized accounts, including
@@ -29,7 +29,8 @@ The canonical schema version is `2.0` and contains exactly these ten tabs:
 - `liabilities_current`: last authoritative liability rows obtained with
   `COMPLETE` liability coverage; it may be empty or older than current assets.
 - `positions_history`: daily position valuations. A position has at most one
-  row per Europe/Paris business date.
+  row per Europe/Paris business date, and `run_id` identifies its snapshot
+  membership.
 - `portfolio_daily`: one daily portfolio summary, including authoritative gross
   assets, liability coverage, nullable liability-dependent totals, and
   analytical position breakdowns.
@@ -50,11 +51,20 @@ timestamps, not physical row order and not `run_id` ordering. A later `FAILED`
 row does not replace the latest valid synchronization and does not advance data
 freshness.
 
-Use the selected run's `run_id` to relate current and daily data where
-applicable. If rows appear to mix different runs, disclose the inconsistency
-instead of silently combining them. When daily production is expected, a
-latest valid run older than 48 hours is stale. State the completion time and
-freshness limitation before using stale data for a current-state conclusion.
+For a complete position state on a given Europe/Paris date, start with its
+single `portfolio_daily` row. Require exactly one `sync_runs` row with the same
+`run_id`, a status of `SUCCESS` or `SUCCESS_WITH_WARNINGS`, and a parseable
+`completed_at`. Keep only `positions_history` rows with that date and `run_id`.
+Use the state only if the row count equals `sync_runs.positions_count` and
+position keys are unique. If any check fails, report that date as unusable
+until a successful retry; do not combine rows from another run. When daily
+production is expected, a latest valid run older than 48 hours is stale. State
+the completion time and freshness limitation before using stale data.
+
+A missing position has no row in the selected run membership. Its retained
+same-date row may belong to an older run and must be excluded; absence never
+means a zero valuation. Rows with blank `run_id` predate schema `2.1` and are
+legacy valuations whose complete membership cannot be established.
 
 ## Synchronization statuses and warnings
 
@@ -206,7 +216,8 @@ tickers, or ISINs:
 - position key: `finary:{account_id}:asset:{position_kind}:{asset_id}`
 - history key: `{snapshot_date}:{position_key}`
 - daily portfolio key: `{snapshot_date}`
-- synchronization run ID: `YYYYMMDD-HHMMSS`
+- synchronization run ID: opaque `n8n-execution:{execution_id}` for current
+  runs; older timestamp-shaped IDs remain valid legacy strings
 
 The position kind is part of position identity because the same numeric asset ID
 may exist in different upstream categories. Preserve category-aware IDs exactly.
@@ -215,3 +226,6 @@ Business dates use `YYYY-MM-DD` in the `Europe/Paris` timezone. Timestamps are
 ISO 8601 with an explicit timezone offset. Parse timestamps as instants before
 comparison; do not treat an ambiguous local timestamp or lexical row order as
 chronological authority.
+
+Treat `run_id` as an opaque equality key. Never sort it, parse a timestamp from
+it, or reconstruct it from a business date.

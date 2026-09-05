@@ -67,7 +67,7 @@ Do not add new top-level structure without a clear architectural reason.
 - `curl-cffi` inside the Finary adapter
 - pytest, Ruff, mypy
 - self-hosted n8n using standard nodes
-- Google Sheets schema `2.0`
+- Google Sheets schema `2.1`
 - `Europe/Paris` schedules and business dates
 - ISO 8601 timestamps with explicit timezone offsets
 

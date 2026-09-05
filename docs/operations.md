@@ -111,6 +111,35 @@ print("Finary session cleared")
 
 Then run the bootstrap command again.
 
+## Workbook schema 2.1 migration
+
+Schema `2.1` adds the nullable `run_id` column at the end of
+`positions_history`. Existing rows must not be assigned invented membership.
+Migrate an existing schema `2.0` workbook offline as follows:
+
+1. unpublish the daily workflow and take an access-controlled workbook backup;
+2. append the `run_id` header after `cost_basis_eur` in `positions_history`;
+3. leave every existing value in that new column blank;
+4. update the `history_rule` and `last_success_rule` rows in the workbook
+   `README` tab from `docs/google-sheets-schema.json`;
+5. import the schema `2.1` workflow exports and restore their Google credential
+   bindings;
+6. run one manual synchronization and verify that its history row count equals
+   `sync_runs.positions_count` and that history and `portfolio_daily` carry the
+   successful `run_id`;
+7. publish the schedule only after that verification succeeds.
+
+Legacy history remains physically intact. Blank legacy `run_id` values cannot
+be mapped reliably to old runs, so those rows are valuations rather than proven
+complete memberships. The first successful schema `2.1` run establishes a
+selectable complete state for its Europe/Paris date.
+
+Workbooks already on schema `2.1` need no column change for opaque execution
+identities. Import the corrected inactive workflow exports and keep existing
+timestamp-shaped `run_id` values unchanged; equality-based history selection
+continues to interpret them. New executions use the
+`n8n-execution:{execution_id}` form.
+
 ## n8n installation checklist
 
 After importing both JSON exports:
@@ -134,10 +163,12 @@ remain hidden until that branch executes.
 After a manual execution, inspect the terminal `sync_runs` row and workbook:
 
 - status is `SUCCESS` or `SUCCESS_WITH_WARNINGS`;
-- `schema_version` is `2.0`;
+- the recorded snapshot API `schema_version` is `2.0`;
 - counts match the current sheets;
 - all current keys are unique;
 - active positions reference an account;
+- history rows for the successful `run_id` equal `positions_count`, have unique
+  position keys, share one date, and match `portfolio_daily.run_id`;
 - blank numeric fields remain blank;
 - `liability_coverage` agrees with nullability of liability and net-worth
   totals;
@@ -153,6 +184,13 @@ Treat the newest parseable `completed_at` row whose status is `SUCCESS` or
 `SUCCESS_WITH_WARNINGS` as the last valid synchronization. A later `FAILED` row
 does not advance freshness. A last valid state older than 48 hours is stale and
 requires investigation.
+
+For a date, start with its single `portfolio_daily` row, require a matching
+`sync_runs` row with status `SUCCESS` or `SUCCESS_WITH_WARNINGS` and a parseable
+`completed_at`, then require exactly `positions_count` same-date history rows
+with that `run_id` and unique position keys. A mismatch means that
+non-transactional writes interrupted or superseded the state. Do not mix runs
+or fall back silently; repair it with a successful manual rerun.
 
 Common warnings:
 
@@ -234,11 +272,21 @@ occurs after some upserts:
 2. identify the last completed write node and the affected `run_id`;
 3. verify manual sheets and last-known liability state were not altered;
 4. fix the underlying credential, quota, or header problem;
-5. rerun the same logical date manually;
-6. verify deterministic keys repaired rows without duplicates;
-7. verify one terminal telemetry row remains for the run.
+5. start a full new workflow execution for the same logical date;
+6. verify deterministic keys repaired rows without duplicates and that the
+   successful run's history membership passes the count and daily-run checks;
+7. verify one terminal telemetry row remains for the new run.
 
 Do not delete current or historical rows as a recovery shortcut.
+
+Sheets node retries configured inside a running execution retain its opaque
+`n8n-execution:{execution_id}` identity and are idempotent. The n8n action that
+retries a saved failed execution creates a new n8n execution but can reuse saved
+node output containing the old identity. The workflow blocks terminal success
+when it detects that mismatch. Use a full new workflow execution after a
+partial-write failure. Retrying only `Record Successful Sync` is safe when the
+execution had already completed every required portfolio write and reached that
+final node.
 
 ## Backup and restore
 
