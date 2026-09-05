@@ -180,6 +180,9 @@ def _apply_prepared_writes(
     if stop_after == "portfolio_daily":
         return
 
+    # Consumer-fixture timestamp injection only; this helper does not exercise
+    # terminal finalization. test_sync_completion.py executes that exported node
+    # with a controlled clock and never replaces its resulting timing fields.
     success_rows = deepcopy(prepared["sync_run_rows"])
     success_rows[0]["completed_at"] = completed_at
     workbook["sync_runs"] = _upsert(
@@ -640,7 +643,12 @@ def test_saved_data_retry_cannot_publish_stale_execution_identity(
     matching = _run_code_node(
         workflow,
         "Select Success Run",
-        named_rows={"Prepare Validated Rows": [prepared]},
+        named_rows={
+            "Prepare Validated Rows": [prepared],
+            "Validate Snapshot": [{"run": {
+                "run_id": "n8n-execution:4601", "started_epoch_ms": 0,
+            }}],
+        },
         input_rows=[{}],
         execution_id="4601",
     )

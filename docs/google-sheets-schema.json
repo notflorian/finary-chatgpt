@@ -265,7 +265,7 @@
       "columns": [
         {"name": "run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "opaque originating n8n execution identity; legacy values remain valid"},
         {"name": "started_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
-        {"name": "completed_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "sync run context"},
+        {"name": "completed_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "terminal payload finalization instant; for success, after required portfolio writes and before the terminal Sheets request, excluding its response and retries"},
         {"name": "status", "type": "ENUM", "nullable": false, "ownership": "derived", "source": "sync outcome"},
         {"name": "accounts_count", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "validated snapshot when available"},
         {"name": "positions_count", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "validated snapshot when available"},
@@ -276,7 +276,7 @@
         {"name": "net_worth_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshot.net_worth_eur when available"},
         {"name": "previous_net_worth_eur", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "previous successful portfolio_daily row"},
         {"name": "net_worth_change_pct", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "current and previous known net worth"},
-        {"name": "duration_ms", "type": "NUMBER", "nullable": false, "ownership": "derived", "source": "sync run context"},
+        {"name": "duration_ms", "type": "NUMBER", "nullable": false, "ownership": "derived", "source": "for success, finite elapsed epoch milliseconds from the originating execution start to completed_at, clamped to zero for backward clock adjustments; failure telemetry retains its existing conventions"},
         {"name": "bridge_version", "type": "STRING", "nullable": true, "ownership": "derived", "source": "bridge response when available"},
         {"name": "schema_version", "type": "STRING", "nullable": true, "ownership": "derived", "source": "PortfolioSnapshot.schema_version when available"},
         {"name": "warning_count", "type": "NUMBER", "nullable": false, "ownership": "derived", "source": "sync validation"},

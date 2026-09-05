@@ -55,6 +55,15 @@ Compare parsed timezone-aware instants, never physical row order or `run_id`.
 A later `FAILED` record does not advance freshness. Absence of a `FAILED` record
 is not evidence of success.
 
+Successful `completed_at` measures terminal payload finalization after required
+portfolio writes; `duration_ms` measures elapsed epoch milliseconds from the
+originating execution start to that same instant, with backward clock adjustments
+clamped to zero. The terminal Sheets response and retries are excluded. Retrying
+only that write retains both values. This does not establish an atomic commit or
+a globally serialized write order. Snapshot business dates remain `Europe/Paris`;
+older telemetry is not retroactively corrected. See the
+[measurement and retry procedure](operations.md#partial-write).
+
 Require a non-empty run ID and exactly one terminal record for each candidate,
 checking all statuses before selecting success. Reject duplicate records,
 including conflicting success/failure records; do not silently deduplicate even

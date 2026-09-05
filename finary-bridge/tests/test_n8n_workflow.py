@@ -45,6 +45,7 @@ def _run_code_node(
     input_rows: list[dict[str, Any]],
     execution_id: str = "test-execution",
     now: str | None = None,
+    clock_step_ms: int = 0,
 ) -> list[dict[str, Any]]:
     if shutil.which("node") is None:
         pytest.skip("Node.js is required to execute n8n Code node tests")
@@ -55,10 +56,12 @@ const inputRows = {json.dumps(input_rows)};
 const $execution = {{ id: {json.dumps(execution_id)}, mode: 'test' }};
 const fixedNow = {json.dumps(now)};
 const NativeDate = Date;
+let clockReads = 0;
+const readClock = () => new NativeDate(fixedNow).getTime() + clockReads++ * {clock_step_ms};
 if (fixedNow !== null) {{
   globalThis.Date = class extends NativeDate {{
-    constructor(...args) {{ super(...(args.length ? args : [fixedNow])); }}
-    static now() {{ return new NativeDate(fixedNow).getTime(); }}
+    constructor(...args) {{ super(...(args.length ? args : [readClock()])); }}
+    static now() {{ return readClock(); }}
   }};
 }}
 const $ = (name) => ({{
