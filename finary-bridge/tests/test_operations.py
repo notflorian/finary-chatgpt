@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
+from test_n8n_workflow import _run_code_node
 
 ROOT = Path(__file__).parents[2]
 DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
@@ -27,31 +27,19 @@ def _node(workflow: dict[str, Any], name: str) -> dict[str, Any]:
 def _run_error_classifier(
     trigger: dict[str, Any], existing: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    if shutil.which("node") is None:
-        pytest.skip("Node.js is required to execute n8n Code node tests")
     workflow = _load(ERROR_PATH)
     schema = _load(SCHEMA_PATH)
-    code = _node(workflow, "Prepare Sanitized Failure")["parameters"]["jsCode"]
     named = {
         "Workflow Error Trigger": [trigger],
         "Fetch Operational Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
     }
-    harness = f"""
-const namedRows = {json.dumps(named)};
-const inputRows = {json.dumps(existing)};
-const $ = (name) => ({{ first: () => ({{ json: (namedRows[name] || [{{}}])[0] }}) }});
-const $input = {{ all: () => inputRows.map((json) => ({{ json }})) }};
-(async () => {{
-{code}
-}})().then((result) => process.stdout.write(JSON.stringify(result))).catch((error) => {{
-  process.stderr.write(String(error && error.message ? error.message : error));
-  process.exit(2);
-}});
-"""
-    completed = subprocess.run(  # noqa: S603
-        ["node", "-e", harness], check=True, capture_output=True, text=True
-    )
-    return json.loads(completed.stdout)[0]["json"]
+    return _run_code_node(
+        workflow,
+        "Prepare Sanitized Failure",
+        named_rows=named,
+        input_rows=existing,
+        execution_id="handler-99",
+    )[0]["json"]
 
 
 def _trigger(
@@ -155,7 +143,10 @@ def test_operational_errors_are_stably_classified_and_sanitized(
     assert result["row"]["gross_assets_eur"] is None
 
 
-def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures() -> None:
+@pytest.mark.parametrize("status", ["SUCCESS", "SUCCESS_WITH_WARNINGS", "FAILED"])
+def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures(
+    status: str,
+) -> None:
     existing = [
         {
             "run_id": "older-success",
@@ -169,16 +160,22 @@ def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures() -
         },
         {
             "run_id": "n8n-execution:execution-42",
-            "status": "FAILED",
+            "status": status,
             "completed_at": "2026-08-21T09:00:00+02:00",
         },
     ]
     result = _run_error_classifier(_trigger("failure"), existing)
     assert result["should_record"] is False
-    assert result["diagnostics"]["last_success_at"] == ("2026-08-20T08:00:00+02:00")
+    expected_success = (
+        "2026-08-20T08:00:00+02:00" if status == "FAILED" else "2026-08-21T09:00:00+02:00"
+    )
+    assert result["diagnostics"]["last_success_at"] == expected_success
 
 
-def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identity() -> None:
+@pytest.mark.parametrize("custom_context", [False, True])
+def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identity(
+    custom_context: bool,
+) -> None:
     existing = [
         {
             "run_id": "n8n-execution:original-41",
@@ -186,14 +183,14 @@ def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identi
             "completed_at": "2026-09-05T12:00:00Z",
         }
     ]
-    result = _run_error_classifier(
-        _trigger(
-            "synthetic retry failure",
-            execution_id="retry-42",
-            retry_of="original-41",
-        ),
-        existing,
+    trigger = _trigger(
+        "synthetic retry failure", execution_id="retry-42", retry_of="original-41"
     )
+    if custom_context:
+        trigger["execution"]["executionContext"] = {"run_id": "synthetic-wrong-context"}
+        trigger["execution"]["error"]["context"] = {"run_id": "synthetic-wrong-error"}
+        trigger["error"] = {"context": {"run_id": "synthetic-wrong-top-level"}}
+    result = _run_error_classifier(trigger, existing)
 
     assert result["row"]["run_id"] == "n8n-execution:retry-42"
     assert result["diagnostics"]["execution_id"] == "retry-42"
@@ -204,13 +201,106 @@ def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identi
     assert persisted["n8n-execution:retry-42"]["status"] == "FAILED"
 
 
-def test_error_workflow_refuses_missing_source_execution_identity() -> None:
-    trigger = _trigger("synthetic failure")
-    del trigger["execution"]["id"]
+@pytest.mark.parametrize("source_id", [None, "", 42, False, [], {}, ["42"]])
+def test_error_workflow_refuses_unsupported_source_execution_identity(source_id: Any) -> None:
+    # n8n documents a string ID; other JSON types are defensive malformed inputs.
+    trigger = _trigger("synthetic-sensitive-message")
+    trigger["execution"]["id"] = source_id
+    _assert_source_identity_rejected(trigger)
 
+
+@pytest.mark.parametrize("missing", ["id", "execution", "trigger_failure"])
+def test_error_workflow_refuses_missing_source_execution_identity(missing: str) -> None:
+    trigger = _trigger("synthetic failure")
+    if missing == "id":
+        del trigger["execution"]["id"]
+    else:
+        del trigger["execution"]
+    if missing == "trigger_failure":
+        # Documented trigger failures need not contain an execution at all.
+        trigger["trigger"] = {"error": {"message": "synthetic-sensitive-message"}}
+    _assert_source_identity_rejected(trigger)
+
+
+def _assert_source_identity_rejected(trigger: dict[str, Any]) -> None:
+    trigger["error"] = {"context": {"run_id": "synthetic-wrong-context"}}
+    if "execution" in trigger:
+        trigger["execution"].update(
+            {"retryOf": "original-41", "executionContext": {"run_id": "synthetic-wrong-context"}}
+        )
     with pytest.raises(subprocess.CalledProcessError) as error:
         _run_error_classifier(trigger, [])
-    assert "SOURCE_EXECUTION_ID_UNAVAILABLE" in error.value.stderr
+    assert error.value.stderr == "SOURCE_EXECUTION_ID_UNAVAILABLE"
+    assert error.value.stdout == ""
+
+
+def test_recorded_failure_replay_selects_no_additional_terminal_write() -> None:
+    trigger = _trigger("synthetic failure", "Upsert Current Positions")
+    first = _run_error_classifier(trigger, [])
+    assert first["should_record"] is True
+    selected = _run_code_node(
+        _load(ERROR_PATH),
+        "Select Failure Row",
+        named_rows={"Prepare Sanitized Failure": [first]},
+        input_rows=[first],
+    )
+    assert selected == [{"json": first["row"]}]
+    replay = _run_error_classifier(trigger, [selected[0]["json"]])
+    assert replay["should_record"] is False
+
+
+@pytest.mark.parametrize("step", ["Read Current Positions", "synthetic-sensitive-node"])
+def test_failure_output_does_not_leak_sensitive_error_fields(step: str) -> None:
+    trigger = _trigger("synthetic-sensitive-message", step)
+    trigger["execution"]["error"].update(
+        {
+            "description": "synthetic-sensitive-description",
+            "stack": "synthetic-sensitive-stack",
+            "name": "synthetic-sensitive-error-name",
+        }
+    )
+    result = _run_error_classifier(trigger, [])
+    assert "synthetic-sensitive" not in json.dumps(result)
+    assert result["diagnostics"]["failing_step"] == (
+        step if step == "Read Current Positions" else "Unknown step"
+    )
+    financial_columns = (
+        "gross_assets_eur", "liabilities_eur", "net_worth_eur",
+        "previous_net_worth_eur", "net_worth_change_pct",
+    )
+    assert all(result["row"][column] is None for column in financial_columns)
+    write = _node(_load(ERROR_PATH), "Record Operational Failure")["parameters"]
+    assert write["columns"]["mappingMode"] == "autoMapInputData"
+    assert write["options"]["cellFormat"] == "RAW"
+    assert write["options"]["allowEmptyValues"] is True
+    assert not write["options"].get("useAppend", False)
+
+
+def test_error_terminal_write_is_only_reachable_through_new_failure_branch() -> None:
+    workflow = _load(ERROR_PATH)
+    condition = _node(workflow, "Failure Is New")["parameters"]["conditions"]
+    assert len(condition["conditions"]) == 1
+    assert condition["conditions"][0]["leftValue"] == "={{ $json.should_record }}"
+    assert condition["conditions"][0]["operator"] == {
+        "type": "boolean", "operation": "true", "singleValue": True,
+    }
+    edges = {
+        (source, branch, edge["node"])
+        for source, outputs in workflow["connections"].items()
+        for branch, connections in enumerate(outputs["main"])
+        for edge in connections
+    }
+    assert edges == {
+        ("Workflow Error Trigger", 0, "Fetch Operational Schema"),
+        ("Fetch Operational Schema", 0, "Read Sync Runs"),
+        ("Read Sync Runs", 0, "Prepare Sanitized Failure"),
+        ("Prepare Sanitized Failure", 0, "Failure Is New"),
+        ("Failure Is New", 0, "Select Failure Row"),
+        ("Select Failure Row", 0, "Record Operational Failure"),
+    }
+    write = _node(workflow, "Record Operational Failure")["parameters"]
+    assert write["operation"] == "appendOrUpdate"
+    assert write["columns"]["matchingColumns"] == ["run_id"]
 
 
 def test_compose_defines_persistent_local_operational_services() -> None:

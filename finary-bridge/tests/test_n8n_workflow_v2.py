@@ -16,6 +16,7 @@ from test_n8n_workflow import (
     _run_code_node,
     _snapshot,
 )
+from test_operations import _run_error_classifier, _trigger
 
 ROOT = Path(__file__).parents[2]
 V2_WORKFLOW_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
@@ -435,6 +436,68 @@ def test_execution_identity_propagates_to_rows_and_correlation(
         if header["name"] == "X-Correlation-ID"
     )
     assert correlation["value"] == "={{ $('Initialize Run').first().json.run_id }}"
+
+
+@pytest.mark.parametrize(
+    "stop_after",
+    ["positions_current", "positions_history", "portfolio_daily", "success"],
+)
+def test_source_execution_correlates_partial_writes_and_preserves_lost_success_response(
+    stop_after: str, workflow: dict[str, Any], schema: dict[str, Any]
+) -> None:
+    run = _initialize_run(workflow, execution_id="4701", now="2026-09-05T12:10:00Z")
+    snapshot = _known_eur_snapshot("2026-09-05T14:10:00+02:00")
+    validated = _run_code_node(
+        workflow,
+        "Validate Snapshot",
+        named_rows={
+            "Initialize Run": [run],
+            "Fetch Canonical Schema": [{"statusCode": 200, "body": schema}],
+        },
+        input_rows=[{"statusCode": 200, "body": snapshot}],
+        execution_id="4701",
+    )[0]["json"]
+    assert validated["can_write"] is True
+    named = _prepare_named_rows(schema, snapshot)
+    named["Validate Snapshot"] = [validated]
+    prepared = _run_code_node(
+        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}],
+        execution_id="4701",
+    )[0]["json"]
+    for row_set in ("account_rows", "position_rows", "liability_rows"):
+        assert prepared[row_set]
+        assert {row["last_seen_run_id"] for row in prepared[row_set]} == {run["run_id"]}
+    for row_set in ("history_rows", "daily_rows", "sync_run_rows"):
+        assert prepared[row_set]
+        assert {row["run_id"] for row in prepared[row_set]} == {run["run_id"]}
+
+    workbook = _empty_workbook()
+    _apply_prepared_writes(schema, workbook, prepared, stop_after=stop_after)
+    before_error = deepcopy(workbook)
+    # For success, the remote write persisted but its response was lost.
+    failure = _run_error_classifier(
+        _trigger("synthetic lost write response", "Record Successful Sync", execution_id="4701"),
+        workbook["sync_runs"],
+    )
+    assert failure["row"]["run_id"] == run["run_id"] == "n8n-execution:4701"
+    if stop_after == "success":
+        assert failure["should_record"] is False
+        assert workbook["sync_runs"][0]["status"] == "SUCCESS"
+    else:
+        assert failure["should_record"] is True
+        workbook["sync_runs"].append(failure["row"])
+        for sheet in ("accounts_current", "positions_current", "liabilities_current"):
+            assert all(
+                row["last_seen_run_id"] == workbook["sync_runs"][0]["run_id"]
+                for row in workbook[sheet]
+            )
+        for sheet in ("positions_history", "portfolio_daily"):
+            assert all(row["run_id"] == failure["row"]["run_id"] for row in workbook[sheet])
+    assert {key: rows for key, rows in workbook.items() if key != "sync_runs"} == {
+        key: rows for key, rows in before_error.items() if key != "sync_runs"
+    }
+    if stop_after == "success":
+        assert workbook == before_error
 
 
 def test_interleaved_executions_are_incomplete_until_fresh_recovery(
