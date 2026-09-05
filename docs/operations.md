@@ -485,6 +485,27 @@ partial-write failure. Retrying only `Record Successful Sync` is safe when the
 execution had already completed every required portfolio write and reached that
 final node.
 
+For `SUCCESS` and `SUCCESS_WITH_WARNINGS`, `Select Success Run` finalizes
+`completed_at` after all required account, position, conditional liability,
+position-history, and daily-summary writes have succeeded, immediately before
+submitting `Record Successful Sync`. Both timing fields use one captured instant:
+`completed_at` is its timezone-aware UTC timestamp, and `duration_ms` is the
+elapsed epoch milliseconds since the original execution's `started_epoch_ms`,
+clamped to zero if the clock moves backward. Invalid timing input stops success
+finalization. The timing origin and prepared row must both match the current
+execution identity; a stale identity is never relabeled.
+
+This interval includes initialization, reads, validation, portfolio writes, and
+their native retries. It excludes the terminal Sheets request's response time
+and subsequent retries of that request. Retrying only `Record Successful Sync`
+reuses the finalized payload and its original `run_id` upsert key, including the
+two timing fields. No recursive telemetry update measures the terminal write.
+Snapshot timestamps, business dates, and schedules still use their existing
+`Europe/Paris` rules. These timestamps describe payload finalization, not an
+atomic Sheets commit or a globally serialized completion order; overlapping
+writes and sequential reads still require the documented consumer validation.
+Existing telemetry is not rewritten by adopting this workflow.
+
 ### Error correlation and terminal replay
 
 The daily workflow uses `n8n-execution:{execution_id}` from its own execution.

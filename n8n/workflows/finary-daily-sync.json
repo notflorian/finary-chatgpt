@@ -883,7 +883,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const prepared = $('Prepare Validated Rows').first().json;\nconst expectedRunId = `n8n-execution:${String($execution.id)}`;\nif (prepared.sync_run_rows[0]?.run_id !== expectedRunId) throw new Error('STALE_EXECUTION_IDENTITY');\nreturn prepared.sync_run_rows.map((json) => ({ json }));"
+        "jsCode": "const prepared = $('Prepare Validated Rows').first().json;\nconst expectedRunId = `n8n-execution:${String($execution.id)}`;\nif (prepared.sync_run_rows[0]?.run_id !== expectedRunId) throw new Error('STALE_EXECUTION_IDENTITY');\nconst run = $('Validate Snapshot').first().json.run;\nif (run?.run_id !== expectedRunId) throw new Error('STALE_EXECUTION_IDENTITY');\n// Finalize after portfolio writes; the terminal Sheets request and its retries are excluded.\nconst completed = new Date();\nconst completedEpochMs = completed.getTime();\nif (!Number.isFinite(run.started_epoch_ms) || !Number.isFinite(new Date(run.started_epoch_ms).getTime()) || !Number.isFinite(completedEpochMs)) throw new Error('INVALID_RUN_TIMING');\nconst durationMs = Math.max(0, completedEpochMs - run.started_epoch_ms);\nif (!Number.isFinite(durationMs)) throw new Error('INVALID_RUN_TIMING');\nconst completedAt = completed.toISOString();\nreturn prepared.sync_run_rows.map((json) => ({ json: { ...json, completed_at: completedAt, duration_ms: durationMs } }));"
       },
       "id": "40000000-0000-4000-8000-000000000010",
       "name": "Select Success Run",
