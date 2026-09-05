@@ -17,21 +17,40 @@ DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
 
 _SYNTHETIC_ENV = {
     "FINARY_BRIDGE_API_KEY": "test-bridge-key",
+    "FINARY_BRIDGE_PORT": "8000",
+    "FINARY_BRIDGE_URL": "http://finary-bridge:8000",
     "FINARY_EMAIL": "test@example.invalid",
     "FINARY_GOOGLE_SHEET_ID": "synthetic-workbook-id",
     "FINARY_MFA_CODE": "",
     "FINARY_PASSWORD": "synthetic-password",
+    "FINARY_SCHEMA_URL": "http://schema-server/google-sheets-schema.json",
+    "FINARY_SESSION_PATH": "/var/lib/finary-session/state/session.json",
     "N8N_ENCRYPTION_KEY": "synthetic-encryption-key-with-sufficient-length",
+    "N8N_EXECUTIONS_TIMEOUT": "300",
+    "N8N_EXECUTIONS_TIMEOUT_MAX": "300",
+    "N8N_PORT": "5678",
+    "TZ": "Europe/Paris",
 }
 
 
 def _compose_config() -> dict[str, Any]:
     if shutil.which("docker") is None:
         pytest.skip("Docker Compose is required for resolved topology validation")
-    environment = os.environ.copy()
-    environment.update(_SYNTHETIC_ENV)
+    environment = {"PATH": os.environ.get("PATH", os.defpath), **_SYNTHETIC_ENV}
     completed = subprocess.run(  # noqa: S603
-        ["docker", "compose", "config", "--format", "json"],
+        [
+            "docker",
+            "compose",
+            "--env-file",
+            os.devnull,
+            "--file",
+            str(COMPOSE_PATH),
+            "--project-name",
+            "finary-compose-test",
+            "config",
+            "--format",
+            "json",
+        ],
         cwd=ROOT,
         env=environment,
         check=True,
@@ -103,10 +122,31 @@ def test_images_schema_mount_and_operational_controls_are_pinned() -> None:
     assert schema_mount["read_only"] is True
     assert schema_mount["source"] == str((ROOT / "docs" / "google-sheets-schema.json").resolve())
     assert n8n["restart"] == "unless-stopped"
+    assert schema["restart"] == "unless-stopped"
+    assert services["finary-bridge"]["restart"] == "unless-stopped"
     assert n8n["environment"]["EXECUTIONS_TIMEOUT"] == "300"
     assert n8n["environment"]["EXECUTIONS_TIMEOUT_MAX"] == "300"
     assert n8n["environment"]["N8N_BLOCK_ENV_ACCESS_IN_NODE"] == "false"
     assert n8n["environment"]["N8N_DIAGNOSTICS_ENABLED"] == "false"
+
+
+def test_health_checks_and_startup_dependencies_are_preserved() -> None:
+    services = _compose_config()["services"]
+
+    for service in services.values():
+        healthcheck = service["healthcheck"]
+        assert healthcheck["test"][0] == "CMD"
+        assert healthcheck.get("disable", False) is False
+        assert healthcheck["interval"] == "10s"
+        assert healthcheck["timeout"] == "3s"
+        assert healthcheck["retries"] > 0
+    assert "/health" in " ".join(services["finary-bridge"]["healthcheck"]["test"])
+    assert "/healthz" in " ".join(services["n8n"]["healthcheck"]["test"])
+    assert set(services["n8n"]["depends_on"]) == {"finary-bridge", "schema-server"}
+    assert all(
+        dependency["condition"] == "service_healthy"
+        for dependency in services["n8n"]["depends_on"].values()
+    )
 
 
 def test_repository_configuration_contains_no_live_secret_or_credential_binding() -> None:
