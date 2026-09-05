@@ -87,6 +87,13 @@ Finary adapter (finary_client.py) ---- protected session store
 - `finary_client.py` and `finary_session_store.py` own all private upstream and
   Clerk behavior.
 
+The adapter is initialized lazily once per process. A thread lock covers the
+instance lookup, construction, and publication; construction failures publish
+nothing and release the lock so a later caller can retry. The lock is released
+before authentication and snapshot work, which share the adapter's existing
+renewal lock. Bridge authorization precedes initialization, including waiting
+for it. This does not coordinate separate processes.
+
 Normal endpoint tests inject deterministic fake clients. `GET /health` does not
 instantiate the Finary client or inspect session state.
 
