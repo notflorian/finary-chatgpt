@@ -280,6 +280,7 @@ class FinaryApiClient:
         self._session_state: FinarySessionState | None = None
         self._token_obtained_at: float | None = None
         self._authenticated = False
+        self._token_generation = 0
 
     @classmethod
     def from_environment(
@@ -368,7 +369,6 @@ class FinaryApiClient:
     def get_accounts(self) -> FinaryRawAccounts:
         """Retrieve all holding accounts exposed by the verified API surface."""
 
-        self._require_authenticated()
         records = self._get_entity_records(
             f"{_API_ROOT}/users/me/holdings_accounts", operation="accounts"
         )
@@ -381,7 +381,6 @@ class FinaryApiClient:
     def get_positions(self) -> FinaryRawPositions:
         """Retrieve each verified asset collection without normalizing its fields."""
 
-        self._require_authenticated()
         groups = tuple(
             FinaryRawPositionGroup(
                 kind=kind,
@@ -514,12 +513,29 @@ class FinaryApiClient:
 
     def _get_entity_records(self, url: str, *, operation: str) -> tuple[Mapping[str, object], ...]:
         __tracebackhide__ = True
-        try:
-            response = self._session.get(url, timeout=self._timeout_seconds)
-        except curl_exceptions.Timeout:
-            raise FinaryUpstreamTimeoutError(f"Finary {operation} request timed out") from None
-        except curl_exceptions.RequestException:
-            raise FinaryUpstreamError(f"Finary {operation} request failed") from None
+        # The transport and its mutable headers/cookies share the authentication
+        # lock. Release it before classifying the response, but retain the exact
+        # generation used so a late 401 cannot rotate a newer session again.
+        with self._authentication_lock:
+            self._require_authenticated()
+            generation = self._token_generation
+            response = self._get_entity_response_locked(url, operation=operation)
+
+        if response.status_code == 401:
+            # A 401 is eligible for bounded recovery, not proof of expiration.
+            # Leave 403 permission failures to the existing error translation.
+            with self._authentication_lock:
+                if generation == self._token_generation:
+                    self._renew_entity_session_locked()
+                else:
+                    self._require_authenticated()
+                generation = self._token_generation
+                response = self._get_entity_response_locked(url, operation=operation)
+            if response.status_code == 401:
+                with self._authentication_lock:
+                    if generation == self._token_generation:
+                        self._invalidate_access_token()
+                raise FinaryAuthenticationError("Finary rejected the authenticated session")
 
         payload = self._decode_response(response, authentication=False)
         if set(("message", "error", "result")) - payload.keys():
@@ -544,6 +560,21 @@ class FinaryApiClient:
                 )
             records.append(deepcopy(dict(item)))
         return tuple(records)
+
+    def _get_entity_response_locked(self, url: str, *, operation: str) -> _HttpResponse:
+        try:
+            return self._session.get(url, timeout=self._timeout_seconds)
+        except curl_exceptions.Timeout:
+            raise FinaryUpstreamTimeoutError(f"Finary {operation} request timed out") from None
+        except curl_exceptions.RequestException:
+            raise FinaryUpstreamError(f"Finary {operation} request failed") from None
+
+    def _renew_entity_session_locked(self) -> None:
+        # Entity recovery must never fall back to password sign-in or MFA.
+        if self._session_state is None:
+            self._invalidate_access_token()
+            raise FinaryAuthenticationError("Finary session cannot be renewed")
+        self._refresh_session(self._session_state)
 
     def _decode_response(
         self, response: _HttpResponse, *, authentication: bool
@@ -599,6 +630,17 @@ class FinaryApiClient:
         return session_id, session_token
 
     def _refresh_session(self, state: FinarySessionState) -> None:
+        """Renew under the caller-held lock; never acquire it recursively."""
+        self._invalidate_access_token()
+        try:
+            self._refresh_session_locked(state)
+        except Exception:
+            # Includes malformed responses and persistence failures after the
+            # replacement transport has been created. Never expose it as ready.
+            self._invalidate_access_token()
+            raise
+
+    def _refresh_session_locked(self, state: FinarySessionState) -> None:
         # Clerk rotates its refresh state. Reusing the same curl session for a
         # later refresh is rejected by the verified upstream flow, while a
         # fresh session seeded from the latest protected state is accepted.
@@ -659,6 +701,7 @@ class FinaryApiClient:
     def _complete_authentication(self, session_token: str) -> None:
         self._session.headers.update({"authorization": f"Bearer {session_token}"})
         self._session.impersonate = _IMPERSONATE_BROWSER
+        self._token_generation += 1
         self._authenticated = True
         self._token_obtained_at = self._monotonic_clock()
 
@@ -705,9 +748,21 @@ class FinaryApiClient:
                 extra={"event": "finary.authentication.session_clear_failed"},
             )
 
+    def _invalidate_access_token(self) -> None:
+        self._authenticated = False
+        self._token_obtained_at = None
+        self._session.headers.pop("authorization", None)
+
     def _require_authenticated(self) -> None:
+        """Check freshness while holding the non-reentrant authentication lock."""
         if not self._authenticated:
             raise FinaryAuthenticationError("Finary client is not authenticated")
+        if (
+            self._token_obtained_at is None
+            or self._monotonic_clock() - self._token_obtained_at
+            >= self._token_refresh_interval_seconds
+        ):
+            self._renew_entity_session_locked()
 
 
 def _require_mapping(value: object, description: str) -> Mapping[str, object]:

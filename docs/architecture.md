@@ -229,6 +229,26 @@ Access and refresh bearer JWTs remain in memory. The session file uses mode
 excluded from backups. Session expiry or revocation requires another human MFA
 bootstrap.
 
+Before every entity GET, including each position collection, the adapter checks
+access-token age against its configured refresh interval using a monotonic
+clock. An aging token is renewed non-interactively. An entity HTTP 401 permits
+at most one recovery renewal and one replay of that GET; it does not establish
+that the token expired. HTTP 403 is not replayed. Previously completed
+collections are not fetched again, and any unrecovered failure aborts the
+snapshot with the existing sanitized error contract.
+
+The process-scoped authentication lock serializes renewal and individual entity
+GETs so the transport, cookies, authorization header, and freshness metadata
+remain coherent during HTTP session replacement. This trades concurrent network
+reads for a small synchronization boundary; it does not lock the entire
+snapshot. Recovery tracks the token generation and reuses a newer generation
+if another caller has already renewed it. A repeated 401 disables only the
+rejected access generation; entity rejection does not erase renewable state.
+Refresh endpoint rejection clears stored state, while transient or malformed
+refresh failures preserve it but leave the adapter unauthenticated. Entity
+renewal never replays password sign-in or invokes MFA when renewable state is
+missing. Bearer tokens remain memory-only.
+
 ## Synchronization topology
 
 The daily workflow supports manual execution and a 07:30 `Europe/Paris`
