@@ -125,7 +125,8 @@ Google OAuth material or n8n credential IDs in workflow exports.
 ## Finary session bootstrap
 
 The bridge API is intentionally non-interactive. Bootstrap or replace its Clerk
-session from a terminal:
+session from a terminal using a dedicated adapter. Use `bootstrap_session()` to
+force a fresh password/MFA sign-in even when an existing session is still valid:
 
 ```bash
 docker compose exec -e FINARY_MFA_CODE= finary-bridge python -c '
@@ -137,17 +138,73 @@ client = FinaryApiClient.from_environment(
         f"Enter the one-time Finary {strategy} code: "
     )
 )
-client.authenticate()
-client.get_accounts()
-print("Persisted session bootstrap passed")
+client.bootstrap_session()
+print("Verified session replacement published")
 '
 ```
 
+The command verifies the candidate with an accounts GET before publishing it.
+An MFA, upstream, or verification failure leaves existing persisted state intact.
+Do not clear state before bootstrapping: a failed candidate must not destroy a
+usable session. A storage failure reports failure and may have changed the
+revision; if it occurs after atomic file replacement, the new state may already
+be present. Check the running bridge before deciding to repeat bootstrap.
+Never resume synchronization solely because the command exited successfully.
+
 This writes only the verified session identifier and `__client` cookie to the
 bridge-only volume. Bearer JWTs remain memory-only. The session file must remain
-mode `0600`.
+mode `0600`. Its mode `0600` sibling `session.json.lock` holds only a non-secret
+revision and a cross-process advisory lock. Keep both in the same private mode
+`0700` directory on a local filesystem supporting POSIX `flock` and atomic
+rename. The configured `FINARY_SESSION_PATH` must resolve to the same shared
+volume path for every participating process.
 
-Verify a snapshot without printing its portfolio body:
+### Replacement protocol and rollout
+
+Hot replacement is supported **only when every writer uses this version of the
+adapter/store**. Before the first rollout, unpublish daily sync, stop the old
+bridge, and finish or terminate all older bootstrap/helper processes. Rebuild
+and recreate the bridge with this version before using the replacement command.
+No old writer may remain attached to the volume. Do not remove the volume.
+Existing version `1` session JSON is loaded unchanged; the store creates the
+revision sidecar on first access. No bearer token or additional authentication
+material is added to either file.
+
+Bootstrap signs in and verifies accounts without holding the storage lock,
+including while waiting for interactive MFA. Publishing takes a short exclusive
+lock and creates a new revision. Every successful renewal and rejection cleanup
+compares its observed revision and full state under that same lock before
+writing or deleting. Deliberate `clear()` and explicit `save()` also advance the
+revision, even for an absent file or identical session/cookie. A competing
+bootstrap is an explicit replacement: the last successful publication wins.
+
+Replacement becomes effective for **persisted state at publication**. It does
+not cancel an upstream request, revoke an already-issued bearer token, or make
+a whole snapshot transactional. The running adapter may continue using its
+cached token until its next renewal boundary (normally a 45-second token age,
+or an entity 401). If that renewal belongs to an older revision, it cannot
+change the replacement file: its access state is invalidated and the current
+snapshot can fail with the existing generic authentication error. The next
+snapshot's `authenticate()` loads and renews the replacement without another
+manual bootstrap. There is no unbounded retry or password/MFA replay in entity
+recovery. For immediate adoption, an operator may restart the bridge after
+publication; no test-only singleton reset is a runtime recovery mechanism.
+
+The lock order is the adapter's process-local authentication lock, then the
+storage lock. Storage methods never acquire the adapter lock or recursively
+acquire the storage lock. Network calls and MFA hold no storage lock. Storage
+lock acquisition waits at most two seconds by default and reports a sanitized
+authentication failure if busy. `/health` and API-key rejection do not use it.
+
+Never edit, copy over, unlink, or restore either session file or lock sidecar
+while writers are active. In particular, never delete the lock file: replacing
+its inode breaks coordination. Use only the commands here, and exclude the
+entire session volume from backups. Network filesystems and older/uncoordinated
+writers are unsupported. For damaged permissions or revision metadata, stop
+all bridge and helper processes before repairing the private directory; do not
+use a raw file deletion as an online recovery shortcut.
+
+Verify the running bridge with a snapshot without printing its portfolio body:
 
 ```bash
 curl --silent --output /dev/null --write-out '%{http_code}\n' \
@@ -156,6 +213,12 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 
 Add `-H "X-API-Key: $FINARY_BRIDGE_API_KEY"` when the API key is enabled. A
 successful HTTP 200 can legitimately report incomplete liability coverage.
+A first authentication failure may be the old adapter abandoning its superseded
+revision: retry this check once. For guaranteed verification with B immediately,
+restart the bridge before this check; otherwise a still-fresh cached token can
+pass it with A. If verification still fails, keep the daily workflow unpublished,
+inspect sanitized logs, and resolve the reported category before retrying.
+Run one manual sync and inspect `sync_runs` before republishing the schedule.
 
 Repeat bootstrap when authentication returns `FINARY_AUTH_FAILED`, after
 password/MFA changes, after explicit session revocation, or after loss of the
@@ -173,7 +236,14 @@ print("Finary session cleared")
 '
 ```
 
-Then run the bootstrap command again.
+This supersedes pending renewals and sign-ins; it does not immediately revoke
+cached bearer tokens or cancel in-flight requests. Stop the bridge as well if
+activity must cease immediately. Use deliberate clearing only when discarding
+the current session is intended, then bootstrap again. Ordinary recovery uses
+the verified replacement command directly, preserving old state on candidate
+failure. Malformed/unsupported state is rejected without automatic deletion
+because the adapter cannot establish ownership; inspect the storage failure
+before using deliberate clearing or offline repair.
 
 ## Workbook schema 2.1 migration
 
@@ -289,8 +359,10 @@ Docker volumes. Confirm the schedule is inactive before any risky repair.
 1. Confirm the bridge health endpoint still returns 200.
 2. Inspect sanitized bridge logs for an authentication category, not secrets.
 3. Unpublish the daily workflow if failures will repeat.
-4. Clear rejected session state and perform a fresh interactive bootstrap.
-5. call `/v2/snapshot` without printing its body;
+4. Perform the verified interactive replacement above without pre-clearing state.
+   If bootstrap fails, keep synchronization unpublished and fix that failure.
+5. restart the bridge for immediate adoption, then call `/v2/snapshot` without
+   printing its body; require success before continuing;
 6. run one manual synchronization and inspect `sync_runs`;
 7. republish only after success.
 
@@ -413,7 +485,9 @@ Restore into an isolated, unpublished stack first:
 ## Credential rotation
 
 - **Finary password or MFA:** unpublish daily sync, update `.env`, recreate the
-  bridge, clear its session, bootstrap again, test manually, then republish.
+  bridge with the updated environment, run the verified replacement without
+  pre-clearing, restart for immediate adoption, test a snapshot and manual sync,
+  then republish. Leave sync unpublished if any step fails.
 - **Bridge API key:** update bridge and n8n environment together, recreate both
   containers, then verify a manual run.
 - **Google OAuth:** reconnect in n8n and reassign every Sheets node before a

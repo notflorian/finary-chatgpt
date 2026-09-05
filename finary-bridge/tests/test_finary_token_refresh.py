@@ -462,7 +462,7 @@ def test_waiting_reader_rejects_failed_replacement_and_transient_failure_recover
         refreshing.set()
         assert release.wait(timeout=5)
 
-    def fail_save(state: FinarySessionState) -> None:
+    def fail_save(expected: object, state: FinarySessionState) -> None:
         # Persistence follows header installation: even this intermediate state
         # must remain inaccessible until save succeeds or invalidation finishes.
         assert client._authenticated
@@ -481,7 +481,7 @@ def test_waiting_reader_rejects_failed_replacement_and_transient_failure_recover
 
     with caplog.at_level("INFO"), monkeypatch.context() as patch:
         if failure is None:
-            patch.setattr(transport.store, "save", fail_save)
+            patch.setattr(transport.store, "compare_and_swap", fail_save)
         else:
             transport.replies.append(failure)
             transport.on_post = pause_refresh

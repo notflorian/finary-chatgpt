@@ -231,7 +231,10 @@ The protected file store persists only:
 - the production `__client` cookie needed to refresh that session.
 
 Access and refresh bearer JWTs remain in memory. The session file uses mode
-`0600`, its directory is bridge-only, and rejected state is cleared. The
+`0600`, its directory is bridge-only, and rejected state is cleared only if
+its persisted revision still belongs to the rejecting adapter. A stable sibling
+lock file contains a non-secret random revision; it never contains authentication
+material. All participating processes use this file for bounded POSIX locking. The
 `finary_session_data` volume is separate from `n8n_data` and is intentionally
 excluded from backups. Session expiry or revocation requires another human MFA
 bootstrap.
@@ -251,9 +254,35 @@ reads for a small synchronization boundary; it does not lock the entire
 snapshot. Recovery tracks the token generation and reuses a newer generation
 if another caller has already renewed it. A repeated 401 disables only the
 rejected access generation; entity rejection does not erase renewable state.
-Refresh endpoint rejection clears stored state, while transient or malformed
-refresh failures preserve it but leave the adapter unauthenticated. Entity
-renewal never replays password sign-in or invokes MFA when renewable state is
+Refresh endpoint rejection conditionally clears only its own stored revision,
+while transient or malformed refresh failures preserve stored state but leave
+the adapter unauthenticated. Unreadable stored state is not automatically erased.
+Renewal publication and rejection cleanup compare both the observed revision
+and full session state atomically with their mutation under a stable sibling
+file lock. The lock inode survives atomic replacement of the session JSON.
+Every explicit save or clear advances the non-secret revision, including equal
+state and absence; this prevents old ownership from becoming valid again.
+Version `1` session files remain compatible and unchanged on load.
+
+The operator-only `bootstrap_session()` verifies a fresh password/MFA sign-in
+with an accounts GET before publishing an explicit replacement. Interactive MFA
+and all network calls hold no storage lock. Adapter lock ordering is always
+process-local authentication lock, then storage lock, without recursion. Storage
+lock waits default to two seconds and errors remain sanitized. Storage mutation
+failures invalidate old ownership conservatively, even if the payload was not
+changed. A failure after atomic replacement may have published the new state.
+
+Hot replacement affects persistence at publication. In-flight GETs may finish
+and cached tokens may remain usable until the next renewal boundary. An old
+renewal can neither delete nor overwrite the replacement, even when its Clerk
+session ID is unchanged. On conflict it invalidates access state; the following
+snapshot authentication reloads the replacement and renews it. Explicit clearing
+is not instantaneous token revocation. The [operations procedure](operations.md)
+defines rollout, verification, and immediate adoption through a fresh process.
+All writers must use the protocol and the same local volume; old writers,
+manual file edits, lock-file removal, and network filesystems are unsupported.
+
+Entity renewal never replays password sign-in or invokes MFA when renewable state is
 missing. Bearer tokens remain memory-only.
 
 ## Synchronization topology

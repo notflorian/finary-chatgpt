@@ -133,3 +133,85 @@ def test_serialized_state_excludes_stronger_credentials(tmp_path: Path) -> None:
         "raw_response",
     ):
         assert prohibited not in payload
+
+
+def test_lock_inode_and_permissions_survive_replacement_and_clear(tmp_path: Path) -> None:
+    store, path = _store(tmp_path)
+    store.save(_state())
+    lock = path.with_name(path.name + ".lock")
+    inode = lock.stat().st_ino
+    assert stat.S_IMODE(lock.stat().st_mode) == 0o600
+    assert len(lock.read_bytes()) == 32
+    assert b"synthetic" not in lock.read_bytes()
+    for action in (lambda: store.save(_state(suffix="new")), store.clear, store.clear):
+        action()
+        assert lock.stat().st_ino == inode
+
+
+@pytest.mark.parametrize("target", ["session", "lock"])
+@pytest.mark.parametrize("operation", ["snapshot", "save", "clear"])
+def test_mutations_and_reads_reject_symlinks(
+    tmp_path: Path, target: str, operation: str
+) -> None:
+    store, path = _store(tmp_path)
+    sentinel = path.parent / "sentinel"
+    sentinel.write_text("synthetic sentinel")
+    sentinel.chmod(0o600)
+    linked = path if target == "session" else path.with_name(path.name + ".lock")
+    linked.symlink_to(sentinel)
+    with pytest.raises(FinarySessionStoreError):
+        if operation == "save":
+            store.save(_state())
+        else:
+            getattr(store, operation)()
+    assert sentinel.read_text() == "synthetic sentinel"
+    assert linked.is_symlink()
+
+
+def test_bounded_lock_wait_fails_safely_and_releases_descriptor(tmp_path: Path) -> None:
+    store, path = _store(tmp_path)
+    store.save(_state())
+    contender = FileFinarySessionStore(path, lock_timeout_seconds=0.01)
+    with store._locked(), pytest.raises(FinarySessionStoreError, match="busy"):
+        contender.clear()
+    assert contender.load() == _state()
+    contender.clear()
+    assert store.load() is None
+
+
+def test_legacy_file_without_revision_loads_without_format_migration(tmp_path: Path) -> None:
+    store, path = _store(tmp_path)
+    payload = '{"version":1,"session_id":"synthetic-A","client_cookie":"synthetic-cookie"}'
+    path.write_text(payload)
+    path.chmod(0o600)
+    before = store.snapshot()
+    assert before.state == FinarySessionState("synthetic-A", "synthetic-cookie")
+    assert before.revision == ""
+    assert path.read_text() == payload
+    assert store.compare_and_swap(before, _state()) is not None
+    assert store.snapshot().revision
+    assert set(json.loads(path.read_text())) == {"version", "session_id", "client_cookie"}
+
+
+@pytest.mark.parametrize("operation", ["snapshot", "save", "clear"])
+def test_broad_lock_permissions_are_rejected(tmp_path: Path, operation: str) -> None:
+    store, path = _store(tmp_path)
+    store.save(_state())
+    path.with_name(path.name + ".lock").chmod(0o644)
+    before = path.read_bytes()
+    with pytest.raises(FinarySessionStoreError, match="permissions"):
+        if operation == "save":
+            store.save(_state(suffix="new"))
+        else:
+            getattr(store, operation)()
+    assert path.read_bytes() == before
+
+
+def test_damaged_revision_does_not_delete_valid_session(tmp_path: Path) -> None:
+    store, path = _store(tmp_path)
+    store.save(_state())
+    path.with_name(path.name + ".lock").write_text("synthetic-invalid-revision")
+    before = path.read_bytes()
+    with pytest.raises(FinarySessionStoreError, match="revision"):
+        store.snapshot()
+    assert path.read_bytes() == before
