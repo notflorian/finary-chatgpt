@@ -165,6 +165,10 @@ Stable error codes include `FINARY_AUTH_FAILED`, `FINARY_TIMEOUT`,
 `FINARY_UPSTREAM_ERROR`, and `SNAPSHOT_VALIDATION_FAILED`. Raw upstream messages
 and exception chains are never returned.
 
+When `FINARY_BRIDGE_API_KEY` is non-empty, both snapshot routes require an exact
+`X-API-Key` match before the Finary client is constructed. Missing or invalid
+keys return HTTP 401 with `BRIDGE_AUTH_FAILED`; `/health` remains unauthenticated.
+
 ## Identity and normalization
 
 All upstream IDs are canonical strings. A position ID is only unique within its
