@@ -136,8 +136,8 @@ Google Sheets are available.
 Before submitting a change:
 
 1. keep Finary-specific behavior inside the adapter;
-2. preserve `/v2/snapshot` and schema `2.0` unless the change explicitly
-   coordinates a versioned contract revision;
+2. preserve `/v2/snapshot` schema `2.0` and workbook schema `2.1` unless the
+   change explicitly coordinates a versioned contract revision;
 3. update `docs/google-sheets-schema.json`, workflows, tests, and documentation
    together for a workbook contract change;
 4. keep workflow exports credential-free and inactive;

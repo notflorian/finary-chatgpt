@@ -50,7 +50,7 @@ EXPECTED_HEADERS = {
         "history_key", "snapshot_date", "generated_at", "position_key",
         "account_key", "source_asset_id", "name", "ticker", "isin", "asset_class",
         "asset_subclass", "quantity", "unit_price", "currency", "fx_to_eur",
-        "market_value_eur", "cost_basis_eur",
+        "market_value_eur", "cost_basis_eur", "run_id",
     ),
     "portfolio_daily": (
         "snapshot_date", "generated_at", "gross_assets_eur", "liability_coverage",

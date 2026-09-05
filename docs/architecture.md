@@ -234,19 +234,23 @@ bootstrap.
 The daily workflow supports manual execution and a 07:30 `Europe/Paris`
 schedule. It:
 
-1. loads schema `2.0` from the internal schema server;
+1. loads workbook schema `2.1` from the internal schema server;
 2. requests `/v2/snapshot`;
 3. validates schema, entities, keys, headers, and safety gates;
 4. reads and applies exact-match asset overrides;
 5. prepares all rows before any portfolio write;
 6. upserts current accounts and positions;
 7. updates liability state only for `COMPLETE` coverage;
-8. upserts same-day position history and daily summary rows;
+8. upserts same-day position history with `run_id` membership and the daily summary;
 9. writes one terminal `sync_runs` row.
 
 Current-state rows that disappear become inactive rather than being deleted.
 History is append-retained across dates and idempotently replaced for the same
-date and position key. Manual sheets are never synchronization-owned.
+date and position key. Consumers accept history only when its run membership
+and count match the terminal successful run and daily row. The success marker
+is written last; partial Google Sheets writes can invalidate the prior same-day
+state, but the mismatch is detectable and a retry repairs deterministic keys.
+Manual sheets are never synchronization-owned.
 
 Structured bridge failures stop before portfolio writes and may record sanitized
 failed telemetry. The linked error workflow handles uncaught n8n or Google
@@ -259,13 +263,15 @@ retries. Read nodes execute once to prevent quota amplification.
 Application release version and data schema version are independent:
 
 - bridge application: `1.0.0`;
-- normalized API and workbook schema: `2.0`;
+- normalized API schema: `2.0`;
+- workbook schema: `2.1`;
 - canonical route: `/v2/snapshot`.
 
-A patch or minor application release may leave schema `2.0` unchanged. A
-breaking downstream data-contract change requires a new API/schema major
-version and a coordinated update to models, n8n exports, the workbook schema,
-tests, and consumer documentation.
+A patch or minor application release may leave API schema `2.0` unchanged.
+Workbook schema `2.1` adds nullable historical run membership without changing
+the stable snapshot API. A breaking downstream API contract change requires a
+new API major version and coordinated models, workflows, schema, tests, and
+consumer documentation.
 
 ## Deliberate limitations
 

@@ -40,6 +40,8 @@ def test_chatgpt_readme_semantics_are_machine_readable() -> None:
     assert "later FAILED row does not replace" in entries["last_success_rule"][
         "description"
     ]
+    assert "positions_count" in entries["history_rule"]["description"]
+    assert "portfolio_daily.run_id" in entries["history_rule"]["description"]
     assert "not investment performance" in entries["performance_rule"]["value"]
     assert "blank never means zero" in entries["null_rule"]["value"]
 
@@ -62,6 +64,9 @@ def test_chatgpt_current_daily_and_telemetry_fields_are_stable() -> None:
         "net_worth_eur",
         "run_id",
     } <= _column_names(schema, "portfolio_daily")
+    assert {"history_key", "snapshot_date", "run_id"} <= _column_names(
+        schema, "positions_history"
+    )
     assert {
         "run_id",
         "completed_at",

@@ -2,7 +2,7 @@
 
 ## Canonical contract
 
-The workbook is named **Finary Portfolio Data** and uses schema `2.0`.
+The workbook is named **Finary Portfolio Data** and uses schema `2.1`.
 [`google-sheets-schema.json`](google-sheets-schema.json) is the single
 machine-readable source for ordered sheet names, headers, types, nullability,
 ownership, enums, and key formats. This guide explains how to interpret and
@@ -16,7 +16,7 @@ The workbook uses ten sheets in a fixed order:
 | `accounts_current` | automated | `account_key` | Latest valid account state, including inactive rows |
 | `positions_current` | automated and derived | `position_key` | Latest valid normalized positions and analytical classification |
 | `liabilities_current` | automated | `liability_key` | Last complete liability state, when complete coverage exists |
-| `positions_history` | automated and derived | `history_key` | Daily position valuation snapshots |
+| `positions_history` | automated and derived | `history_key` | Daily position valuations with successful-run membership |
 | `portfolio_daily` | automated and derived | `snapshot_date` | Daily portfolio totals, coverage, and analytical allocation |
 | `allocation_targets` | manual | `target_key` | User-defined allocation ranges |
 | `asset_overrides` | manual | `override_key` | Exact-match classification corrections |
@@ -89,12 +89,16 @@ snapshot whose `liability_coverage` is `COMPLETE`. `PARTIAL` or `UNAVAILABLE`
 must not modify, clear, or inactivate prior liability state.
 
 `positions_history` retains one row per business date and position. The same
-`history_key` updates the same-day row; the next date creates a new row.
-Historical rows are never automatically deleted. `portfolio_daily` similarly
-upserts one summary per `snapshot_date`.
+`history_key` updates the same-day row and its `run_id`; the next date creates a
+new row. A position absent from a later same-day run keeps its older row, but
+that row is not a member of the later run. Historical rows are never
+automatically deleted. `portfolio_daily` similarly upserts one summary per
+`snapshot_date` and records the run that wrote it.
 
-A failed or invalid snapshot does not update current state, history, or daily
-portfolio rows. Only sanitized failure telemetry may be written to `sync_runs`.
+An invalid snapshot is rejected before portfolio writes. Google Sheets writes
+are not transactional, so an execution failure can leave partial current,
+history, or daily writes. Such an attempt has no successful terminal marker and
+cannot be treated as complete under the selection rule below.
 
 ## Currency and portfolio totals
 
@@ -179,9 +183,24 @@ method is applied separately.
 valid state is selected by the greatest parseable `completed_at` among the two
 successful statuses. A later failed row does not replace it.
 
+For a given Europe/Paris date, start with its single `portfolio_daily` row and
+take that row's `run_id`. Require exactly one matching `sync_runs` row with
+status `SUCCESS` or `SUCCESS_WITH_WARNINGS` and a parseable `completed_at`.
+Then select only `positions_history` rows with that date and `run_id`. Accept
+them as a complete state only when their count equals
+`sync_runs.positions_count` and their `position_key` values are unique. Any
+mismatch makes the date unusable until a successful retry repairs all
+deterministic writes. Do not fall back silently to mixed rows from another run,
+and do not compare the sum of position values with gross assets as a
+completeness test.
+
 Financial totals in failed rows remain blank rather than using zero as an error
 placeholder. Errors contain stable, sanitized codes and messages. The table is
 telemetry, not portfolio state, and is retained append-style.
+
+Rows written before schema `2.1` have a blank `positions_history.run_id`. They
+remain legacy valuations but cannot be proven to be complete snapshot
+membership. They are excluded from the rule above.
 
 ## Schema changes
 

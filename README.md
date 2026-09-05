@@ -60,7 +60,7 @@ Expected health response:
 ```
 
 The bridge and n8n listen only on `127.0.0.1` by default. The canonical Sheets
-schema is served only on the internal Compose network.
+schema `2.1` is served only on the internal Compose network.
 
 ### 2. Create the workbook
 
@@ -148,6 +148,8 @@ Click **Execute workflow** in **Finary - Daily Sync**. Confirm that:
 - `accounts_current` and `positions_current` contain deterministic unique keys;
 - rerunning on the same day creates no duplicate current, history, or daily
   rows;
+- `positions_history` rows for the successful `run_id` equal
+  `sync_runs.positions_count` and match `portfolio_daily.run_id`;
 - manual tabs remain unchanged.
 
 Warnings are meaningful. In particular, `UNAVAILABLE` liability coverage means

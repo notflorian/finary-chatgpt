@@ -1,4 +1,4 @@
-"""Schema 2.0 checks for explicit liability coverage."""
+"""Schema 2.x checks for explicit liability coverage."""
 
 import json
 from pathlib import Path
@@ -14,7 +14,7 @@ def _schema() -> dict[str, object]:
 
 def test_v2_schema_preserves_ten_sheets_and_adds_coverage_enum() -> None:
     schema = _schema()
-    assert schema["schema_version"] == "2.0"
+    assert schema["schema_version"] == "2.1"
     assert set(schema["sheets"]) == {
         "README",
         "accounts_current",
@@ -55,13 +55,25 @@ def test_v2_coverage_columns_have_deterministic_order_and_nullability() -> None:
     )["nullable"] is True
 
 
+def test_v2_1_history_run_membership_is_legacy_compatible() -> None:
+    schema = _schema()
+    history = schema["sheets"]["positions_history"]
+    run_column = next(
+        column for column in history["columns"] if column["name"] == "run_id"
+    )
+
+    assert history["unique_key"] == "history_key"
+    assert run_column["nullable"] is True
+    assert "legacy rows" in run_column["source"]
+
+
 def test_v2_data_model_documents_coverage_and_unknown_semantics() -> None:
     documentation = V2_DOCUMENTATION_PATH.read_text(encoding="utf-8")
     compact_documentation = " ".join(documentation.split())
     for phrase in (
         "Only `COMPLETE` permits numeric `liabilities_eur`",
         "Blank means unknown",
-        "schema `2.0`",
+        "schema `2.1`",
         "`PARTIAL` or `UNAVAILABLE`",
         "single machine-readable source",
     ):
