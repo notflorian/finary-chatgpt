@@ -219,6 +219,11 @@ tickers, or ISINs:
 - synchronization run ID: opaque `n8n-execution:{execution_id}` for current
   runs; older timestamp-shaped IDs remain valid legacy strings
 
+Join failure telemetry to written rows by exact `run_id` or `last_seen_run_id`,
+never by timestamp proximity or execution ordering. A failure without a usable
+source execution ID is reported only in n8n, so the absence of a `FAILED` row
+does not prove success. Require the successful-run membership checks above.
+
 The position kind is part of position identity because the same numeric asset ID
 may exist in different upstream categories. Preserve category-aware IDs exactly.
 

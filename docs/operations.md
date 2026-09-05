@@ -352,6 +352,37 @@ partial-write failure. Retrying only `Record Successful Sync` is safe when the
 execution had already completed every required portfolio write and reached that
 final node.
 
+### Error correlation and terminal replay
+
+The daily workflow uses `n8n-execution:{execution_id}` from its own execution.
+The error workflow uses only `execution.id` from the originating Error Trigger
+payload, never its own execution ID, `execution.retryOf`, or custom run context.
+Partial writes and failure telemetry therefore share the same run ID for that
+execution. A full new execution gets a new ID; saved-output retries must follow
+the recovery procedure above and do not relabel older partial writes.
+
+Before selecting a failure write, the error workflow reads `sync_runs`. An
+existing `SUCCESS`, `SUCCESS_WITH_WARNINGS`, or `FAILED` for that exact ID
+suppresses the write. This also preserves a success that reached Sheets before
+its response was lost. Another run's terminal row does not suppress this failure.
+The write matches on `run_id` and touches only sanitized `sync_runs` telemetry;
+failure financial totals remain null and are mapped to blank cells with the
+exported Sheets configuration.
+
+This read-before-write check protects sequential error replays. It is not a
+transaction or a lock: simultaneous handlers or a concurrent terminal writer
+can race between the read and write. Concurrent-writer safety has not been
+established; avoid overlapping executions during recovery.
+
+The [n8n Error Trigger contract](https://docs.n8n.io/flow-logic/error-handling/)
+shows a string source execution ID, which may be absent when the execution was
+not saved or the trigger itself failed. If it is missing, empty, or not a string,
+`Prepare Sanitized Failure` stops with `SOURCE_EXECUTION_ID_UNAVAILABLE` and
+emits no terminal row. Inspect the failed error-handler execution in n8n for
+this generic diagnostic. Such failures are invisible to workbook-only consumers;
+absence of a `FAILED` row is not evidence that synchronization succeeded.
+No ID is fabricated from timestamps, retry ancestry, or the handler execution.
+
 ## Backup and restore
 
 Back up:
