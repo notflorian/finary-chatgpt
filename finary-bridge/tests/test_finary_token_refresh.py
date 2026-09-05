@@ -2,7 +2,8 @@
 
 import asyncio
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Barrier, Event, Thread
 
@@ -19,7 +20,11 @@ from app.finary_client import (
     FinaryUpstreamError,
     FinaryUpstreamTimeoutError,
 )
-from app.finary_session_store import FileFinarySessionStore, FinarySessionState
+from app.finary_session_store import (
+    FileFinarySessionStore,
+    FinarySessionState,
+    FinarySessionStoreError,
+)
 from app.main import app, get_authenticated_finary_client
 
 
@@ -300,6 +305,34 @@ def _finish(worker: tuple[Thread, list[BaseException]]) -> None:
     assert not failures
 
 
+@contextmanager
+def _worker(action: Callable[[], object]) -> Iterator[None]:
+    worker = _start(action)
+    try:
+        yield
+    finally:
+        _finish(worker)
+
+
+def _observe_lock_contention(client: FinaryApiClient) -> Event:
+    attempting = Event()
+    lock = client._authentication_lock
+
+    class ObservedLock:
+        def __enter__(self) -> None:
+            if not lock.acquire(blocking=False):
+                # Prove the caller found the lock held, not just that its thread
+                # started before the test inspected the transport.
+                attempting.set()
+                assert lock.acquire(timeout=5), "Authentication lock acquisition timed out"
+
+        def __exit__(self, *args: object) -> None:
+            lock.release()
+
+    client._authentication_lock = ObservedLock()
+    return attempting
+
+
 def test_concurrent_expiry_refreshes_once(tmp_path: Path) -> None:
     transport = _Transport(tmp_path)
     transport.client.authenticate()
@@ -321,38 +354,170 @@ def test_replacement_is_not_used_until_refresh_completes(tmp_path: Path) -> None
     transport = _Transport(tmp_path)
     transport.client.authenticate()
     transport.now = 45
-    refreshing, release, attempting = Event(), Event(), Event()
-    lock = transport.client._authentication_lock
-
-    class ObservedLock:
-        def __enter__(self) -> None:
-            attempting.set()
-            lock.acquire()
-
-        def __exit__(self, *args: object) -> None:
-            lock.release()
-
-    transport.client._authentication_lock = ObservedLock()
+    refreshing, release = Event(), Event()
+    attempting = _observe_lock_contention(transport.client)
 
     def pause_refresh() -> None:
         refreshing.set()
         assert release.wait(timeout=5)
 
     transport.on_post = pause_refresh
-    first = _start(transport.client.authenticate)
-    assert refreshing.wait(timeout=5)
-    attempting.clear()
-    second = _start(transport.client.get_accounts)
-    try:
-        assert attempting.wait(timeout=5)
-        assert transport.reads == []
-        assert "authorization" not in transport.sessions[-1].headers
-    finally:
-        release.set()
-    _finish(first)
-    _finish(second)
+    with _worker(transport.client.authenticate):
+        try:
+            assert refreshing.wait(timeout=5)
+            attempting.clear()
+            with _worker(transport.client.get_accounts):
+                try:
+                    assert attempting.wait(timeout=5)
+                    assert transport.reads == []
+                    assert "authorization" not in transport.sessions[-1].headers
+                finally:
+                    release.set()
+        finally:
+            release.set()
     assert transport.refreshes == 2
     assert transport.reads == [("holdings_accounts", "Bearer synthetic-token-1")]
+
+
+@pytest.mark.parametrize("read_times_out", [False, True])
+def test_refresh_waits_for_in_flight_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, read_times_out: bool
+) -> None:
+    transport = _Transport(tmp_path)
+    client = transport.client
+    client.authenticate()
+    session = transport.sessions[-1]
+    headers, cookies = dict(session.headers), dict(session.cookies.values)
+    generation, obtained_at = client._token_generation, client._token_obtained_at
+    closed: list[bool] = []
+    monkeypatch.setattr(session, "close", lambda: closed.append(True), raising=False)
+    reading, release = Event(), Event()
+    attempting = _observe_lock_contention(client)
+
+    def pause_read(response: _FakeResponse) -> _FakeResponse:
+        reading.set()
+        assert release.wait(timeout=5)
+        if read_times_out:
+            raise curl_exceptions.Timeout("synthetic-sensitive")
+        return response
+
+    def read() -> None:
+        if read_times_out:
+            with pytest.raises(FinaryUpstreamTimeoutError):
+                client.get_accounts()
+        else:
+            assert len(client.get_accounts().records) == 2
+
+    transport.on_response = pause_read
+    with _worker(read):
+        try:
+            assert reading.wait(timeout=5)
+            transport.now = 45
+            attempting.clear()
+            with _worker(client.authenticate):
+                try:
+                    assert attempting.wait(timeout=5)
+                    assert client._session is session
+                    assert len(transport.sessions) == 2
+                    assert session.headers == headers
+                    assert session.cookies.values == cookies
+                    assert client._authenticated
+                    assert (client._token_generation, client._token_obtained_at) == (
+                        generation, obtained_at
+                    )
+                    assert closed == []
+                    assert transport.refreshes == 1
+                finally:
+                    release.set()
+        finally:
+            release.set()
+    assert client._session is not session
+    assert transport.refreshes == 2
+    transport.on_response = lambda response: response
+    assert len(client.get_accounts().records) == 2
+    assert transport.reads[-1] == ("holdings_accounts", "Bearer synthetic-token-1")
+
+
+@pytest.mark.parametrize(
+    "failure, error, cleared", [*_FAILURES, (None, FinaryAuthenticationError, False)]
+)
+def test_waiting_reader_rejects_failed_replacement_and_transient_failure_recovers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: _FakeResponse | Exception | None,
+    error: type,
+    cleared: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    transport = _Transport(tmp_path)
+    client = transport.client
+    client.authenticate()
+    previous_state = transport.store.load()
+    transport.now = 45
+    refreshing, release = Event(), Event()
+    attempting = _observe_lock_contention(client)
+    failures: list[str] = []
+
+    def pause_refresh() -> None:
+        refreshing.set()
+        assert release.wait(timeout=5)
+
+    def fail_save(state: FinarySessionState) -> None:
+        # Persistence follows header installation: even this intermediate state
+        # must remain inaccessible until save succeeds or invalidation finishes.
+        assert client._authenticated
+        assert "authorization" in transport.sessions[-1].headers
+        pause_refresh()
+        raise FinarySessionStoreError("synthetic-sensitive")
+
+    def renew() -> None:
+        with pytest.raises(error) as captured:
+            client.authenticate()
+        failures.append(str(captured.value))
+
+    def read() -> None:
+        with pytest.raises(FinaryAuthenticationError, match="not authenticated"):
+            client.get_accounts()
+
+    with caplog.at_level("INFO"), monkeypatch.context() as patch:
+        if failure is None:
+            patch.setattr(transport.store, "save", fail_save)
+        else:
+            transport.replies.append(failure)
+            transport.on_post = pause_refresh
+        with _worker(renew):
+            try:
+                assert refreshing.wait(timeout=5)
+                attempting.clear()
+                with _worker(read):
+                    try:
+                        assert attempting.wait(timeout=5)
+                        assert transport.reads == []
+                    finally:
+                        release.set()
+            finally:
+                release.set()
+
+    assert transport.refreshes == 2
+    assert transport.reads == []
+    assert not client._authenticated
+    assert client._token_obtained_at is None
+    assert "authorization" not in transport.sessions[-1].headers
+    assert client._session_state == (None if cleared else previous_state)
+    assert transport.store.load() == (None if cleared else previous_state)
+    for marker in (
+        "synthetic-sensitive", "synthetic-token", "synthetic-cookie", "synthetic-password"
+    ):
+        assert marker not in " ".join(failures) + caplog.text
+
+    if not cleared:
+        transport.on_post = lambda: None
+        # A later snapshot's authenticate() may retry preserved renewable state;
+        # the blocked entity reader itself must never initiate password or MFA.
+        client.authenticate()
+        assert len(client.get_accounts().records) == 2
+        assert transport.refreshes == 3
+        assert transport.reads == [("holdings_accounts", client._session.headers["authorization"])]
 
 
 def test_late_old_generation_rejection_reuses_new_token(tmp_path: Path) -> None:
