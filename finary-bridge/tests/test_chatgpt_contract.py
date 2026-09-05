@@ -164,3 +164,56 @@ def test_chatgpt_surface_uses_project_instead_of_custom_gpt() -> None:
         "Do not export a static workbook copy",
     ):
         assert phrase in normalized_runbook
+
+
+def test_current_membership_and_fallback_rules_are_published() -> None:
+    entries = {entry["key"]: entry for entry in _schema()["readme_entries"]}
+    current = entries["current_state_rule"]["description"]
+    for phrase in (
+        "full accounts_current and positions_current tables before filtering",
+        "unique canonical keys", "last_seen_run_id", "accounts_count", "positions_count",
+        "never blanks or booleans", "without deduplication", "validated active accounts",
+        "position-key sets", "not their last write", "validated history or report unavailable",
+    ):
+        assert phrase in current
+    history = entries["history_rule"]["description"]
+    for phrase in (
+        "timezone-aware completed_at", "before selecting matching run_id",
+        "success cannot restore overwritten rows", "newest valid date first",
+        "stale after 48 hours", "Never enrich history from invalid current rows",
+        "reconstruct account balances", "aggregate can remain usable without position detail",
+    ):
+        assert phrase in history
+    success = entries["last_success_rule"]["description"]
+    for phrase in (
+        "opaque equality key", "including failure records", "duplicate terminal records",
+        "tied newest instants", "latest success is distinct from the latest state",
+    ):
+        assert phrase in success
+
+
+def test_independent_liability_provenance_and_read_limits_are_published() -> None:
+    entries = {entry["key"]: entry for entry in _schema()["readme_entries"]}
+    liabilities = entries["last_known_liability_rule"]["description"]
+    for phrase in (
+        "liabilities_count", "Every active last_seen_run_id", "COMPLETE run_id",
+        "retained inactive", "failed COMPLETE writes", "no liability history fallback",
+        "same-day daily replacement", "zero count", "snapshot date is unavailable",
+    ):
+        assert phrase in liabilities
+    assert "never subtract older last-known liabilities" in entries["liability_rule"]["description"]
+    assert "sequential reads are not a transactional snapshot" in entries["failed_snapshot_rule"][
+        "description"
+    ]
+    for filename in (
+        "README.md", "docs/architecture.md", "docs/data-model.md", "docs/chatgpt.md",
+        "docs/operations.md", "docs/finary-portfolio-data-knowledge.md",
+    ):
+        text = " ".join((REPOSITORY_ROOT / filename).read_text().split())
+        assert "test-only" in text
+        assert "transaction" in text.lower()
+        assert "latest known valid normalized" not in text
+    for filename in ("docs/chatgpt.md", "docs/operations.md", "README.md"):
+        text = " ".join((REPOSITORY_ROOT / filename).read_text().split())
+        assert "not automatically rewrit" in text
+        assert "knowledge" in text

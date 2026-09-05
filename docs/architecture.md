@@ -304,10 +304,20 @@ schedule. It:
 Current-state rows that disappear become inactive rather than being deleted.
 History is append-retained across dates and idempotently replaced for the same
 date and position key. Consumers accept history only when its run membership
-and count match the terminal successful run and daily row. The success marker
+and count match the terminal successful run and daily row. Physical current
+tables also require full-table key/activity validation and active membership and
+counts matching the selected successful execution, including account references.
+Inactive rows retain their last observation ID even when rewritten; failed
+inactivation can invalidate prior active counts. Liability details are validated
+independently against the latest successful COMPLETE run. Consumers use only
+independently validated historical fallback or aggregates when details fail;
+they never combine partial current writes with a successful historical state.
+See the [consumer procedure](finary-portfolio-data-knowledge.md). The success marker
 is written last; partial Google Sheets writes can invalidate the prior same-day
 state, but the mismatch is detectable and a retry repairs deterministic keys.
-Manual sheets are never synchronization-owned.
+Manual sheets are never synchronization-owned. Read-side checks reject observed
+inconsistencies but cannot make sequential Sheets reads transactional. The
+executable consumer specification is test-only and is not deployed in ChatGPT.
 
 Native node retries stay inside the same n8n execution and retain its identity.
 A saved-data execution retry receives a new n8n execution ID but can retain

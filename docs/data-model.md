@@ -13,9 +13,9 @@ The workbook uses ten sheets in a fixed order:
 | Sheet | Ownership | Unique key | Purpose |
 | --- | --- | --- | --- |
 | `README` | automated reference | `key` | Workbook-readable semantic rules |
-| `accounts_current` | automated | `account_key` | Latest valid account state, including inactive rows |
-| `positions_current` | automated and derived | `position_key` | Latest valid normalized positions and analytical classification |
-| `liabilities_current` | automated | `liability_key` | Last complete liability state, when complete coverage exists |
+| `accounts_current` | automated | `account_key` | Physical account rows requiring membership validation, including inactive rows |
+| `positions_current` | automated and derived | `position_key` | Physical positions and classification requiring completeness validation |
+| `liabilities_current` | automated | `liability_key` | Physical liability rows requiring independent COMPLETE-run validation |
 | `positions_history` | automated and derived | `history_key` | Daily position valuations with successful-run membership |
 | `portfolio_daily` | automated and derived | `snapshot_date` | Daily portfolio totals, coverage, and analytical allocation |
 | `allocation_targets` | manual | `target_key` | User-defined allocation ranges |
@@ -39,6 +39,11 @@ jq -r --arg sheet "$SHEET" '.sheets[$sheet].columns | map(.name) | @tsv' \
 
 Paste the output into row 1 and repeat for every sheet. Populate `README` with
 the objects in `readme_entries`, preserving `key`, `value`, and `description`.
+Portfolio synchronization does not rewrite the initialized `README`. Existing
+installations must adopt the [consumer-validation updates](operations.md#consumer-validation-adoption)
+and replace the uploaded knowledge reference. No column migration is needed for
+this interpretation correction.
+
 The synchronization workflow validates every required header before preparing
 portfolio rows and fails safely on drift.
 
@@ -87,8 +92,29 @@ n8n execution IDs.
 
 `accounts_current`, `positions_current`, and `liabilities_current` use
 deterministic upserts. Missing accounts or positions are retained with
-`is_active = FALSE`; they are not deleted. Consumers normally filter current
-analysis to `is_active = TRUE` while retaining inactive rows for continuity.
+`is_active = FALSE`; they are not deleted. These physical tables can be
+partially overwritten by an unsuccessful execution. They do not unconditionally
+represent a successful portfolio snapshot.
+
+Select the latest unambiguous successful execution using parsed timezone-aware
+`completed_at`, then validate full current account and position tables before
+filtering. Require non-empty unique canonical keys and valid activity flags on
+all rows; every active `last_seen_run_id` must equal that successful `run_id`.
+Active counts must match its finite non-negative integer `accounts_count` and
+`positions_count`. Native numbers and decimal numeric strings are supported;
+missing/blank counts and booleans are not zero. Activity accepts native booleans
+or exact `TRUE`/`FALSE`, never numeric 0/1 or other strings. Reject foreign-run,
+extra, missing, or duplicate rows instead of filtering or deduplicating them to
+make counts pass. Active positions must reference validated active accounts;
+when joined to validated same-run history, position-key sets must agree.
+
+Only after these checks can `is_active = TRUE` represent complete holdings.
+Inactive rows do not count; their `last_seen_run_id` and `last_seen_at` retain the
+last observation even when a newer execution writes the inactivation. An older
+inactive ID alone is allowed. Failed inactivation may instead reduce prior-run
+active membership, which the count checks must detect. If either current asset
+table fails, reject the combined current state and use independently validated
+history or report the requested details unavailable.
 
 Liability rows are different: they may be updated or inactivated only from a
 snapshot whose `liability_coverage` is `COMPLETE`. `PARTIAL` or `UNAVAILABLE`
@@ -148,6 +174,23 @@ incomplete coverage, both cells remain blank. An empty `liabilities_current`
 sheet does not prove that the user has no liabilities, and the system never
 creates a synthetic zero-liability row.
 
+Validate liability details against the latest unambiguous successful `COMPLETE`
+run independently of newer incomplete asset runs. Inspect the full liability
+table for unique non-empty canonical keys and valid activity flags, then require
+every active row's `last_seen_run_id` and the active count to match that run and
+its valid `liabilities_count`. Retained inactive rows do not count and may carry
+older observation IDs. Verify finite outstanding amounts against the complete
+total and consistent observation timestamps. A newer same-day daily row does
+not invalidate these independently proven details. Failed `COMPLETE` rewrites
+or inactivations make details unavailable; no liability history exists.
+
+An empty active set proves zero only with successful `COMPLETE` evidence, valid
+zero count and zero total. Report the separate complete run, completion time and
+retained snapshot date; if zero rows and no matching daily row survive, the
+exact snapshot date is unavailable. Never subtract older last-known liabilities
+from newer gross assets to claim authoritative current net worth. A validated
+daily aggregate can remain available even when detailed liability rows fail.
+
 ## Manual analytical inputs
 
 ### `allocation_targets`
@@ -192,21 +235,47 @@ method is applied separately.
 
 ## Synchronization telemetry
 
-`sync_runs` stores one terminal row per run. `SUCCESS` and
-`SUCCESS_WITH_WARNINGS` are valid completed states; `FAILED` is not. The newest
-valid state is selected by the greatest parseable `completed_at` among the two
-successful statuses. A later failed row does not replace it.
+`sync_runs` is intended to store one terminal row per run. `SUCCESS` and
+`SUCCESS_WITH_WARNINGS` are completed executions; `FAILED` is not. Select by
+parsed timezone-aware `completed_at`, never by opaque `run_id` or row order.
+Require exactly one terminal record for a candidate across all statuses; reject
+duplicates, conflicting success/failure evidence, missing timestamps, and tied
+newest instants. A later failure does not replace a success, but absence of a
+failure does not prove success. The latest successful execution differs from
+the latest state whose required rows remain available and valid.
 
-For a given Europe/Paris date, start with its single `portfolio_daily` row and
-take that row's `run_id`. Require exactly one matching `sync_runs` row with
-status `SUCCESS` or `SUCCESS_WITH_WARNINGS` and a parseable `completed_at`.
-Then select only `positions_history` rows with that date and `run_id`. Accept
-them as a complete state only when their count equals
-`sync_runs.positions_count` and their `position_key` values are unique. Any
-mismatch makes the date unusable until a successful retry repairs all
-deterministic writes. Do not fall back silently to mixed rows from another run,
-and do not compare the sum of position values with gross assets as a
-completeness test.
+For a date, require one `portfolio_daily` row, valid business date and
+`generated_at`, and one matching successful terminal record. Shared totals and
+coverage must agree and preserve unknown-value semantics. This independently
+validates stored daily aggregates, including authoritative `gross_assets_eur`.
+
+For position detail, check canonical history keys and unique non-empty position
+keys across all history rows for the date before filtering. Select only rows
+with that daily `run_id`, requiring valid `positions_count` and matching
+`generated_at`. Distinct retained keys from earlier runs are excluded; never
+borrow them to fill missing members. A successful terminal record cannot
+recover history overwritten by a later same-day attempt. Do not use position
+sums versus gross assets as a completeness check.
+
+If current asset data fails, examine historical states in descending business
+date order, using only those passing these independent checks. Explicitly label
+any fallback with its date, run ID, completion time and freshness limitation
+(stale after 48 hours); otherwise report the requested data unavailable. Limit
+answers to stored history fields or safe derivations. No enrichment from invalid
+current rows, invented historical account metadata or regions, reconstructed
+account balances, or invented liability details is allowed. Blank EUR fields
+stay unknown and allocation may cover only the known-EUR subset. Validated
+daily aggregates remain separately usable if position detail fails; disclose
+their own provenance when different from a historical fallback.
+
+The [knowledge reference](finary-portfolio-data-knowledge.md) specifies the full
+reading procedure. The [test-only executable specification](../finary-bridge/tests/workbook_consumer.py)
+and [regressions](../finary-bridge/tests/test_workbook_consumer.py) exercise it
+using exported Code-node preparation; they are not a deployed validator and do
+not automatically enforce it inside ChatGPT. Sequential Sheets reads cannot
+create a transactional snapshot: reject observed changes and inconsistencies,
+repeat the full read after writes settle, and disclose unresolved consistency.
+Even identical repeated reads cannot exclude an unobserved concurrent write.
 
 Financial totals in failed rows remain blank rather than using zero as an error
 placeholder. Errors contain stable, sanitized codes and messages. The table is

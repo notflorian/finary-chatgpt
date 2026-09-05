@@ -24,19 +24,19 @@
   "readme_entries": [
     {"key": "reference_currency", "value": "EUR", "description": "All explicitly EUR-normalized workbook values use EUR."},
     {"key": "timezone", "value": "Europe/Paris", "description": "Business dates and schedules use Europe/Paris."},
-    {"key": "current_state_rule", "value": "_current sheets contain the latest known valid state, including retained inactive rows", "description": "Inactive current rows are retained rather than deleted."},
-    {"key": "history_rule", "value": "positions_history rows belong to the successful run_id that wrote them", "description": "For a date, take portfolio_daily.run_id, require its successful terminal sync_runs row, then select only matching history rows and verify positions_count and unique position_key values before treating membership as complete."},
+    {"key": "current_state_rule", "value": "_current sheets are nontransactional physical tables; validate membership before use", "description": "For the selected successful run, inspect full accounts_current and positions_current tables before filtering: require non-empty unique canonical keys and BOOLEAN flags (native booleans or exact TRUE/FALSE). Every active last_seen_run_id must equal the selected run_id; active counts must equal accounts_count and positions_count. Counts accept finite non-negative integer numbers or decimal numeric strings, never blanks or booleans. Reject extra, missing, duplicate or foreign active rows without deduplication. Active positions must reference validated active accounts; when joining validated history, position-key sets must agree. Inactive rows do not count and retain their last observation run, not their last write. If either table fails, do not use it as a complete asset snapshot; use validated history or report unavailable."},
+    {"key": "history_rule", "value": "positions_history rows require independently validated daily and successful-run membership", "description": "For a date, require one portfolio_daily row and exactly one terminal sync_runs record for portfolio_daily.run_id, with successful status and timezone-aware completed_at; coverage and shared totals must agree. Check canonical history_key and unique non-empty position_key across the date before selecting matching run_id rows; their count must equal valid positions_count and generated_at must match the daily row. Distinct retained keys from older runs are excluded. A success cannot restore overwritten rows. If current data fails, use independently valid history, newest valid date first, disclosing date, run_id, completion time and freshness (stale after 48 hours); otherwise report detail unavailable. Never enrich history from invalid current rows, invent unretained fields, or reconstruct account balances. A separately validated daily aggregate can remain usable without position detail; label its own run and date."},
     {"key": "override_rule", "value": "asset_overrides is authoritative over automatic classification", "description": "Enabled exact-match overrides determine final classification."},
     {"key": "null_rule", "value": "blank means unknown or unavailable; blank never means zero", "description": "Numeric nulls are empty cells, not text or zero placeholders."},
     {"key": "eur_rule", "value": "position EUR fields exist only with verified EUR provenance", "description": "No display-field inference or speculative conversion is allowed."},
-    {"key": "gross_assets_rule", "value": "account balances are authoritative; never add position values to account balances", "description": "Position values are analytical components and may overlap account balances."},
-    {"key": "failed_snapshot_rule", "value": "an invalid or failed bridge response must not overwrite the last valid state", "description": "Explicit PARTIAL or UNAVAILABLE liability coverage remains a valid asset snapshot."},
-    {"key": "liability_rule", "value": "liability_coverage is authoritative; blank liabilities or net worth never means zero", "description": "Net worth may be stated only when liability_coverage is COMPLETE."},
+    {"key": "gross_assets_rule", "value": "account balances are authoritative; never add position values to account balances", "description": "Use gross_assets_eur from a validated portfolio_daily state, never reconstruct account balances or gross assets from position sums. Preserve blank EUR values and partial known-EUR allocation coverage."},
+    {"key": "failed_snapshot_rule", "value": "invalid bridge responses fail before writes; interrupted Sheets writes can replace physical state", "description": "Explicit PARTIAL or UNAVAILABLE liability coverage remains a valid asset snapshot. Absence of FAILED telemetry does not prove success. Validate observed membership and completeness; sequential reads are not a transactional snapshot, even if repeated reads agree. Reject observed changes or inconsistencies and retry a full read after writes settle."},
+    {"key": "liability_rule", "value": "liability_coverage is authoritative only with validated evidence; blanks never mean zero", "description": "Only a validated COMPLETE daily state permits numeric liability and net-worth totals for that date. Detailed rows require separate complete-run validation. Under PARTIAL or UNAVAILABLE, current liabilities and net worth remain unknown; never subtract older last-known liabilities from newer gross assets as authoritative current net worth."},
     {"key": "partial_liability_rule", "value": "PARTIAL records are not a complete debt set and are not written to liabilities_current", "description": "Only COMPLETE coverage may modify liabilities_current."},
     {"key": "unavailable_liability_rule", "value": "UNAVAILABLE means no authoritative liability collection", "description": "Gross assets remain analyzable while liability and net-worth totals remain blank."},
-    {"key": "last_known_liability_rule", "value": "liabilities_current may contain last-known COMPLETE data", "description": "PARTIAL or UNAVAILABLE asset snapshots preserve the last-known complete liability state."},
+    {"key": "last_known_liability_rule", "value": "validate liabilities_current independently against the latest successful COMPLETE run", "description": "Require exactly one successful terminal record, timezone-aware completed_at, a finite non-negative integer liabilities_count, non-empty unique canonical liability keys and valid BOOLEAN flags across the full table. Every active last_seen_run_id must equal that COMPLETE run_id and the active count must match; exclude retained inactive rows with older observation IDs. Verify finite outstanding amounts against the complete total and consistent last_seen_at observations (arithmetic tolerance 1e-8 EUR, as in prewrite validation; counts and zero evidence remain exact). Reject partial failed COMPLETE writes; there is no liability history fallback. A newer PARTIAL or UNAVAILABLE asset run, including a same-day daily replacement, does not invalidate independently proven liability rows. Empty active data proves zero only with matching successful COMPLETE evidence, zero count and zero liabilities_eur. Disclose the separate run, completion time and retained snapshot date; if zero rows and no matching daily row remain, snapshot date is unavailable."},
     {"key": "allocation_rule", "value": "allocation percentages exclude liabilities and use only known-EUR active positions", "description": "Allocation may describe partial known-EUR coverage."},
-    {"key": "last_success_rule", "value": "the latest valid synchronization is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS", "description": "A later FAILED row does not replace the latest valid synchronization, but history cardinality and portfolio_daily.run_id must still match that successful run."},
+    {"key": "last_success_rule", "value": "the latest successful execution is the newest completed_at with status SUCCESS or SUCCESS_WITH_WARNINGS", "description": "Compare parsed timezone-aware instants; run_id is an opaque equality key, never sortable. Require exactly one terminal record per candidate run, including failure records when checking duplicates. Missing or conflicting evidence, duplicate terminal records, and tied newest instants cannot establish a unique latest success. A later FAILED row does not replace a successful execution. The latest success is distinct from the latest state whose required data remains available and valid; validate each source and disclose any dated fallback."},
     {"key": "performance_rule", "value": "valuation changes are not investment performance unless external cashflows are complete", "description": "Contributions and withdrawals must be separable before a valuation change may be described as investment performance."}
   ],
   "enums": {
@@ -59,10 +59,10 @@
       ]
     },
     "accounts_current": {
-      "purpose": "Latest known valid normalized account state, including inactive retained rows.",
+      "purpose": "Physical normalized account rows, including inactive retention; usable only after successful-run membership and completeness validation.",
       "sheet_ownership": "automated",
       "unique_key": "account_key",
-      "update_behavior": "Upsert valid v2 asset snapshots by account_key; mark previously active missing rows inactive only after complete validation.",
+      "update_behavior": "Upsert valid v2 asset snapshots by account_key; mark missing rows inactive after prewrite validation. Writes are nontransactional; consumers must validate successful-run membership and active counts.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
         {"name": "account_key", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Account.account_key"},
@@ -75,15 +75,15 @@
         {"name": "currency", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Account.currency"},
         {"name": "market_value_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Account.market_value_eur"},
         {"name": "last_seen_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "PortfolioSnapshot.generated_at"},
-        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "sync run context"},
+        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "last snapshot observation run; retained unchanged when inactivated, not the last write ID"},
         {"name": "is_active", "type": "BOOLEAN", "nullable": false, "ownership": "derived", "source": "snapshot presence"}
       ]
     },
     "positions_current": {
-      "purpose": "Latest known valid normalized position state per account, including inactive retained rows.",
+      "purpose": "Physical normalized position rows per account, including inactive retention; usable only after successful-run membership and completeness validation.",
       "sheet_ownership": "automated",
       "unique_key": "position_key",
-      "update_behavior": "Upsert valid v2 asset snapshots by position_key; mark previously active missing rows inactive only after complete validation.",
+      "update_behavior": "Upsert valid v2 asset snapshots by position_key; mark missing rows inactive after prewrite validation. Writes are nontransactional; consumers must validate successful-run membership and active counts.",
       "deletion_behavior": "Never delete automatically.",
       "columns": [
         {"name": "position_key", "type": "STRING", "nullable": false, "ownership": "automated", "source": "Position.position_key"},
@@ -110,12 +110,12 @@
         {"name": "unrealized_pnl_pct", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Position.unrealized_pnl_pct"},
         {"name": "weight_portfolio", "type": "NUMBER", "nullable": true, "ownership": "derived", "source": "known-EUR active position subset"},
         {"name": "last_seen_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "PortfolioSnapshot.generated_at"},
-        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "sync run context"},
+        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "last snapshot observation run; retained unchanged when inactivated, not the last write ID"},
         {"name": "is_active", "type": "BOOLEAN", "nullable": false, "ownership": "derived", "source": "snapshot presence"}
       ]
     },
     "liabilities_current": {
-      "purpose": "Forward-compatible latest known valid normalized liability state; currently remains empty because coverage is unavailable.",
+      "purpose": "Physical liability rows requiring independent validation against the latest successful COMPLETE run; may be empty, older than assets, or partially overwritten.",
       "sheet_ownership": "automated",
       "unique_key": "liability_key",
       "update_behavior": "Upsert or inactivate only when liability_coverage is COMPLETE; PARTIAL or UNAVAILABLE never writes, clears, or deactivates rows.",
@@ -132,7 +132,7 @@
         {"name": "monthly_payment_eur", "type": "NUMBER", "nullable": true, "ownership": "automated", "source": "Liability.monthly_payment_eur"},
         {"name": "end_date", "type": "DATE", "nullable": true, "ownership": "automated", "source": "Liability.end_date"},
         {"name": "last_seen_at", "type": "DATETIME", "nullable": false, "ownership": "derived", "source": "PortfolioSnapshot.generated_at"},
-        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "sync run context"},
+        {"name": "last_seen_run_id", "type": "STRING", "nullable": false, "ownership": "derived", "source": "last snapshot observation run; retained unchanged when inactivated, not the last write ID"},
         {"name": "is_active", "type": "BOOLEAN", "nullable": false, "ownership": "derived", "source": "snapshot presence"}
       ]
     },
@@ -164,7 +164,7 @@
       ]
     },
     "portfolio_daily": {
-      "purpose": "One validated daily portfolio summary with explicitly nullable analytical coverage.",
+      "purpose": "One physical daily portfolio summary with nullable analytical coverage; consumers validate its terminal evidence before using aggregates and history membership before using position detail.",
       "sheet_ownership": "derived",
       "unique_key": "snapshot_date",
       "update_behavior": "Upsert the same Europe/Paris business date from any valid v2 asset snapshot.",
