@@ -23,6 +23,7 @@ from curl_cffi.requests import exceptions as curl_exceptions
 
 from app.finary_session_store import (
     FileFinarySessionStore,
+    FinarySessionSnapshot,
     FinarySessionState,
     FinarySessionStore,
     FinarySessionStoreError,
@@ -278,6 +279,7 @@ class FinaryApiClient:
         self._monotonic_clock = monotonic_clock
         self._authentication_lock = Lock()
         self._session_state: FinarySessionState | None = None
+        self._session_snapshot: FinarySessionSnapshot | None = None
         self._token_obtained_at: float | None = None
         self._authenticated = False
         self._token_generation = 0
@@ -324,11 +326,12 @@ class FinaryApiClient:
             extra={"event": "finary.authentication.started"},
         )
         state = self._session_state
-        if state is None and self._session_store is not None:
+        if self._session_snapshot is None and self._session_store is not None:
             try:
-                state = self._session_store.load()
+                self._session_snapshot = self._session_store.snapshot()
+                state = self._session_snapshot.state
             except FinarySessionStoreError:
-                self._clear_persisted_session()
+                self._invalidate_access_token()
                 logger.warning(
                     "Stored Finary session is unusable",
                     extra={"event": "finary.authentication.session_rejected"},
@@ -345,26 +348,65 @@ class FinaryApiClient:
             return
 
         try:
-            payload = self._post_authentication(
-                _SIGN_IN_URL,
-                {
-                    "identifier": self._credentials.email,
-                    "password": self._credentials.password,
-                },
-            )
-            payload = self._complete_second_factor_if_needed(payload)
-            self._raise_for_authentication_errors(payload)
-            session_id, session_token = self._extract_session(payload)
+            session_id, session_token = self._password_authentication()
             self._complete_authentication(session_token)
             if self._session_store is not None:
                 self._persist_current_session(session_id)
-        finally:
-            self._mfa_code = None
+        except Exception:
+            self._invalidate_access_token()
+            self._session_snapshot = None
+            raise
 
         logger.info(
             "Finary authentication completed",
             extra={"event": "finary.authentication.succeeded"},
         )
+
+    def _password_authentication(self) -> tuple[str, str]:
+        try:
+            payload = self._post_authentication(
+                _SIGN_IN_URL,
+                {"identifier": self._credentials.email, "password": self._credentials.password},
+            )
+            payload = self._complete_second_factor_if_needed(payload)
+            return self._extract_session(payload)
+        finally:
+            self._mfa_code = None
+
+    def bootstrap_session(self) -> None:
+        """Verify a fresh sign-in, then explicitly replace persisted state.
+
+        Operator-only: use a dedicated client in a terminal process. MFA and
+        upstream verification hold no storage lock and cannot block HTTP workers.
+        """
+        with self._authentication_lock:
+            self._invalidate_access_token()
+            self._session_state = None
+            self._session_snapshot = None
+            store = self._session_store
+            if store is None:
+                raise FinaryAuthenticationError("Finary session storage is not configured")
+            candidate = FinaryApiClient(
+                self._credentials,
+                timeout_seconds=self._timeout_seconds,
+                session_factory=self._session_factory,
+                second_factor_code_provider=self._second_factor_code_provider,
+                monotonic_clock=self._monotonic_clock,
+            )
+            try:
+                session_id, token = candidate._password_authentication()
+                candidate._complete_authentication(token)
+                state = candidate._current_session_state(session_id)
+                candidate.get_accounts()
+                store.save(state)
+            except FinarySessionStoreError:
+                raise FinaryAuthenticationError(
+                    "Finary session state could not be stored safely"
+                ) from None
+            finally:
+                candidate._invalidate_access_token()
+            # Deliberately remain unauthenticated: the next authenticate loads
+            # the published state rather than adopting an unowned candidate.
 
     def get_accounts(self) -> FinaryRawAccounts:
         """Retrieve all holding accounts exposed by the verified API surface."""
@@ -638,6 +680,7 @@ class FinaryApiClient:
             # Includes malformed responses and persistence failures after the
             # replacement transport has been created. Never expose it as ready.
             self._invalidate_access_token()
+            self._session_snapshot = None
             raise
 
     def _refresh_session_locked(self, state: FinarySessionState) -> None:
@@ -705,10 +748,7 @@ class FinaryApiClient:
         self._authenticated = True
         self._token_obtained_at = self._monotonic_clock()
 
-    def _persist_current_session(self, session_id: str) -> None:
-        store = self._session_store
-        if store is None:
-            return
+    def _current_session_state(self, session_id: str) -> FinarySessionState:
         client_cookie = self._session.cookies.get(
             _CLERK_CLIENT_COOKIE_NAME,
             domain=_CLERK_CLIENT_COOKIE_DOMAIN,
@@ -718,19 +758,25 @@ class FinaryApiClient:
             raise FinaryAuthenticationError(
                 "Finary authentication did not establish refreshable state"
             )
-        state = FinarySessionState(
-            session_id=session_id,
-            client_cookie=client_cookie,
-        )
+        return FinarySessionState(session_id=session_id, client_cookie=client_cookie)
+
+    def _persist_current_session(self, session_id: str) -> None:
+        store = self._session_store
+        if store is None:
+            return
+        state = self._current_session_state(session_id)
         try:
-            store.save(state)
+            if self._session_snapshot is None:
+                raise FinarySessionStoreError("Finary session ownership is unavailable")
+            updated = store.compare_and_swap(self._session_snapshot, state)
+            if updated is None:
+                raise FinarySessionStoreError("Finary session was replaced")
         except FinarySessionStoreError:
-            self._authenticated = False
-            self._token_obtained_at = None
-            self._session.headers.pop("authorization", None)
+            self._invalidate_access_token()
             raise FinaryAuthenticationError(
                 "Finary session state could not be stored safely"
             ) from None
+        self._session_snapshot = updated
         self._session_state = state
 
     def _clear_persisted_session(self) -> None:
@@ -738,10 +784,12 @@ class FinaryApiClient:
         self._token_obtained_at = None
         self._session_state = None
         self._session.headers.pop("authorization", None)
-        if self._session_store is None:
+        expected = self._session_snapshot
+        self._session_snapshot = None
+        if self._session_store is None or expected is None:
             return
         try:
-            self._session_store.clear()
+            self._session_store.compare_and_swap(expected, None)
         except FinarySessionStoreError:
             logger.warning(
                 "Stored Finary session could not be cleared",

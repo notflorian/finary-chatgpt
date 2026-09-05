@@ -564,7 +564,8 @@ def test_malformed_persisted_session_maps_to_authentication_failure(
         client.authenticate()
 
     assert session.posted_urls == []
-    assert not session_path.exists()
+    # Unreadable state has no ownership ticket and must not trigger deletion.
+    assert session_path.read_text(encoding="utf-8") == "not-json"
 
 
 def test_concurrent_authentication_performs_one_session_refresh(

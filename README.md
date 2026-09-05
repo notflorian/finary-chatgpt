@@ -128,16 +128,21 @@ client = FinaryApiClient.from_environment(
         f"Enter the one-time Finary {strategy} code: "
     )
 )
-client.authenticate()
-client.get_accounts()
-print("Persisted session bootstrap passed")
+client.bootstrap_session()
+print("Verified session replacement published")
 '
 ```
 
 The bridge stores only the minimum Clerk restart state in a private Docker
 volume. It does not persist passwords, TOTP secrets, backup codes, or bearer
 JWTs. Repeat the bootstrap after session expiry, revocation, credential change,
-or loss of the session volume.
+or loss of the session volume. The command verifies a fresh session before
+publishing its replacement; do not pre-clear a usable session. All writers must
+use the coordinated store and share its stable lock file. Before upgrading from
+an older version, stop all old bridge/bootstrap processes. Follow the
+[replacement and verification procedure](docs/operations.md#replacement-protocol-and-rollout)
+before resuming synchronization: cached tokens can survive until the next
+renewal, so restart the bridge when immediate adoption is required.
 
 ### 5. Run and verify the first synchronization
 
