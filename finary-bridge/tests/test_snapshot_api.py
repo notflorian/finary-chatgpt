@@ -22,7 +22,7 @@ from app.finary_client import (
     FinaryUpstreamError,
     FinaryUpstreamTimeoutError,
 )
-from app.main import app, get_authenticated_finary_client, get_finary_client
+from app.main import _reset_finary_client_for_tests, app, get_authenticated_finary_client
 
 
 class _FakeClient:
@@ -81,7 +81,9 @@ def _request_through_bridge_authentication(
     supplied_key: str | None = None,
 ) -> Response:
     async def send_request() -> Response:
-        monkeypatch.setattr(main_module, "get_finary_client", client_factory)
+        monkeypatch.setattr(
+            main_module.FinaryApiClient, "from_environment", staticmethod(client_factory)
+        )
         headers = {} if supplied_key is None else {"X-API-Key": supplied_key}
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
@@ -182,8 +184,9 @@ def test_snapshot_endpoint_maps_upstream_errors_without_raw_details(
 def test_snapshot_endpoint_maps_missing_credentials_safely(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    get_finary_client.cache_clear()
+    _reset_finary_client_for_tests()
     monkeypatch.delenv("FINARY_BRIDGE_API_KEY", raising=False)
+    monkeypatch.delenv("FINARY_SESSION_PATH", raising=False)
     monkeypatch.delenv("FINARY_EMAIL", raising=False)
     monkeypatch.delenv("FINARY_PASSWORD", raising=False)
     monkeypatch.delenv("FINARY_MFA_CODE", raising=False)
@@ -198,7 +201,7 @@ def test_snapshot_endpoint_maps_missing_credentials_safely(
             "retryable": False,
         }
     }
-    get_finary_client.cache_clear()
+    _reset_finary_client_for_tests()
 
 
 def test_snapshot_endpoint_maps_unavailable_liabilities_explicitly(
@@ -466,3 +469,42 @@ def test_snapshot_preserves_finary_error_after_bridge_authentication(
         }
     }
     assert "synthetic private detail" not in response.text
+
+
+@pytest.mark.parametrize("path", ["/v1/snapshot", "/v2/snapshot"])
+def test_authorized_construction_failure_is_sanitized_and_next_request_recovers(
+    path: str,
+    monkeypatch: pytest.MonkeyPatch,
+    raw_accounts: FinaryRawAccounts,
+    raw_positions: FinaryRawPositions,
+) -> None:
+    client = _FakeClient(raw_accounts, raw_positions)
+    calls = 0
+
+    def construct() -> _FakeClient:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise FinaryAuthenticationError("synthetic private construction detail")
+        return client
+
+    monkeypatch.setenv("FINARY_BRIDGE_API_KEY", "configured-synthetic-key")
+    response = _request_through_bridge_authentication(
+        path, monkeypatch, construct, supplied_key="configured-synthetic-key"
+    )
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "FINARY_AUTH_FAILED",
+            "message": "Unable to authenticate with Finary",
+            "retryable": False,
+        }
+    }
+    assert main_module._finary_client is None
+    assert calls == 1
+    for _ in range(2):
+        response = _request_through_bridge_authentication(
+            path, monkeypatch, construct, supplied_key="configured-synthetic-key"
+        )
+        assert response.status_code == 200
+    assert calls == 2

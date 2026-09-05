@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
 
@@ -14,6 +15,7 @@ from app.finary_client import (
     FinaryRawPositionGroup,
     FinaryRawPositions,
 )
+from app.main import _reset_finary_client_for_tests
 
 _FIXTURE_DIRECTORY = Path(__file__).parent / "fixtures" / "finary"
 
@@ -48,3 +50,14 @@ def raw_positions() -> FinaryRawPositions:
             )
         )
     return FinaryRawPositions(groups=tuple(groups))
+
+
+@pytest.fixture(autouse=True)
+def isolated_finary_client() -> Iterator[None]:
+    """Tests must join their workers before teardown resets the process instance."""
+
+    _reset_finary_client_for_tests()
+    try:
+        yield
+    finally:
+        _reset_finary_client_for_tests()

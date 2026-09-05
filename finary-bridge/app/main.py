@@ -2,7 +2,7 @@
 
 import os
 import secrets
-from functools import lru_cache
+from threading import Lock
 from typing import Annotated, Final, Literal, NamedTuple
 
 from fastapi import Depends, FastAPI, Header, Request, status
@@ -124,11 +124,30 @@ def require_bridge_api_key(
         raise BridgeAuthenticationError
 
 
-@lru_cache(maxsize=1)
+_finary_client: FinaryClient | None = None
+_finary_client_lock = Lock()
+
+
 def get_finary_client() -> FinaryClient:
     """Reuse one non-interactive adapter and refresh lock for the process lifetime."""
 
-    return FinaryApiClient.from_environment()
+    global _finary_client
+    with _finary_client_lock:
+        if _finary_client is None:
+            _finary_client = FinaryApiClient.from_environment()
+        return _finary_client
+
+
+def _reset_finary_client_for_tests() -> None:
+    """Reset only the instance; all test workers must have finished first.
+
+    Persisted sessions and credentials are untouched. Concurrent runtime reset
+    and coordination between processes are intentionally unsupported.
+    """
+
+    global _finary_client
+    with _finary_client_lock:
+        _finary_client = None
 
 
 def get_authenticated_finary_client(

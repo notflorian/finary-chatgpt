@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient, Response
 
 from app.config import SERVICE_VERSION
-from app.main import app, get_finary_client
+from app.main import _reset_finary_client_for_tests, app
 
 BRIDGE_ROOT = Path(__file__).parents[1]
 
@@ -45,7 +45,7 @@ def test_health_does_not_load_finary_session_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("FINARY_SESSION_PATH", "deliberately-relative-and-invalid")
-    get_finary_client.cache_clear()
+    _reset_finary_client_for_tests()
     try:
 
         async def request_health() -> Response:
@@ -56,6 +56,6 @@ def test_health_does_not_load_finary_session_state(
 
         response = asyncio.run(request_health())
     finally:
-        get_finary_client.cache_clear()
+        _reset_finary_client_for_tests()
 
     assert response.status_code == 200
