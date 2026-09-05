@@ -1,9 +1,11 @@
 """FastAPI boundary for local diagnostics and normalized snapshots."""
 
+import os
+import secrets
 from functools import lru_cache
 from typing import Annotated, Final, Literal, NamedTuple
 
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Depends, FastAPI, Header, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -95,6 +97,32 @@ _UPSTREAM_ERROR_SPECS: Final[tuple[tuple[type[FinaryClientError], _ApiErrorSpec]
     ),
 )
 
+_BRIDGE_AUTH_ERROR = _ApiErrorSpec(
+    status.HTTP_401_UNAUTHORIZED,
+    "BRIDGE_AUTH_FAILED",
+    "Bridge authentication failed",
+    False,
+)
+
+
+class BridgeAuthenticationError(Exception):
+    """Raised when a protected bridge route receives invalid credentials."""
+
+
+def require_bridge_api_key(
+    supplied_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> None:
+    """Authorize a snapshot request when bridge API-key protection is enabled."""
+
+    expected_key = os.getenv("FINARY_BRIDGE_API_KEY")
+    if not expected_key:
+        return
+    if not isinstance(supplied_key, str) or not secrets.compare_digest(
+        expected_key.encode("utf-8", errors="surrogatepass"),
+        supplied_key.encode("utf-8", errors="surrogatepass"),
+    ):
+        raise BridgeAuthenticationError
+
 
 @lru_cache(maxsize=1)
 def get_finary_client() -> FinaryClient:
@@ -103,8 +131,16 @@ def get_finary_client() -> FinaryClient:
     return FinaryApiClient.from_environment()
 
 
+def get_authenticated_finary_client(
+    _: Annotated[None, Depends(require_bridge_api_key)],
+) -> FinaryClient:
+    """Construct the Finary client only after bridge authentication succeeds."""
+
+    return get_finary_client()
+
+
 def get_snapshot_service(
-    client: Annotated[FinaryClient, Depends(get_finary_client)],
+    client: Annotated[FinaryClient, Depends(get_authenticated_finary_client)],
 ) -> SnapshotService:
     """Create the request-scoped snapshot orchestration service."""
 
@@ -120,6 +156,16 @@ def _error_response(spec: _ApiErrorSpec) -> JSONResponse:
         )
     )
     return JSONResponse(status_code=spec.status_code, content=payload.model_dump())
+
+
+@app.exception_handler(BridgeAuthenticationError)
+async def handle_bridge_authentication_error(
+    request: Request, exception: BridgeAuthenticationError
+) -> JSONResponse:
+    """Reject unauthorized bridge requests without exposing credential details."""
+
+    del request, exception
+    return _error_response(_BRIDGE_AUTH_ERROR)
 
 
 @app.exception_handler(FinaryClientError)

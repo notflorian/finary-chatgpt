@@ -212,6 +212,42 @@ def _prepare_named_rows(
     return named
 
 
+def _validate_snapshot_failure(
+    workflow: dict[str, Any],
+    schema: dict[str, Any],
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    retryable: bool,
+) -> dict[str, Any]:
+    run = {
+        "run_id": "20260820-073012",
+        "started_at": "2026-08-20T07:30:12+02:00",
+        "started_epoch_ms": 0,
+    }
+    return _run_code_node(
+        workflow,
+        "Validate Snapshot",
+        named_rows={
+            "Initialize Run": [run],
+            "Fetch Canonical Schema": [{"statusCode": 200, "body": schema}],
+        },
+        input_rows=[
+            {
+                "statusCode": status_code,
+                "body": {
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "retryable": retryable,
+                    }
+                },
+            }
+        ],
+    )[0]["json"]
+
+
 def test_workflow_uses_expected_triggers_and_runtime_schema(
     workflow: dict[str, Any],
 ) -> None:
@@ -355,6 +391,98 @@ def test_structured_bridge_failure_cannot_reach_portfolio_writes(
     assert false_branch == [
         {"node": "Preflight Failure Sync Header", "type": "main", "index": 0}
     ]
+
+
+def test_bridge_auth_failure_reaches_sanitized_failed_sync_run(
+    workflow: dict[str, Any], sheets_schema: dict[str, Any]
+) -> None:
+    sensitive_marker = "SYNTHETIC_API_KEY_MUST_NOT_LEAK"
+    context = _validate_snapshot_failure(
+        workflow,
+        sheets_schema,
+        status_code=401,
+        code="BRIDGE_AUTH_FAILED",
+        message=sensitive_marker,
+        retryable=True,
+    )
+
+    assert context["can_write"] is False
+    assert context["failure"] == {
+        "code": "BRIDGE_AUTH_FAILED",
+        "message": "Bridge authentication failed",
+        "retryable": False,
+    }
+
+    failed_run = _run_code_node(
+        workflow,
+        "Prepare Failed Run",
+        named_rows={"Validate Snapshot": [context]},
+        input_rows=[_headers(sheets_schema, "sync_runs")],
+    )[0]["json"]
+    assert failed_run["status"] == "FAILED"
+    assert failed_run["error_code"] == "BRIDGE_AUTH_FAILED"
+    assert failed_run["error_message"] == "Bridge authentication failed"
+    assert sensitive_marker not in json.dumps([context, failed_run])
+
+    false_branch = workflow["connections"]["Snapshot Is Valid"]["main"][1]
+    assert false_branch == [
+        {"node": "Preflight Failure Sync Header", "type": "main", "index": 0}
+    ]
+    assert workflow["connections"]["Preflight Failure Sync Header"]["main"][0] == [
+        {"node": "Prepare Failed Run", "type": "main", "index": 0}
+    ]
+    assert workflow["connections"]["Prepare Failed Run"]["main"][0] == [
+        {"node": "Record Failed Sync", "type": "main", "index": 0}
+    ]
+    record_node = _node(workflow, "Record Failed Sync")
+    assert record_node["parameters"]["sheetName"]["value"] == "sync_runs"
+    assert record_node["parameters"]["operation"] == "appendOrUpdate"
+    assert "Record Failed Sync" not in workflow["connections"]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "code", "expected_failure"),
+    [
+        (
+            502,
+            "FINARY_AUTH_FAILED",
+            {
+                "code": "FINARY_AUTH_FAILED",
+                "message": "Unable to authenticate with Finary",
+                "retryable": False,
+            },
+        ),
+        (
+            418,
+            "UNKNOWN_SYNTHETIC_FAILURE",
+            {
+                "code": "BRIDGE_REQUEST_FAILED",
+                "message": "Bridge snapshot request failed",
+                "retryable": False,
+            },
+        ),
+    ],
+)
+def test_snapshot_failure_keeps_finary_auth_distinct_and_unknown_errors_generic(
+    status_code: int,
+    code: str,
+    expected_failure: dict[str, Any],
+    workflow: dict[str, Any],
+    sheets_schema: dict[str, Any],
+) -> None:
+    sensitive_marker = "SYNTHETIC_UPSTREAM_DETAIL_MUST_NOT_LEAK"
+    context = _validate_snapshot_failure(
+        workflow,
+        sheets_schema,
+        status_code=status_code,
+        code=code,
+        message=sensitive_marker,
+        retryable=True,
+    )
+
+    assert context["can_write"] is False
+    assert context["failure"] == expected_failure
+    assert sensitive_marker not in json.dumps(context)
 
 
 def test_complete_snapshot_passes_prewrite_gate(
