@@ -121,10 +121,17 @@ def _prepare_for_run(
 def _upsert(
     existing: list[dict[str, Any]], incoming: list[dict[str, Any]], key: str
 ) -> list[dict[str, Any]]:
-    rows = {str(row[key]): deepcopy(row) for row in existing}
+    # Keep physical duplicates visible to consumer tests. Updating a matching
+    # row is not evidence that a second physical row was removed by Sheets.
+    rows = deepcopy(existing)
     for row in incoming:
-        rows[str(row[key])] = deepcopy(row)
-    return list(rows.values())
+        for index, old in enumerate(rows):
+            if str(old[key]) == str(row[key]):
+                rows[index] = deepcopy(row)
+                break
+        else:
+            rows.append(deepcopy(row))
+    return rows
 
 
 def _apply_prepared_writes(
@@ -134,6 +141,7 @@ def _apply_prepared_writes(
     *,
     stop_after: str = "success",
     history_limit: int | None = None,
+    current_limit: int | None = None,
     completed_at: str = "2026-08-20T05:31:00Z",
 ) -> None:
     write_sets = (
@@ -142,9 +150,12 @@ def _apply_prepared_writes(
         ("liabilities_current", "liability_rows"),
     )
     for sheet_name, prepared_name in write_sets:
+        incoming = prepared[prepared_name]
+        if stop_after == sheet_name and current_limit is not None:
+            incoming = incoming[:current_limit]
         workbook[sheet_name] = _upsert(
             workbook[sheet_name],
-            prepared[prepared_name],
+            incoming,
             schema["sheets"][sheet_name]["unique_key"],
         )
         if stop_after == sheet_name:
@@ -182,6 +193,8 @@ def _latest_complete_position_state(
     workbook: dict[str, list[dict[str, Any]]],
     snapshot_date: str | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]] | None:
+    # Historical writer regression helper, not a current-table consumer gate.
+    # The complete read-side specification lives in workbook_consumer.py.
     if snapshot_date is None:
         dates = [
             row.get("snapshot_date")

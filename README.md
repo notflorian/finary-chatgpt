@@ -96,7 +96,11 @@ jq -r --arg sheet "$SHEET" '.sheets[$sheet].columns | map(.name) | @tsv' \
 ```
 
 Paste the output into row 1. Populate the `README` tab from the JSON
-`readme_entries` array. The workbook rules and ownership boundaries are
+`readme_entries` array. Synchronization does not automatically rewrite this
+initialized tab. Existing installations must apply the
+[consumer-validation adoption steps](docs/operations.md#consumer-validation-adoption),
+including replacement of the uploaded knowledge reference. The workbook rules
+and ownership boundaries are
 summarized in [the data-model guide](docs/data-model.md).
 
 ### 3. Configure n8n
@@ -150,7 +154,11 @@ Click **Execute workflow** in **Finary - Daily Sync**. Confirm that:
 
 - the execution reaches `Record Successful Sync`;
 - `sync_runs` ends with `SUCCESS` or `SUCCESS_WITH_WARNINGS`;
-- `accounts_current` and `positions_current` contain deterministic unique keys;
+- full `accounts_current` and `positions_current` tables have unique canonical
+  keys and valid activity flags; every active `last_seen_run_id` matches the
+  selected success and active counts equal its `accounts_count`/`positions_count`;
+- active positions reference validated active accounts and their key set matches
+  validated same-run history; inactive retained rows do not count;
 - rerunning on the same day creates no duplicate current, history, or daily
   rows;
 - `positions_history` rows for the successful `run_id` equal
@@ -216,6 +224,28 @@ Live Finary tests are opt-in and require private credentials. See
 | [Development](docs/development.md) | Local checks, CI, fixtures, and opt-in live tests |
 | [ChatGPT knowledge reference](docs/finary-portfolio-data-knowledge.md) | Reference file uploaded to the ChatGPT Project |
 | [Canonical schema](docs/google-sheets-schema.json) | Machine-readable workbook contract |
+
+## Consumer state validation
+
+Physical `*_current` tables are nontransactional and can contain unsuccessful
+writes. Select successful executions by parsed timezone-aware `completed_at`,
+never by opaque `run_id`; reject missing or ambiguous terminal evidence. Check
+full-table keys, activity, active run membership and valid counts before using
+current holdings. Filtering to a desired run is not a completeness check.
+
+If current assets fail, use independently validated date/run/count history or
+report detail unavailable. Explicitly date every fallback, disclose freshness,
+and use only retained fields. Never enrich it from invalid current rows or
+reconstruct account balances from positions. Independently validated daily
+aggregates can remain usable, with their own provenance and authoritative gross
+assets. Validate liability details separately against the latest successful
+`COMPLETE` run; newer incomplete assets do not make old debts current and must
+not be combined with them as authoritative net worth.
+
+See the [reading procedure](docs/finary-portfolio-data-knowledge.md#selecting-the-latest-successful-execution).
+Its executable specification is test-only; it does not automatically enforce
+validation inside ChatGPT. Sequential reads can detect observed inconsistencies
+but cannot create a transactional snapshot or exclude unobserved concurrent writes.
 
 ## Security and limitations
 

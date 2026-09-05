@@ -274,6 +274,34 @@ timestamp-shaped `run_id` values unchanged; equality-based history selection
 continues to interpret them. New executions use the
 `n8n-execution:{execution_id}` form.
 
+## Consumer-validation adoption
+
+This correction keeps schema `2.1`, headers, deterministic keys and workflow
+exports unchanged. The workbook `README` is initialized from the schema and is
+not automatically rewritten by portfolio synchronization. Updating repository
+files alone does not update an existing workbook or ChatGPT Project.
+
+Operators must:
+
+1. Copy the current `value` and `description` from `readme_entries` in
+   `docs/google-sheets-schema.json` for these existing workbook README keys:
+   `current_state_rule`, `history_rule`, `gross_assets_rule`,
+   `failed_snapshot_rule`, `liability_rule`, `last_known_liability_rule`, and
+   `last_success_rule`. Preserve other entries and all portfolio/manual rows.
+2. Replace the uploaded `finary-portfolio-data-knowledge.md` source in each
+   consuming ChatGPT Project with this revision. Remove obsolete duplicate
+   references and update any Project reading instructions that only filter
+   `is_active = TRUE`, following [chatgpt.md](chatgpt.md#how-chatgpt-should-read-the-workbook).
+3. Verify the consumer reports accepted/rejected data sources, full-table
+   membership and counts, explicit dated historical fallback, and independent
+   last-known complete liability provenance. Test the interruption scenarios
+   using synthetic data, not partial writes to a production workbook.
+
+No workbook or Project update is performed by the repository tests. The
+executable consumer specification is test-only, not a deployed enforcement
+layer. No workflow import, publication or service restart is required solely for
+this correction. The existing completion-timestamp behavior is unchanged.
+
 ## n8n installation checklist
 
 After importing both JSON exports:
@@ -298,9 +326,17 @@ After a manual execution, inspect the terminal `sync_runs` row and workbook:
 
 - status is `SUCCESS` or `SUCCESS_WITH_WARNINGS`;
 - the recorded snapshot API `schema_version` is `2.0`;
-- counts match the current sheets;
-- all current keys are unique;
-- active positions reference an account;
+- full current tables have non-empty unique canonical keys and valid activity
+  flags; do not prefilter or deduplicate;
+- active account and position `last_seen_run_id` values match the selected
+  successful run, and active counts equal valid finite non-negative integer
+  `accounts_count` and `positions_count` (missing is not zero);
+- active positions reference validated active accounts, and their keys match
+  independently validated same-run history;
+- retained inactive rows are excluded from counts; their older observation IDs
+  are allowed even after a later execution wrote the inactivation;
+- liability details independently pass membership and `liabilities_count`
+  checks against the latest successful `COMPLETE` run;
 - history rows for the successful `run_id` equal `positions_count`, have unique
   position keys, share one date, and match `portfolio_daily.run_id`;
 - blank numeric fields remain blank;
@@ -314,17 +350,34 @@ daily keys, and `portfolio_daily` should still have one row for the date.
 
 ## Monitoring
 
-Treat the newest parseable `completed_at` row whose status is `SUCCESS` or
-`SUCCESS_WITH_WARNINGS` as the last valid synchronization. A later `FAILED` row
-does not advance freshness. A last valid state older than 48 hours is stale and
-requires investigation.
+Select the latest successful execution using parsed timezone-aware
+`completed_at` and `SUCCESS` / `SUCCESS_WITH_WARNINGS`. Require exactly one
+terminal record per candidate across all statuses; conflicting duplicates,
+missing evidence and tied newest instants cannot establish a unique latest
+success. IDs are opaque equality keys. A later `FAILED` record does not advance
+freshness, and absence of failure telemetry does not prove success.
 
-For a date, start with its single `portfolio_daily` row, require a matching
-`sync_runs` row with status `SUCCESS` or `SUCCESS_WITH_WARNINGS` and a parseable
-`completed_at`, then require exactly `positions_count` same-date history rows
-with that `run_id` and unique position keys. A mismatch means that
-non-transactional writes interrupted or superseded the state. Do not mix runs
-or fall back silently; repair it with a successful manual rerun.
+Then apply the [consumer validation procedure](finary-portfolio-data-knowledge.md#current-asset-membership-and-completeness).
+Physical current tables may have been overwritten since that success; validate
+full-table keys, flags, active membership/counts and account references before
+using them. Do not silently discard foreign rows or accept an incomplete subset.
+Check liabilities independently against the latest successful COMPLETE run,
+even when newer incomplete assets replaced the same-day daily row.
+
+For a date, validate its unique daily row and successful terminal evidence,
+coverage and shared totals. Independently require canonical unique history keys,
+matching date/run/generated timestamp and exactly valid `positions_count`
+members. A terminal success alone cannot recover overwritten same-day history.
+If current rows fail but history passes, retain that history. If history fails,
+use an explicitly older valid date or report details unavailable; do not mix
+runs. Validated daily aggregates can remain usable with their own provenance.
+A selected state's completion time older than 48 hours is stale: disclose it
+and investigate, even if a more recent successful execution exists.
+
+Sequential reads do not provide transactional consistency. Reject observed
+changes and inconsistencies; repeat full reads after writes settle. Identical
+repeat reads still cannot rule out an unobserved concurrent write. A consumer
+must not claim the checks create an atomic portfolio snapshot.
 
 Common warnings:
 
@@ -406,14 +459,22 @@ occurs after some upserts:
 
 1. unpublish the schedule;
 2. identify the last completed write node and the affected `run_id`;
-3. verify manual sheets and last-known liability state were not altered;
+3. verify manual sheets were not altered and validate liability details against
+   their last successful COMPLETE run; a failed COMPLETE write may invalidate
+   them even when an earlier daily aggregate survives;
 4. fix the underlying credential, quota, or header problem;
 5. start a full new workflow execution for the same logical date;
-6. verify deterministic keys repaired rows without duplicates and that the
-   successful run's history membership passes the count and daily-run checks;
+6. verify deterministic keys repaired rows without duplicates; validate full
+   current membership/counts and account references, same-run history key sets,
+   daily/history membership, and independent COMPLETE liability membership;
 7. verify one terminal telemetry row remains for the new run.
 
-Do not delete current or historical rows as a recovery shortcut.
+While recovery is pending, reject invalid current tables. Use only independently
+validated history with its explicit date/run/freshness and retained fields, or
+report detail unavailable. Never enrich fallback history from invalid current
+rows or invent liability history. Keep independently validated aggregates
+separate from unavailable details. Do not delete current or historical rows as
+a recovery shortcut.
 
 Sheets node retries configured inside a running execution retain its opaque
 `n8n-execution:{execution_id}` identity and are idempotent. The n8n action that
