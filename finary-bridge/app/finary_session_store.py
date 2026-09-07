@@ -184,8 +184,8 @@ class FileFinarySessionStore:
 
         try:
             payload = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise FinarySessionStoreError("Finary session file is malformed") from exc
+        except (OSError, ValueError, RecursionError):
+            raise FinarySessionStoreError("Finary session file is malformed") from None
 
         if not isinstance(payload, dict) or set(payload) != {
             "version",
