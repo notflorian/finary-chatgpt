@@ -25,6 +25,13 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 `GET /health` requires no credentials. Snapshot routes require the environment
 described in `.env.example` unless a fake adapter is injected in tests.
 
+For memory-only use outside Docker, leave `FINARY_SESSION_PATH` absent or empty.
+After `authenticate()` establishes renewable state, the same adapter renews
+tokens without another password/MFA sign-in and creates no session or lock files.
+Exiting or reloading the process loses that state. The operator-only
+`bootstrap_session()` command requires configured storage to publish a session
+for other processes; it cannot seed another process's memory.
+
 ## Required local checks
 
 Run normal tests and static analysis from `finary-bridge`:

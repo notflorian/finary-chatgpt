@@ -350,8 +350,7 @@ class FinaryApiClient:
         try:
             session_id, session_token = self._password_authentication()
             self._complete_authentication(session_token)
-            if self._session_store is not None:
-                self._persist_current_session(session_id)
+            self._retain_current_session(session_id, allow_missing=True)
         except Exception:
             self._invalidate_access_token()
             self._session_snapshot = None
@@ -735,7 +734,7 @@ class FinaryApiClient:
                 "Finary session refresh response is missing its token"
             )
         self._complete_authentication(session_token)
-        self._persist_current_session(state.session_id)
+        self._retain_current_session(state.session_id)
         logger.info(
             "Stored Finary session refreshed",
             extra={"event": "finary.authentication.session_refreshed"},
@@ -760,23 +759,33 @@ class FinaryApiClient:
             )
         return FinarySessionState(session_id=session_id, client_cookie=client_cookie)
 
-    def _persist_current_session(self, session_id: str) -> None:
+    def _retain_current_session(self, session_id: str, *, allow_missing: bool = False) -> None:
+        """Capture under the auth lock; configured persistence must succeed first."""
         store = self._session_store
-        if store is None:
-            return
-        state = self._current_session_state(session_id)
         try:
-            if self._session_snapshot is None:
-                raise FinarySessionStoreError("Finary session ownership is unavailable")
-            updated = store.compare_and_swap(self._session_snapshot, state)
-            if updated is None:
-                raise FinarySessionStoreError("Finary session was replaced")
-        except FinarySessionStoreError:
-            self._invalidate_access_token()
-            raise FinaryAuthenticationError(
-                "Finary session state could not be stored safely"
-            ) from None
-        self._session_snapshot = updated
+            state = self._current_session_state(session_id)
+        except (FinaryAuthenticationError, ValueError):
+            if not allow_missing or store is not None:
+                raise FinaryAuthenticationError(
+                    "Finary authentication did not establish refreshable state"
+                ) from None
+            # Initial memory-only sign-in may supply a usable access token
+            # without renewable material. Entity renewal still fails safely.
+            self._session_state = None
+            return
+        if store is not None:
+            try:
+                if self._session_snapshot is None:
+                    raise FinarySessionStoreError("Finary session ownership is unavailable")
+                updated = store.compare_and_swap(self._session_snapshot, state)
+                if updated is None:
+                    raise FinarySessionStoreError("Finary session was replaced")
+            except FinarySessionStoreError:
+                self._invalidate_access_token()
+                raise FinaryAuthenticationError(
+                    "Finary session state could not be stored safely"
+                ) from None
+            self._session_snapshot = updated
         self._session_state = state
 
     def _clear_persisted_session(self) -> None:

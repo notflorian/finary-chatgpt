@@ -225,6 +225,15 @@ The adapter implements Clerk password authentication followed by the supported
 TOTP or email-code challenge. An explicit interactive command bootstraps the
 session; HTTP requests never prompt.
 
+Outside Compose, an absent or empty `FINARY_SESSION_PATH` disables file storage.
+The adapter retains verified renewable state in memory after sign-in and each
+successful refresh, including rotated cookies. Aging tokens and subsequent
+`authenticate()` calls use this state without repeating password/MFA sign-in.
+This state lasts only for the process lifetime; it cannot survive a restart.
+A fresh access token can remain usable without renewable material, but an entity
+read requiring renewal then fails safely. Compose supplies persistent storage
+by default.
+
 The protected file store persists only:
 
 - the Clerk session identifier;
