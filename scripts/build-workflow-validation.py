@@ -8,17 +8,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "finary-bridge"))
 
-from app.models import Account, Liability, PortfolioSnapshotV2, Position
+from app.models import Account, Liability, PortfolioSnapshotV2, Position  # noqa: E402
 
 START = "// BEGIN GENERATED CONTRACT VALIDATION\n"
 END = "// END GENERATED CONTRACT VALIDATION\n"
-NODES = {
+WORKFLOWS = ("finary-daily-sync.json", "finary-error-handler.json")
+VALIDATED_NODES = {
     "Initialize Run",
     "Resolve Source Execution",
     "Validate Source Execution ID",
@@ -92,21 +94,30 @@ def generated_block():
     return START + f"const apiContract = {contract};\n" + library + END
 
 
+def code_node_source_path(workflow_name, node_name):
+    directory = ROOT / "n8n" / "code-nodes" / Path(workflow_name).stem
+    slug = re.sub(r"[^a-z0-9]+", "-", node_name.lower()).strip("-")
+    return directory / f"{slug}.js"
+
+
+def expected_code(workflow_name, node_name):
+    body = code_node_source_path(workflow_name, node_name).read_text()
+    return generated_block() + body if node_name in VALIDATED_NODES else body
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    block = generated_block()
     changed = False
-    for filename in ("finary-daily-sync.json", "finary-error-handler.json"):
+    for filename in WORKFLOWS:
         path = ROOT / "n8n" / "workflows" / filename
         workflow = json.loads(path.read_text())
         for node in workflow["nodes"]:
-            if node["name"] not in NODES:
+            if node["type"] != "n8n-nodes-base.code":
                 continue
             code = node["parameters"]["jsCode"]
-            body = code.split(END, 1)[1] if code.startswith(START) else code
-            expected = block + body
+            expected = expected_code(filename, node["name"])
             changed |= code != expected
             node["parameters"]["jsCode"] = expected
         if not args.check:

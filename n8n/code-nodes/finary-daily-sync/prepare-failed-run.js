@@ -1,0 +1,10 @@
+const context = $('Validate Snapshot').first().json;
+const expected = context.schema?.sheets?.sync_runs?.columns?.map((column) => column.name) ?? [];
+const actual = Object.keys($('Preflight Failure Sync Header').first().json).filter((name) => name !== 'row_number');
+if (expected.length === 0 || actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) throw new Error('SHEETS_HEADER_MISMATCH:sync_runs');
+validateRunContext(context.run, $execution.id);
+if (matchingTerminal($input.all().map((item) => item.json), context.run, true)) return [];
+const now = new Date();
+const row = { run_id: context.run.run_id, started_at: context.run.started_at, completed_at: now.toISOString(), status: 'FAILED', accounts_count: null, positions_count: null, liabilities_count: null, liability_coverage: null, gross_assets_eur: null, liabilities_eur: null, net_worth_eur: null, previous_net_worth_eur: null, net_worth_change_pct: null, duration_ms: Math.max(0, now.getTime() - context.run.started_epoch_ms), bridge_version: null, schema_version: null, warning_count: 0, error_code: context.failure.code, error_message: context.failure.message };
+validateBatch(context.schema, 'sync_runs', [row]);
+return [{ json: row }];

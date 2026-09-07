@@ -1,0 +1,1 @@
+return $('Prepare Validated Rows').first().json.account_rows.map((json) => ({ json }));

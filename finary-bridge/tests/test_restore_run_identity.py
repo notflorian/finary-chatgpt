@@ -312,8 +312,13 @@ def test_all_generated_error_copies_match_shared_source():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     for node in _load(ERROR_PATH)["nodes"]:
-        if node["name"] in module.NODES:
-            assert node["parameters"]["jsCode"].startswith(module.generated_block())
+        if node["type"] != "n8n-nodes-base.code":
+            continue
+        path = module.code_node_source_path("finary-error-handler.json", node["name"])
+        assert path.is_file()
+        assert node["parameters"]["jsCode"] == module.expected_code(
+            "finary-error-handler.json", node["name"]
+        )
     fetch = next(n for n in _load(ERROR_PATH)["nodes"] if n["name"] == "Fetch Source Execution")
     assert fetch["executeOnce"] and fetch["maxTries"] == 3
     assert fetch["parameters"]["options"]["timeout"] == 10000
