@@ -33,6 +33,10 @@ class FinarySessionState:
     client_cookie: str = field(repr=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.session_id, str):
+            raise ValueError("session_id must be a string")
+        if not isinstance(self.client_cookie, str):
+            raise ValueError("client_cookie must be a string")
         if not self.session_id or len(self.session_id) > _MAX_SESSION_ID_LENGTH:
             raise ValueError("session_id is empty or too long")
         if not self.client_cookie or len(self.client_cookie) > _MAX_CLIENT_COOKIE_LENGTH:
