@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
@@ -27,7 +28,11 @@ from workbook_consumer import (
     latest_success,
     select_assets,
     select_liabilities,
+    unique_keys,
+    validated_history,
 )
+
+from app.models import PortfolioSnapshotV2
 
 NOW = datetime.fromisoformat("2026-08-20T12:00:00+02:00")
 A, B, C = "n8n-execution:900", "n8n-execution:10", "n8n-execution:2"
@@ -70,6 +75,242 @@ def workbook(workflow, schema) -> Workbook:
     prepared = _prepare(workflow, schema, book, A, "2026-08-20T07:30:00+02:00")
     _apply_prepared_writes(schema, book, prepared)
     return book
+
+
+def _identifier_snapshot(component, identifier):
+    snapshot = _known_eur_snapshot("2026-08-20T07:30:00+02:00")
+    account = snapshot["accounts"][0]
+    if component == "account":
+        account["source_account_id"] = identifier
+        account["account_key"] = f"finary:account:{identifier}"
+    for index, position in enumerate(snapshot["positions"]):
+        if component == "asset":
+            position["source_asset_id"] = f"any-kind:{identifier}:{index}"
+        position["account_key"] = account["account_key"]
+        position["position_key"] = (
+            f"finary:{account['source_account_id']}:asset:{position['source_asset_id']}"
+        )
+    if component == "liability":
+        snapshot["liabilities"][0].update(
+            source_liability_id=identifier, liability_key=f"finary:liability:{identifier}"
+        )
+    return snapshot
+
+
+def _write_identifier_snapshot(workflow, schema, book, snapshot):
+    # Exercise the actual model and exported Code nodes before consumer selection.
+    PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
+    assert _run_validation(workflow, schema, snapshot)["can_write"] is True
+    prepared = _prepare_for_run(workflow, schema, snapshot, book, "identifier-regression")
+    _apply_prepared_writes(schema, book, prepared)
+    assert book["sync_runs"][-1]["status"] == "SUCCESS"
+    return prepared
+
+
+@pytest.mark.parametrize("component", ["account", "asset"])
+@pytest.mark.parametrize("identifier", ["custody:001", "custody 001"])
+def test_producer_valid_identifiers_select_current(workflow, schema, component, identifier):
+    book = _empty_workbook()
+    prepared = _write_identifier_snapshot(
+        workflow, schema, book, _identifier_snapshot(component, identifier)
+    )
+    state = select_assets(book, now=NOW)
+    assert state.source == "current" and state.current_complete
+    assert state.accounts == prepared["account_rows"]
+    assert state.positions == prepared["position_rows"]
+    assert state.history == prepared["history_rows"]
+
+
+@pytest.mark.parametrize("component", ["account", "asset"])
+@pytest.mark.parametrize("identifier", ["custody:001", "custody 001"])
+def test_producer_valid_identifiers_select_history(workflow, schema, component, identifier):
+    book = _empty_workbook()
+    prepared = _write_identifier_snapshot(
+        workflow, schema, book, _identifier_snapshot(component, identifier)
+    )
+    # A partial current write is an independent reason to require historical detail.
+    book["accounts_current"][0]["last_seen_run_id"] = "interrupted-run"
+    state = select_assets(book, now=NOW)
+    assert state.source == "history" and not state.current_complete
+    assert state.dated_fallback and state.accounts is None
+    assert state.positions == state.history == prepared["history_rows"]
+    assert state.aggregate_daily == prepared["daily_rows"][0]
+
+
+@pytest.mark.parametrize("identifier", ["loan:001", "loan 001"])
+def test_producer_valid_liability_identifiers(workflow, schema, identifier):
+    book = _empty_workbook()
+    prepared = _write_identifier_snapshot(
+        workflow, schema, book, _identifier_snapshot("liability", identifier)
+    )
+    state = select_liabilities(book)
+    assert state.complete and state.liabilities_eur == 10
+    assert state.rows == prepared["liability_rows"]
+
+
+@pytest.mark.parametrize("identifier", ["retained:asset:001", "retained 001"])
+def test_producer_valid_identifiers_survive_retention(workflow, schema, identifier):
+    book = _empty_workbook()
+    snapshot = _identifier_snapshot("account", identifier)
+    snapshot["liabilities"] = _identifier_snapshot("liability", identifier)["liabilities"]
+    for index, position in enumerate(snapshot["positions"]):
+        position["source_asset_id"] = f"any-kind:{identifier}:{index}"
+        position["position_key"] = f"finary:{identifier}:asset:{position['source_asset_id']}"
+    retained = _write_identifier_snapshot(workflow, schema, book, snapshot)
+    newer = _prepare(workflow, schema, book, B, "2026-08-20T08:30:00+02:00")
+    _apply_prepared_writes(schema, book, newer, completed_at="2026-08-20T06:31:00Z")
+    for sheet, batch in (
+        ("accounts_current", "account_rows"),
+        ("positions_current", "position_rows"),
+        ("liabilities_current", "liability_rows"),
+    ):
+        assert [row for row in book[sheet] if not row["is_active"]] == [
+            {**row, "is_active": False} for row in retained[batch]
+        ]
+    assert all(row in book["positions_history"] for row in retained["history_rows"])
+    state = select_assets(book, now=NOW)
+    assert state.current_complete and state.run_id == B
+    assert state.history == newer["history_rows"]
+    assert select_liabilities(book).complete
+    next(row for row in book["accounts_current"] if row["is_active"])["last_seen_run_id"] = C
+    fallback = select_assets(book, now=NOW)
+    assert fallback.source == "history" and fallback.history == newer["history_rows"]
+
+
+def test_written_identifier_whitespace_is_preserved(workflow, schema):
+    book = _empty_workbook()
+    snapshot = _identifier_snapshot("account", " arbitrary:identifier: ")
+    snapshot["liabilities"] = _identifier_snapshot("liability", " loan:001 ")["liabilities"]
+    snapshot["positions"][0]["source_asset_id"] = "any-kind: arbitrary:0: "
+    snapshot["positions"][0]["position_key"] = (
+        "finary: arbitrary:identifier: :asset:any-kind: arbitrary:0: "
+    )
+    prepared = _write_identifier_snapshot(workflow, schema, book, snapshot)
+    before = deepcopy(book)
+    state = select_assets(book, now=NOW)
+    assert state.current_complete and state.history == prepared["history_rows"]
+    assert select_liabilities(book).complete
+    assert book == before
+
+
+@pytest.mark.parametrize(
+    "sheet,key",
+    [
+        ("accounts_current", "account_key"),
+        ("positions_current", "position_key"),
+        ("liabilities_current", "liability_key"),
+        ("positions_history", "position_key"),
+    ],
+)
+@pytest.mark.parametrize("value", [None, 123, [], "", "arbitrary", "missing-field"])
+def test_physical_keys_require_canonical_strings(workbook, sheet, key, value):
+    rows = workbook[sheet]
+    assert unique_keys(rows, key)
+    if value == "missing-field":
+        del rows[0][key]
+    else:
+        rows[0][key] = value
+    assert not unique_keys(rows, key)
+
+
+@pytest.mark.parametrize(
+    "sheet,key,changes",
+    [
+        ("accounts_current", "account_key", {"source_account_id": "other"}),
+        ("accounts_current", "account_key", {"source_account_id": None}),
+        ("accounts_current", "account_key", {"source_account_id": 123}),
+        (
+            "accounts_current",
+            "account_key",
+            {
+                "account_key": "finary:account:",
+                "source_account_id": "",
+            },
+        ),
+        ("liabilities_current", "liability_key", {"source_liability_id": "other"}),
+        ("liabilities_current", "liability_key", {"source_liability_id": None}),
+        ("liabilities_current", "liability_key", {"source_liability_id": 123}),
+        (
+            "liabilities_current",
+            "liability_key",
+            {
+                "liability_key": "finary:liability:",
+                "source_liability_id": "",
+            },
+        ),
+    ],
+)
+def test_entity_key_requires_exact_source_identifier(workbook, sheet, key, changes):
+    rows = workbook[sheet]
+    assert unique_keys(rows, key)
+    rows[0].update(changes)
+    assert not unique_keys(rows, key)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("account_key", None),
+        ("account_key", 123),
+        ("account_key", "other:account:001"),
+        ("account_key", "finary:account:"),
+        ("account_key", "finary:account:other"),
+        ("source_asset_id", None),
+        ("source_asset_id", 123),
+        ("source_asset_id", ""),
+        ("source_asset_id", "kind-only"),
+        ("source_asset_id", ":asset-id"),
+        ("source_asset_id", "kind:"),
+        ("source_asset_id", "kind:other"),
+    ],
+)
+def test_position_components_are_checked_in_current_and_history(workbook, field, value):
+    current = workbook["positions_current"]
+    history = workbook["positions_history"]
+    assert unique_keys(current, "position_key") and unique_keys(history, "position_key")
+    current[0][field] = value
+    history[0][field] = value
+    if value in ("kind-only", ":asset-id", "kind:", ""):
+        # Keep concatenation consistent so rejection exercises source structure.
+        for row in (current[0], history[0]):
+            account_id = row["account_key"].removeprefix("finary:account:")
+            row["position_key"] = f"finary:{account_id}:asset:{value}"
+    for row in history:
+        row["history_key"] = f"{row['snapshot_date']}:{row['position_key']}"
+    assert not unique_keys(current, "position_key")
+    assert not unique_keys(history, "position_key")
+    state = select_assets(workbook, now=NOW)
+    assert state.source == "unavailable" and state.aggregate_daily is not None
+
+
+def test_retained_history_components_are_checked_before_membership(workbook):
+    daily, run = workbook["portfolio_daily"][0], workbook["sync_runs"][0]
+    retained = deepcopy(workbook["positions_history"][0])
+    for field in ("source_asset_id", "position_key", "history_key"):
+        retained[field] += "-retained"
+    retained["run_id"] = B
+    workbook["positions_history"].append(retained)
+    assert validated_history(workbook, daily, run) is not None
+    retained["source_asset_id"] += "-inconsistent"
+    assert validated_history(workbook, daily, run) is None
+
+
+def test_history_key_composition_is_checked_independently(workbook):
+    daily, run = workbook["portfolio_daily"][0], workbook["sync_runs"][0]
+    assert validated_history(workbook, daily, run) is not None
+    workbook["positions_history"][0]["history_key"] += "-wrong"
+    assert unique_keys(workbook["positions_history"], "position_key")
+    assert validated_history(workbook, daily, run) is None
+    workbook["accounts_current"][0]["last_seen_run_id"] = B
+    state = select_assets(workbook, now=NOW)
+    assert state.source == "unavailable" and state.aggregate_daily is not None
+
+
+def test_inactive_liability_duplicates_are_physical_duplicates(workbook):
+    assert select_liabilities(workbook).complete
+    duplicate = {**workbook["liabilities_current"][0], "is_active": False, "last_seen_run_id": B}
+    workbook["liabilities_current"].append(duplicate)
+    assert not select_liabilities(workbook).complete
 
 
 def test_successful_current_state_has_explicit_membership_and_sources(workbook):
@@ -157,6 +398,7 @@ def test_entire_current_tables_are_checked_before_filtering(
         added = deepcopy(rows[0])
         if anomaly == "extra":
             added[key] += "-extra"
+            added["source_account_id" if key == "account_key" else "source_asset_id"] += "-extra"
         if anomaly == "inactive_duplicate":
             added["is_active"] = False
             added["last_seen_run_id"] = "retained-old-run"
@@ -174,7 +416,11 @@ def test_entire_current_tables_are_checked_before_filtering(
     elif anomaly == "bad_flag":
         rows[0]["is_active"] = "yes"
     else:
-        rows.append({key: rows[0][key] + "-old", "is_active": "", "last_seen_run_id": A})
+        added = {**rows[0], key: rows[0][key] + "-old", "is_active": "", "last_seen_run_id": A}
+        added["source_account_id" if key == "account_key" else "source_asset_id"] += "-old"
+        rows.append(added)
+    if anomaly in {"extra", "bad_flag", "inactive_bad_flag"}:
+        assert unique_keys(rows, key)
     assert active_members(rows, key, workbook["sync_runs"][0], count_field) is None
     state = select_assets(workbook, now=NOW)
     assert not state.current_complete and state.source == "history" and state.run_id == A
@@ -210,11 +456,20 @@ def test_activity_flags_are_not_coerced(workbook, flag):
 
 
 def test_positions_reference_validated_accounts_and_history_keys(workbook):
-    workbook["positions_current"][0]["account_key"] = "finary:account:missing"
-    assert select_assets(workbook, now=NOW).source == "history"
-    workbook["positions_current"][0]["account_key"] = workbook["accounts_current"][0]["account_key"]
+    row = workbook["positions_current"][0]
+    original = deepcopy(row)
+    row["account_key"] = "finary:account:missing"
+    row["position_key"] = f"finary:missing:asset:{row['source_asset_id']}"
+    assert unique_keys(workbook["positions_current"], "position_key")
+    history = workbook["positions_history"]
+    workbook["positions_history"] = []  # Isolate the account-reference check from the history join.
+    assert select_assets(workbook, now=NOW).source == "unavailable"
+    workbook["positions_history"] = history
+    row.update(original)
     # Same count and same run are insufficient for a current/history join.
-    workbook["positions_current"][0]["position_key"] += "-changed"
+    row["position_key"] += "-changed"
+    row["source_asset_id"] += "-changed"
+    assert unique_keys(workbook["positions_current"], "position_key")
     state = select_assets(workbook, now=NOW)
     assert state.source == "history" and state.run_id == A
 
@@ -444,6 +699,7 @@ def test_liability_membership_anomalies(workbook, anomaly):
         duplicate = deepcopy(rows[0])
         if anomaly == "extra":
             duplicate["liability_key"] += "-extra"
+            duplicate["source_liability_id"] += "-extra"
         rows.append(duplicate)
     elif anomaly in {"bad_count", "missing_count"}:
         workbook["sync_runs"][0]["liabilities_count"] = -1 if anomaly == "bad_count" else ""
@@ -451,6 +707,8 @@ def test_liability_membership_anomalies(workbook, anomaly):
         rows[0]["is_active"] = 1
     else:
         rows[0]["last_seen_run_id"] = ""
+    if anomaly == "extra":
+        assert unique_keys(rows, "liability_key")
     assert not select_liabilities(workbook).complete
 
 

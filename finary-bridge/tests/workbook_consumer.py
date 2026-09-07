@@ -22,11 +22,6 @@ NUMBER = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
 # Match the exported prewrite arithmetic tolerance; copied values and counts
 # still require exact equality. Binary floating-point sums are not exact decimals.
 AMOUNT_TOLERANCE = Decimal("1e-8")
-KEYS = {
-    "account_key": re.compile(r"finary:account:[^:\s]+"),
-    "position_key": re.compile(r"finary:[^:\s]+:asset:[^:\s]+:[^:\s]+"),
-    "liability_key": re.compile(r"finary:liability:[^:\s]+"),
-}
 
 
 def instant(value: Any) -> datetime | None:
@@ -71,11 +66,42 @@ def identity(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def nonempty_string(value: Any) -> bool:
+    # Validate stored identity as written; upstream normalization is not a read operation.
+    return isinstance(value, str) and len(value) > 0
+
+
+def canonical_account_key(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("finary:account:")
+        and nonempty_string(value.removeprefix("finary:account:"))
+    )
+
+
+def canonical_key(row: Row, key: str) -> bool:
+    if not nonempty_string(row.get(key)):
+        return False
+    if key in {"account_key", "liability_key"}:
+        entity = key.removesuffix("_key")
+        source_id = row.get(f"source_{entity}_id")
+        return nonempty_string(source_id) and row[key] == f"finary:{entity}:{source_id}"
+    if key == "position_key":
+        account_key, source_id = row.get("account_key"), row.get("source_asset_id")
+        if not canonical_account_key(account_key) or not nonempty_string(source_id):
+            return False
+        # Only the first source delimiter separates kind from ID. Neither the
+        # account ID nor the asset ID has a character allowlist in the contract.
+        kind, separator, asset_id = source_id.partition(":")
+        return bool(kind and separator and asset_id) and row[key] == (
+            f"finary:{account_key.removeprefix('finary:account:')}:asset:{source_id}"
+        )
+    return False
+
+
 def unique_keys(rows: list[Row], key: str) -> bool:
     values = [row.get(key) for row in rows]
-    return all(isinstance(value, str) and KEYS[key].fullmatch(value) for value in values) and len(
-        values
-    ) == len(set(values))
+    return all(canonical_key(row, key) for row in rows) and len(values) == len(set(values))
 
 
 def terminal(workbook: Workbook, run_id: Any) -> Row | None:
