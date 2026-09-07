@@ -100,7 +100,7 @@ def _substitute_io(workflow, schema, snapshot, workbook, *, fail_at=None):
     return exported
 
 
-def _execute(tmp_path, image, exported):
+def _execute(tmp_path, image, exported, *, allow_crypto=True, allow_file_io=False):
     fixture = tmp_path / "workflow.json"
     fixture.write_text(json.dumps(exported))
     # n8n persists a genuine execution ID in an ephemeral SQLite database.
@@ -125,6 +125,9 @@ def _execute(tmp_path, image, exported):
         "N8N_PERSONALIZATION_ENABLED=false",
         "-e",
         "N8N_LOG_LEVEL=info",
+        "-e",
+        "NODE_FUNCTION_ALLOW_BUILTIN="
+        + ",".join((["crypto"] if allow_crypto else []) + (["fs"] if allow_file_io else [])),
         "--mount",
         f"type=bind,src={fixture},dst=/tmp/workflow.json,readonly",
         "--entrypoint",
@@ -132,7 +135,7 @@ def _execute(tmp_path, image, exported):
         image,
         "-c",
         "n8n import:workflow --input=/tmp/workflow.json >/tmp/import.log 2>&1 "
-        "&& n8n execute --id=SyntheticZeroPositions58 --rawOutput",
+        f"&& n8n execute --id={exported['id']} --rawOutput",
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=150)
@@ -181,7 +184,7 @@ def _assert_success(execution, exported, schema, book, *, zero, coverage):
     terminal = _output(run_data, "Record Successful Sync")[0]
     origin = _output(run_data, "Initialize Run")[0]
     assert terminal["run_id"] == origin["run_id"]
-    assert terminal["run_id"].startswith("n8n-execution:")
+    assert terminal["run_id"].startswith("n8n-run:")
     completed = datetime.fromisoformat(terminal["completed_at"].replace("Z", "+00:00"))
     assert terminal["duration_ms"] == max(
         0, completed.timestamp() * 1000 - origin["started_epoch_ms"]
@@ -195,7 +198,7 @@ def _assert_success(execution, exported, schema, book, *, zero, coverage):
     assert terminal["status"] == prepared["sync_run_rows"][0]["status"]
     assert terminal["status"] in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
     for node in exported["nodes"]:
-        if node["name"].startswith("Read "):
+        if node["name"].startswith("Read ") and node["name"] != "Read Terminal Before Failure":
             assert node["executeOnce"] and node["alwaysOutputData"]
             assert len(run_data[node["name"]]) == 1
     state = select_assets(book, now=NOW)
@@ -283,13 +286,15 @@ def test_runtime_repeated_zero_run_keeps_keys_and_terminal_unique(
 ):
     book = _empty_workbook()
     snapshot = zero_snapshot("COMPLETE")
-    for _ in range(2):
+    identities = set()
+    for index in range(2):
         exported = _substitute_io(workflow, schema, snapshot, book)
         execution = _execute(tmp_path, runtime_image, exported)
         _assert_success(execution, exported, schema, book, zero=True, coverage="COMPLETE")
-        # Each fresh isolated database uses the same real execution ID, testing
-        # an identical execution-key upsert as well as empty input on the rerun.
-        assert len(book["sync_runs"]) == len(book["portfolio_daily"]) == 1
+        # Fresh databases reuse the number but represent distinct logical runs.
+        identities.add(book["portfolio_daily"][0]["run_id"])
+        assert len(book["sync_runs"]) == len(identities) == index + 1
+        assert len(book["portfolio_daily"]) == 1
         assert book["positions_current"] == book["positions_history"] == []
 
 

@@ -19,6 +19,10 @@ from app.models import Account, Liability, PortfolioSnapshotV2, Position
 START = "// BEGIN GENERATED CONTRACT VALIDATION\n"
 END = "// END GENERATED CONTRACT VALIDATION\n"
 NODES = {
+    "Initialize Run",
+    "Resolve Source Execution",
+    "Validate Source Execution ID",
+    "Prepare Sanitized Failure",
     "Validate Snapshot",
     "Prepare Validated Rows",
     "Select Success Run",
@@ -92,26 +96,27 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    path = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
-    workflow = json.loads(path.read_text())
     block = generated_block()
     changed = False
-    for node in workflow["nodes"]:
-        if node["name"] not in NODES:
-            continue
-        code = node["parameters"]["jsCode"]
-        body = code.split(END, 1)[1] if code.startswith(START) else code
-        expected = block + body
-        changed |= code != expected
-        node["parameters"]["jsCode"] = expected
+    for filename in ("finary-daily-sync.json", "finary-error-handler.json"):
+        path = ROOT / "n8n" / "workflows" / filename
+        workflow = json.loads(path.read_text())
+        for node in workflow["nodes"]:
+            if node["name"] not in NODES:
+                continue
+            code = node["parameters"]["jsCode"]
+            body = code.split(END, 1)[1] if code.startswith(START) else code
+            expected = block + body
+            changed |= code != expected
+            node["parameters"]["jsCode"] = expected
+        if not args.check:
+            path.write_text(json.dumps(workflow, indent=2, ensure_ascii=False) + "\n")
     if args.check:
         if changed:
             raise SystemExit(
                 "Workflow validation is stale; run scripts/build-workflow-validation.py"
             )
         print("Workflow validation matches Pydantic models and shared source")
-    else:
-        path.write_text(json.dumps(workflow, indent=2, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

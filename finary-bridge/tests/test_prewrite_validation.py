@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from test_n8n_workflow import _headers, _prepare_named_rows, _run_code_node, _snapshot
+from test_n8n_workflow import _headers, _prepare_named_rows, _run_code_node, _run_context, _snapshot
 from test_n8n_workflow_v2 import _node, _run_validation
 from test_n8n_workflow_v2 import schema as schema
 from test_n8n_workflow_v2 import workflow as workflow
@@ -157,7 +157,9 @@ def test_sparse_api_arrays_fail_before_property_access(workflow, schema, collect
     result = _run_code_node(
         workflow,
         "Validate Snapshot",
-        named_rows={"Initialize Run": [{}], "Fetch Canonical Schema": [{"body": schema}]},
+        named_rows={
+            "Initialize Run": [_run_context()], "Fetch Canonical Schema": [{"body": schema}],
+        },
         input_rows=[{"body": _snapshot()}],
         setup_js=f"delete inputRows[0].body.{collection}[0];",
     )[0]["json"]
@@ -174,7 +176,7 @@ def test_extra_fields_and_explicit_undefined_never_disappear(workflow, schema, p
             workflow,
             "Validate Snapshot",
             named_rows={
-                "Initialize Run": [{}],
+                "Initialize Run": [_run_context()],
                 "Fetch Canonical Schema": [{"body": schema}],
             },
             input_rows=[{"body": _snapshot()}],
@@ -401,7 +403,7 @@ def test_generated_contract_and_all_embedded_copies_are_current(workflow, schema
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     expected = module.generated_block()
-    for name in module.NODES:
+    for name in module.NODES & {node["name"] for node in workflow["nodes"]}:
         assert _node(workflow, name)["parameters"]["jsCode"].startswith(expected)
     assert module.api_contract()["$defs"]["AssetClass"]["enum"] == schema["enums"]["asset_class"]
     assert (

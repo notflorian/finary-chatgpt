@@ -287,6 +287,8 @@ def _walk_portfolio_path(workflow, named, *, fail_at=None):
             assert node["retryOnFail"] is True and node["maxTries"] == 3
             if name == fail_at:
                 break  # All native retries failed: no normal output is emitted.
+            if name == "Read Terminal Before Success":
+                input_rows = [{}]
             if name == "Record Successful Sync":
                 terminal.extend(input_rows)
         elif node["type"] == "n8n-nodes-base.if":
@@ -329,8 +331,9 @@ def test_finalization_follows_every_required_write_and_stops_on_failure(workflow
     expected.extend(["Upsert Position History", "Upsert Portfolio Daily", "Record Successful Sync"])
     visited, terminal = _walk_portfolio_path(workflow, named)
     assert [name for name in visited if name.startswith(("Upsert", "Record"))] == expected
-    assert visited[-3:] == [
+    assert visited[-4:] == [
         "Upsert Portfolio Daily",
+        "Read Terminal Before Success",
         "Select Success Run",
         "Record Successful Sync",
     ]

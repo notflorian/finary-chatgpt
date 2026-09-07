@@ -108,4 +108,6 @@ jobs:
       - name: Execute prewrite validation and zero-position paths in isolated pinned n8n
         env:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
-        run: python -m pytest -q finary-bridge/tests/test_n8n_zero_position_runtime.py
+        run: >-
+          python -m pytest -q finary-bridge/tests/test_n8n_zero_position_runtime.py
+          finary-bridge/tests/test_restore_run_identity_runtime.py

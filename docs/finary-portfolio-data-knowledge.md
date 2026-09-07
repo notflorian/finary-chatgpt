@@ -418,12 +418,12 @@ tickers, or ISINs:
 - position key: `finary:{account_id}:asset:{position_kind}:{asset_id}`
 - history key: `{snapshot_date}:{position_key}`
 - daily portfolio key: `{snapshot_date}`
-- synchronization run ID: opaque `n8n-execution:{execution_id}` for current
-  runs; older timestamp-shaped IDs remain valid legacy strings
+- synchronization run ID: opaque `n8n-run:{execution_id}:{uuid_v4}` for current
+  runs; old `n8n-execution` and timestamp-shaped IDs remain valid legacy strings
 
 Join failure telemetry to written rows by exact `run_id` or `last_seen_run_id`,
 never by timestamp proximity or execution ordering. A failure without a usable
-source execution ID is reported only in n8n, so the absence of a `FAILED` row
+saved source run identity is reported only in n8n, so the absence of a `FAILED` row
 does not prove success. Require the successful-run membership checks above.
 
 The position kind is part of position identity because the same numeric asset ID

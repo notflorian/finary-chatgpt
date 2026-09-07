@@ -272,7 +272,8 @@ Workbooks already on schema `2.1` need no column change for opaque execution
 identities. Import the corrected inactive workflow exports and keep existing
 timestamp-shaped `run_id` values unchanged; equality-based history selection
 continues to interpret them. New executions use the
-`n8n-execution:{execution_id}` form.
+`n8n-run:{execution_id}:{uuid_v4}` form described below; old
+`n8n-execution:{execution_id}` IDs also remain valid opaque read keys.
 
 ## Consumer-validation adoption
 
@@ -576,7 +577,7 @@ separate from unavailable details. Do not delete current or historical rows as
 a recovery shortcut.
 
 Sheets node retries configured inside a running execution retain its opaque
-`n8n-execution:{execution_id}` identity and are idempotent. The n8n action that
+`n8n-run:{execution_id}:{uuid_v4}` identity and are idempotent. The n8n action that
 retries a saved failed execution creates a new n8n execution but can reuse saved
 node output containing the old identity. The workflow blocks terminal success
 when it detects that mismatch. Use a full new workflow execution after a
@@ -607,34 +608,87 @@ Existing telemetry is not rewritten by adopting this workflow.
 
 ### Error correlation and terminal replay
 
-The daily workflow uses `n8n-execution:{execution_id}` from its own execution.
-The error workflow uses only `execution.id` from the originating Error Trigger
-payload, never its own execution ID, `execution.retryOf`, or custom run context.
-Partial writes and failure telemetry therefore share the same run ID for that
-execution. A full new execution gets a new ID; saved-output retries must follow
-the recovery procedure above and do not relabel older partial writes.
+`Initialize Run` generates one cryptographically random UUID using Node's
+`crypto.randomUUID()` and combines it with the verified `$execution.id` as
+`n8n-run:{execution_id}:{uuid_v4}`. The saved node output owns this identity and
+its timing origin. A fresh initialization generates fresh entropy even when an
+older database or a fresh installation reuses the same execution number. There
+is no operator-managed identity scope, shared default, or scope rotation.
+Ordinary restarts do not change saved payloads. Missing crypto support, malformed
+execution IDs, and invalid saved run context stop the execution without guessing.
 
-Before selecting a failure write, the error workflow reads `sync_runs`. An
-existing `SUCCESS`, `SUCCESS_WITH_WARNINGS`, or `FAILED` for that exact ID
-suppresses the write. This also preserves a success that reached Sheets before
-its response was lost. Another run's terminal row does not suppress this failure.
-The write matches on `run_id` and touches only sanitized `sync_runs` telemetry;
-failure financial totals remain null and are mapped to blank cells with the
-exported Sheets configuration.
+The error workflow reads the **originating** execution through n8n's local
+`GET /api/v1/executions/{id}?includeData=true` API. `Fetch Source Execution`
+uses a runtime-only **n8n API** credential and a fixed loopback URL, with a
+10-second timeout and up to three native transport attempts. `Resolve Source Execution` requires the
+same execution ID, workflow ID, mode, and exact persisted n8n context
+(`version`, `establishedAt`, `source`) supplied by Error Trigger. It then reads
+exactly one saved `Initialize Run` output and checks that output's execution
+identity and timing. The context timestamp is an equality check, never an ID
+generator or approximate lookup. Retry ancestry, custom trigger fields and the
+handler's execution ID are never used to infer the run.
 
-This read-before-write check protects sequential error replays. It is not a
-transaction or a lock: simultaneous handlers or a concurrent terminal writer
-can race between the read and write. Concurrent-writer safety has not been
-established; avoid overlapping executions during recovery.
+These capabilities are verified in the pinned n8n sources:
+[Error Trigger dispatch](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/cli/src/execution-lifecycle/execute-error-workflow.ts),
+[persistence before dispatch](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/cli/src/execution-lifecycle/execution-lifecycle-hooks.ts),
+and [execution retrieval](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/cli/src/public-api/v1/handlers/executions/executions.handler.ts).
+The daily export explicitly retains failed execution data. Do not disable that
+setting or prune/redact the source data while its error handling is pending.
+The lookup remains inside n8n; retrieved execution data is never written to
+Sheets or sent to the bridge.
 
-The [n8n Error Trigger contract](https://docs.n8n.io/flow-logic/error-handling/)
-shows a string source execution ID, which may be absent when the execution was
-not saved or the trigger itself failed. If it is missing, empty, or not a string,
-`Prepare Sanitized Failure` stops with `SOURCE_EXECUTION_ID_UNAVAILABLE` and
-emits no terminal row. Inspect the failed error-handler execution in n8n for
-this generic diagnostic. Such failures are invisible to workbook-only consumers;
-absence of a `FAILED` row is not evidence that synchronization succeeded.
-No ID is fabricated from timestamps, retry ancestry, or the handler execution.
+Before the first portfolio write, `Prepare Validated Rows` rejects **any**
+existing row with the new run ID, regardless of terminal status. Success
+finalization rereads `sync_runs` and applies the same check. The structured
+invalid-snapshot branch also reads `sync_runs` before preparing failed telemetry.
+Both failure paths suppress only a single terminal row with the exact run ID
+and original `started_at`; another start, an unknown status, or duplicate rows
+raises `RUN_IDENTITY_COLLISION`. Existing rows remain intact. Native terminal
+write retries reuse their finalized input and original timing; no intervening
+Code node regenerates or relabels the payload. A saved-data retry resuming earlier
+Code nodes is rejected when its new execution ID does not match the saved run.
+Use a full new execution for recovery from partial writes.
+
+Missing/invalid source IDs produce `SOURCE_EXECUTION_ID_UNAVAILABLE`. A failed
+API read, unavailable/redacted/pruned source data, missing initialization or
+mismatched source context produces `SOURCE_RUN_IDENTITY_UNAVAILABLE`; stale
+saved identities produce `STALE_EXECUTION_IDENTITY`. No correlated terminal row
+is fabricated. Inspect the failed handler in n8n for the sanitized diagnostic.
+Failures before initialization therefore have no workbook telemetry. Absence
+of `FAILED` never establishes success. Complete error replays preserve an
+existing success even when the original terminal response was lost. Failure
+financial totals remain null and map to blank cells.
+
+The checks protect sequential writes and replays. They are **not** a transaction
+or a lock: simultaneous handlers, overlapping syncs or arbitrary writers can
+race between reads and writes. Keep one writer and let both sync and error
+executions settle before recovery; retain the consumer membership/count checks.
+
+### Adopting restore-safe run identities
+
+1. Unpublish the schedule and stop new manual syncs. Finish or cancel and drain
+   every running, waiting, queued, or saved execution and its error handler.
+   Resolve any retry of an already-finalized terminal write **before** adoption.
+   Do not resume old exported code or pinned/saved node data after adoption.
+2. Import **both** inactive exports, restore the daily-to-error-workflow binding
+   and every Google credential binding, including the two new terminal reads.
+3. Create a local n8n API credential with access to the daily execution data
+   (use `execution:read` scope where available), base URL
+   `http://127.0.0.1:5678/api/v1`, and bind it only to `Fetch Source Execution`.
+   Store the API key in n8n's credential store, never `.env`, exports or Sheets.
+   Missing, expired, or inaccessible credentials fail closed; there is no fallback
+   to a database execution number. Keep `saveDataErrorExecution = all`.
+4. Apply the Compose n8n environment setting `NODE_FUNCTION_ALLOW_BUILTIN=crypto`
+   during the planned maintenance window. It permits only the built-in used for
+   UUID generation. This is an operator action; importing exports alone does not
+   change the running container environment.
+5. Verify a new manual success and a controlled failure using an isolated test
+   workbook before publishing through the normal acceptance procedure. Verify
+   the source lookup and identical run IDs in the resulting synthetic telemetry.
+
+No workbook columns, API version or workbook version change. Retain every old
+`n8n-execution` or timestamp-shaped run ID as an opaque equality key. No retained
+history is rewritten. The reference reader's rules remain unchanged.
 
 ## Backup and restore
 
@@ -648,20 +702,31 @@ Back up:
 Do **not** back up `finary_session_data`. A restored environment must use a
 fresh interactive Finary bootstrap.
 
-Before backing up, unpublish the schedule and stop the Compose project cleanly.
+Before backing up, unpublish the schedule, drain daily and error executions
+as described above, and stop the Compose project cleanly.
 Use Docker's documented volume-backup method for your platform; do not copy a
 live SQLite database opportunistically. Record image digests and repository
 revision alongside the backup.
 
 Restore into an isolated, unpublished stack first:
 
-1. restore `n8n_data` and the matching encryption key;
-2. start Compose and verify health endpoints;
-3. verify n8n can decrypt the Google credential;
-4. perform a fresh Finary bootstrap;
+1. stop new work and drain source executions and delayed error handlers before
+   replacing the database or reconnecting a fresh installation to the workbook.
+   Do not carry queued error deliveries across database replacement: the API
+   lookup must refer to the same database as its originating execution. An exact
+   context mismatch is rejected, but timestamps are not a global identity proof.
+   Cancel saved/waiting executions restored from the backup; start full new runs;
+2. restore `n8n_data` and the matching encryption key;
+3. adopt both current exports and the crypto setting while unpublished; verify
+   the Google bindings and local n8n API credential. A fresh installation needs
+   its own API credential; an old key may require replacement after restoration;
+4. start Compose, verify health and perform a fresh Finary bootstrap;
 5. confirm `/v2/snapshot` structurally succeeds;
-6. run one manual sync and verify idempotency and last-valid-state semantics;
-7. publish the schedule only after those checks.
+6. start one full new manual sync. A reused database execution number now gets a
+   fresh UUID, so retained terminals/history remain distinct. Verify current,
+   history, daily and independent liability membership and test error correlation;
+7. publish the schedule only after those checks. Never replay saved old terminal
+   payloads into the retained workbook as part of restoring a backup.
 
 ## Credential rotation
 

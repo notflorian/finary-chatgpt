@@ -146,8 +146,20 @@ const decodeRetainedRow = (schema, sheetName, old) => {
   validateRow(schema, sheetName, row);
   return row;
 };
+const sourceExecutionId = (value) => {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) throw new Error('SOURCE_EXECUTION_ID_UNAVAILABLE');
+  return value;
+};
+const runIdentity = (executionId, nonce) => {
+  sourceExecutionId(executionId);
+  if (typeof nonce !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(nonce)) throw new Error('RUN_IDENTITY_UNAVAILABLE');
+  return `n8n-run:${executionId}:${nonce}`;
+};
 const validateRunContext = (run, executionId) => {
-  if (!record(run) || !nonemptyString(executionId) || run.run_id !== `n8n-execution:${executionId}`) throw new Error('STALE_EXECUTION_IDENTITY');
+  sourceExecutionId(executionId);
+  const parts = record(run) && typeof run.run_id === 'string' ? run.run_id.split(':') : [];
+  if (parts.length !== 3 || parts[0] !== 'n8n-run' || parts[1] !== executionId) throw new Error('STALE_EXECUTION_IDENTITY');
+  if (runIdentity(executionId, parts[2]) !== run.run_id) throw new Error('STALE_EXECUTION_IDENTITY');
   const start = canonicalInstant(run.started_at);
   if (!start || !finiteNumber(run.started_epoch_ms) || !Number.isInteger(run.started_epoch_ms) ||
       !Number.isFinite(new Date(run.started_epoch_ms).getTime()) ||
@@ -195,4 +207,33 @@ const validatePrepared = (schema, batches, snapshot, run) => {
     const total = batches.liability_rows.filter((row) => row.is_active).reduce((sum, row) => sum + row.outstanding_eur, 0);
     if (!finiteNumber(total) || Math.abs(total - snapshot.liabilities_eur) > 1e-8) return invalidContract('liabilities_current.outstanding_eur');
   }
+};
+
+// A prewrite check is not a transaction or a lock against concurrent writers.
+const matchingTerminal = (rows, run, allowReplay = false) => {
+  const matches = rows.filter((row) => row?.run_id === run.run_id);
+  if (!matches.length) return null;
+  if (allowReplay && matches.length === 1 && matches[0].started_at === run.started_at &&
+      ['SUCCESS', 'SUCCESS_WITH_WARNINGS', 'FAILED'].includes(matches[0].status)) return matches[0];
+  throw new Error('RUN_IDENTITY_COLLISION');
+};
+const resolveSourceRun = (trigger, saved) => {
+  const id = sourceExecutionId(trigger?.execution?.id);
+  const context = trigger.execution.executionContext;
+  const persisted = saved?.data?.executionData?.runtimeData;
+  // Compare the actual persisted n8n context, never a guessed start timestamp.
+  // Database replacement requires draining source executions and error handlers.
+  const modes = ['cli', 'error', 'integrated', 'internal', 'manual', 'retry', 'trigger', 'webhook', 'evaluation', 'chat', 'agent'];
+  if (!record(context) || context.version !== 1 || !modes.includes(context.source) ||
+      !modes.includes(trigger.execution.mode) || !Number.isSafeInteger(context.establishedAt) ||
+      context.establishedAt <= 0 || !record(persisted) || persisted.version !== context.version ||
+      persisted.establishedAt !== context.establishedAt || persisted.source !== context.source ||
+      saved.id !== id || !nonemptyString(trigger.workflow?.id) || saved.workflowId !== trigger.workflow.id ||
+      saved.mode !== trigger.execution.mode) throw new Error('SOURCE_RUN_IDENTITY_UNAVAILABLE');
+  const calls = saved.data?.resultData?.runData?.['Initialize Run'];
+  const items = Array.isArray(calls) && calls.length === 1 ? calls[0]?.data?.main?.[0] : null;
+  if (!Array.isArray(items) || items.length !== 1) throw new Error('SOURCE_RUN_IDENTITY_UNAVAILABLE');
+  const run = items[0]?.json;
+  validateRunContext(run, id);
+  return run;
 };

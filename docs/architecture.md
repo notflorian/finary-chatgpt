@@ -322,7 +322,8 @@ missing. Bearer tokens remain memory-only.
 The daily workflow supports manual execution and a 07:30 `Europe/Paris`
 schedule. It:
 
-1. resolves one opaque `run_id` from n8n's persisted execution ID and loads
+1. creates a random UUID with the verified n8n execution ID, saves that opaque
+   `run_id` in initialization output, and loads
    workbook schema `2.1` from the internal schema server;
 2. requests `/v2/snapshot`;
 3. validates schema, entities, keys, headers, and safety gates;
@@ -350,7 +351,10 @@ are explicitly decoded from Sheets encodings and validated without replacing
 their previous observation timestamps or run IDs. Missing required retained
 values stop the run; this gate does not repair historical data. Finalization
 still checks execution identity and timing after the required writes and
-validates the final terminal row before its write.
+validates the final terminal row before its write. The prewrite gate rejects
+existing run IDs; both daily terminal paths reread telemetry before writing.
+Failure replays require the same identity and original start; collisions leave
+existing terminal records intact.
 
 Explicit count checks branch around empty position and history write batches;
 liability writes use their existing independent batch check. Each check reduces
@@ -389,8 +393,15 @@ terminal Sheets write itself is being retried after all required writes passed.
 
 Structured bridge failures stop before portfolio writes and may record sanitized
 failed telemetry. The linked error workflow derives correlation from the
-originating failed n8n execution supplied by the Error Trigger, never from the
-error workflow's own execution or wall-clock time. Both workflows use finite
+originating failed n8n execution supplied by the Error Trigger and retrieves its
+saved initialization through the local n8n API with a runtime-only credential.
+It verifies exact source context and never derives correlation from the error
+workflow's own execution, retry ancestry or wall-clock time. Missing origin data
+stops telemetry with a sanitized diagnostic. Fresh UUIDs prevent database ID
+reuse from reusing workbook identity; database replacement requires draining
+source executions and error handlers. See the
+[adoption and restore procedure](operations.md#adopting-restore-safe-run-identities).
+Both workflows use finite
 timeouts, and Sheets operations use bounded retries. Read nodes execute once to
 prevent quota amplification.
 
