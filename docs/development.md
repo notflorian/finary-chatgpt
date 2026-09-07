@@ -290,3 +290,53 @@ Before submitting a change:
 
 Do not weaken coverage, currency, null, identity, or idempotency rules to make a
 test pass.
+
+## Publishing 1.1.0
+
+Release preparation is separate from upgrading an operator's running stack.
+Review and merge the release PR through the normal protected workflow. Require
+all five CI jobs to succeed on the exact merged commit: `tests`,
+`session-validation-python314`, `static-analysis`, `repository-contracts`, and
+`n8n-import`. An earlier green run is not evidence for a later commit, and CI
+does not validate a production workbook or live credentials.
+
+From a clean maintainer checkout with normal GitHub write access:
+
+```bash
+git fetch origin main --tags
+git status --short
+git rev-parse origin/main
+git tag --list v1.1.0
+```
+
+Stop if local changes would be overwritten or if the tag/release already exists;
+inspect it rather than moving a tag or publishing a duplicate. Select the full
+merged commit SHA that passed the five jobs, check out that exact commit, and
+verify `app/config.py`, `pyproject.toml`, `/health` expectations, release notes,
+and the migration guide all describe `1.1.0`. Do not tag the pre-merge PR head or
+silently select a newer unvalidated `main`.
+
+Once that exact commit is checked out and approved for publication:
+
+```bash
+git tag -a v1.1.0 -m "Finary Portfolio Data 1.1.0" HEAD
+git push origin refs/tags/v1.1.0
+gh release create v1.1.0 \
+  --repo notflorian/finary-chatgpt \
+  --verify-tag \
+  --title "Finary Portfolio Data 1.1.0" \
+  --notes-file docs/release-1.1.0.md \
+  --latest
+```
+
+Stop at any rejected operation; do not bypass tag rules or branch protections.
+`--verify-tag` requires the tag to exist remotely instead of implicitly creating
+one on a potentially different commit. The notes file is the reviewed release
+body, including the tag-pinned migration link. See the
+[GitHub CLI release documentation](https://cli.github.com/manual/gh_release_create).
+
+Verify the published release title, tag commit, source archives, rendered notes,
+and migration link. Do not attach `.env`, credential-bearing workflow exports,
+session state, workbook backups, or real portfolio data. Operators can then
+follow the [migration runbook](migration-1.0-to-1.1.md); publishing the release
+does not deploy it or migrate any installation.

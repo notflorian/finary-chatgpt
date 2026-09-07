@@ -3,4 +3,4 @@
 from typing import Final
 
 SERVICE_NAME: Final = "finary-bridge"
-SERVICE_VERSION: Final = "1.0.0"
+SERVICE_VERSION: Final = "1.1.0"
