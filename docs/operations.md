@@ -247,6 +247,10 @@ before using deliberate clearing or offline repair.
 
 ## Workbook schema 2.1 migration
 
+For a complete application upgrade from `v1.0.0`, follow the
+[1.0.0 to 1.1.0 migration guide](migration-1.0-to-1.1.md). The schema-only
+steps below do not cover all required workflow, session, and consumer changes.
+
 Schema `2.1` adds the nullable `run_id` column at the end of
 `positions_history`. Existing rows must not be assigned invented membership.
 Migrate an existing schema `2.0` workbook offline as follows:

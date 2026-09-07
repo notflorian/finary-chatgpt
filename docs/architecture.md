@@ -107,7 +107,7 @@ Returns HTTP 200 without contacting Finary:
 {
   "status": "ok",
   "service": "finary-bridge",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
 ```
 
@@ -409,7 +409,7 @@ prevent quota amplification.
 
 Application release version and data schema version are independent:
 
-- bridge application: `1.0.0`;
+- bridge application: `1.1.0`;
 - normalized API schema: `2.0`;
 - workbook schema: `2.1`;
 - canonical route: `/v2/snapshot`.

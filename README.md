@@ -21,6 +21,14 @@ Finary credentials or raw upstream payloads.
   ChatGPT integration
 - `git` and `jq`; Python 3.12+ is needed only for local development
 
+## Upgrading from 1.0
+
+Follow the [1.0.0 to 1.1.0 migration guide](docs/migration-1.0-to-1.1.md)
+before restarting an existing installation. The workbook moves from schema
+`2.0` to `2.1`; both n8n workflows and the ChatGPT knowledge reference must also
+be updated. A container rebuild alone is not a complete migration. See the
+[1.1.0 release notes](docs/release-1.1.0.md) for the changes and limitations.
+
 ## Quick start
 
 ### 1. Configure the local stack
@@ -56,7 +64,7 @@ curl --fail http://127.0.0.1:8000/health
 Expected health response:
 
 ```json
-{"status":"ok","service":"finary-bridge","version":"1.0.0"}
+{"status":"ok","service":"finary-bridge","version":"1.1.0"}
 ```
 
 The bridge and n8n listen only on `127.0.0.1` by default. The canonical Sheets
@@ -225,6 +233,8 @@ Live Finary tests are opt-in and require private credentials. See
 
 | Document | Purpose |
 | --- | --- |
+| [1.1.0 release notes](docs/release-1.1.0.md) | Changes, compatibility, and remaining limitations |
+| [Migration from 1.0 to 1.1](docs/migration-1.0-to-1.1.md) | Ordered upgrade, verification, and recovery procedure for existing installations |
 | [Architecture](docs/architecture.md) | Components, trust boundaries, API contracts, authentication, and versioning |
 | [Data model](docs/data-model.md) | Workbook semantics, keys, nulls, ownership, and update rules |
 | [Operations](docs/operations.md) | Installation follow-through, recovery, rotation, backup, and monitoring |

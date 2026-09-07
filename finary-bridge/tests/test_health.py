@@ -18,7 +18,7 @@ def test_package_and_service_versions_agree() -> None:
         (BRIDGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )
 
-    assert project["project"]["version"] == SERVICE_VERSION == "1.0.0"
+    assert project["project"]["version"] == SERVICE_VERSION == "1.1.0"
 
 
 def test_health_returns_expected_service_metadata() -> None:
@@ -37,7 +37,7 @@ def test_health_returns_expected_service_metadata() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "finary-bridge",
-        "version": "1.0.0",
+        "version": "1.1.0",
     }
 
 
