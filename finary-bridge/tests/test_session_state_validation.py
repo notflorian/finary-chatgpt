@@ -289,11 +289,74 @@ def test_json_decoding_failure_is_sanitized_and_preserves_state(
     assert len(raw) <= _MAX_FILE_BYTES
     assert path.stat().st_mode & 0o777 == 0o600
     assert path.parent.stat().st_mode & 0o777 == 0o700
-    # Exercise the real decoder with the interpreter protections left enabled.
-    with pytest.raises(decoder_error) as decoded:
-        json.loads(raw.decode("utf-8"))
-    assert type(decoded.value) is decoder_error  # Excludes ordinary JSONDecodeError.
-    decoder_message = str(decoded.value)
+    # Observe decoder behavior without assuming a version-specific nesting threshold.
+    storage_message = "Finary session file is malformed"
+    decoder_message = None
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except (ValueError, RecursionError) as error:
+        assert type(error) is decoder_error  # Excludes ordinary JSONDecodeError.
+        decoder_message = str(error)
+    else:
+        assert decoder_error is RecursionError  # Oversized integers must still fail.
+        version = decoded.pop("version")
+        for _ in range(12_000):
+            assert type(version) is list and len(version) == 1
+            version = version[0]
+        assert type(version) is int and version == 0
+        assert decoded == {key: value for key, value in _payload().items() if key != "version"}
+        storage_message = "Finary session file version is unsupported"
+    _assert_decoding_rejection(
+        adapter, path, caplog, boundary, storage_message, decoder_message
+    )
+    _assert_explicit_recovery(path)
+
+
+@pytest.mark.parametrize("decoder_error", [ValueError, RecursionError])
+@pytest.mark.parametrize(
+    "boundary", ["load", "snapshot", "adapter", "/v1/snapshot", "/v2/snapshot"]
+)
+def test_injected_json_decoding_failure_is_sanitized_and_preserves_state(
+    guarded_adapter: tuple[FinaryApiClient, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    decoder_error: type[Exception],
+    boundary: str,
+) -> None:
+    adapter, path = guarded_adapter
+    _write_version_json(path, "1")
+    raw = path.read_text(encoding="utf-8")
+    original_loads = json.loads
+    message = "synthetic-decoder-secret-marker"
+    injected = Mock(side_effect=decoder_error(message))
+
+    def decode(value, *args, **kwargs):
+        if value == raw:
+            return injected()
+        return original_loads(value, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        # json is shared with HTTP response parsing; only the session text fails.
+        patch.setattr("app.finary_session_store.json.loads", decode)
+        _assert_decoding_rejection(
+            adapter, path, caplog, boundary, "Finary session file is malformed", message
+        )
+        assert injected.call_count == 2
+    # Restore the real decoder before checking explicit operator recovery.
+    _assert_explicit_recovery(path)
+
+
+def _assert_decoding_rejection(
+    adapter: FinaryApiClient,
+    path: Path,
+    caplog: pytest.LogCaptureFixture,
+    boundary: str,
+    storage_message: str,
+    decoder_message: str | None,
+) -> None:
+    assert len(path.read_bytes()) <= _MAX_FILE_BYTES
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert path.parent.stat().st_mode & 0o777 == 0o700
     lock = path.with_name(path.name + ".lock")
     before, lock_before = _file_identity(path), _file_identity(lock)
     assert len(lock_before[0]) == 32  # guarded_adapter established a public clear revision.
@@ -309,7 +372,7 @@ def test_json_decoding_failure_is_sanitized_and_preserves_state(
     for _ in range(2):
         if boundary in {"load", "snapshot"}:
             with pytest.raises(
-                FinarySessionStoreError, match="^Finary session file is malformed$"
+                FinarySessionStoreError, match=f"^{storage_message}$"
             ):
                 getattr(store, boundary)()
         elif boundary == "adapter":
@@ -329,17 +392,24 @@ def test_json_decoding_failure_is_sanitized_and_preserves_state(
                 }
             }
             assert "synthetic-" not in response.text
-            assert decoder_message not in response.text
+            if decoder_message is not None:
+                assert decoder_message not in response.text
         assert _file_identity(path) == before
         assert _file_identity(lock) == lock_before
         assert path.parent.stat().st_mode == directory_mode
-        assert decoder_message not in caplog.text
+        if decoder_message is not None:
+            assert decoder_message not in caplog.text
         for record in caplog.records:
-            assert decoder_message not in repr(record.__dict__)
+            if decoder_message is not None:
+                assert decoder_message not in repr(record.__dict__)
             assert record.exc_info is None
             assert record.exc_text is None
             assert record.stack_info is None
 
+
+def _assert_explicit_recovery(path: Path) -> None:
+    lock = path.with_name(path.name + ".lock")
+    lock_before = _file_identity(lock)
     # Explicit operator replacement, only after proving rejection did not mutate state.
     # A fresh store opens a new lock descriptor and must not be blocked by a leaked lock.
     recovery = FileFinarySessionStore(path, lock_timeout_seconds=0.05)

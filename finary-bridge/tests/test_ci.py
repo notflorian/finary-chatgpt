@@ -29,10 +29,13 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
     assert "contents: write" not in ci
     assert "id-token: write" not in ci
     assert "runs-on: ubuntu-latest" in ci
-    for job in ("tests", "static-analysis", "repository-contracts", "n8n-import"):
+    for job in (
+        "tests", "session-validation-python314", "static-analysis",
+        "repository-contracts", "n8n-import",
+    ):
         assert f"  {job}:\n" in ci
         assert f"    name: {job}\n" in ci
-    assert ci.count("timeout-minutes:") == 4
+    assert ci.count("timeout-minutes:") == 5
 
 
 def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
@@ -43,7 +46,7 @@ def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
     assert all(ACTION_REFERENCE.fullmatch(line) for line in action_lines)
     assert 'python-version: "3.12.14"' in ci
     assert 'node-version: "22.23.2"' in ci
-    assert ci.count("persist-credentials: false") == 4
+    assert ci.count("persist-credentials: false") == 5
 
 
 def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
@@ -122,3 +125,17 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
         "FINARY_REQUIRE_N8N_RUNTIME"
     )
+
+
+def test_python314_compatibility_job_runs_session_validation_only() -> None:
+    ci = CI_PATH.read_text(encoding="utf-8")
+    job = ci.split("  session-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
+    assert 'python-version: "3.14.6"' in job
+    assert "timeout-minutes: 5" in job
+    assert 'python -m pip install -e ".[dev]"' in job
+    assert (
+        'python -m pytest -q -m "not live" --ignore=tests/live '
+        'tests/test_session_state_validation.py'
+    ) in job
+    assert "docker" not in job
+    assert "n8n" not in job
