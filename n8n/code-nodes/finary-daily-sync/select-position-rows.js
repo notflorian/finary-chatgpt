@@ -1,0 +1,1 @@
+return $('Prepare Validated Rows').first().json.position_rows.map((json) => ({ json }));

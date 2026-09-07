@@ -144,6 +144,25 @@ runs now use realistic execution identities and timing origins. Import tests,
 individual Code-node execution, workbook simulation and real n8n engine execution
 are complementary evidence, not interchangeable checks.
 
+Code-node logic lives in checked-in sources under `n8n/code-nodes/`, grouped by
+workflow export stem and a lowercase hyphenated node name. For example,
+`n8n/code-nodes/finary-daily-sync/prepare-validated-rows.js` is the source of
+the **Prepare Validated Rows** Code node in
+`n8n/workflows/finary-daily-sync.json`.
+
+Edit those `.js` files directly, then regenerate the portable workflow exports:
+
+```bash
+python scripts/build-workflow-validation.py
+python scripts/build-workflow-validation.py --check
+```
+
+The build rewrites every `parameters.jsCode` field from the checked-in source
+files and prepends the generated contract block only for the nodes that use the
+shared validation helpers. The workflow JSON remains the self-contained import
+artifact for the pinned n8n version; n8n never reads repository files at
+runtime.
+
 ## Test design
 
 The normal suite is deterministic and credential-free:

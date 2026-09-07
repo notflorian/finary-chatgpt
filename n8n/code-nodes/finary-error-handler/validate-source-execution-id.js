@@ -1,0 +1,1 @@
+return [{ json: { execution_id: sourceExecutionId($('Workflow Error Trigger').first().json.execution?.id) } }];

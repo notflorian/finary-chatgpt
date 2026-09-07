@@ -402,9 +402,14 @@ def test_generated_contract_and_all_embedded_copies_are_current(workflow, schema
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    expected = module.generated_block()
-    for name in module.NODES & {node["name"] for node in workflow["nodes"]}:
-        assert _node(workflow, name)["parameters"]["jsCode"].startswith(expected)
+    for node in workflow["nodes"]:
+        if node["type"] != "n8n-nodes-base.code":
+            continue
+        path = module.code_node_source_path("finary-daily-sync.json", node["name"])
+        assert path.is_file()
+        assert node["parameters"]["jsCode"] == module.expected_code(
+            "finary-daily-sync.json", node["name"]
+        )
     assert module.api_contract()["$defs"]["AssetClass"]["enum"] == schema["enums"]["asset_class"]
     assert (
         module.api_contract()["$defs"]["LiabilityCoverage"]["enum"]

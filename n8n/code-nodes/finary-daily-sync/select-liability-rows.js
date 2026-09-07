@@ -1,0 +1,1 @@
+return $('Prepare Validated Rows').first().json.liability_rows.map((json) => ({ json }));

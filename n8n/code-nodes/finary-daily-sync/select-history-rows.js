@@ -1,0 +1,1 @@
+return $('Prepare Validated Rows').first().json.history_rows.map((json) => ({ json }));
