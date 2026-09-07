@@ -385,7 +385,7 @@ def test_incomplete_current_coverage_retains_only_previous_known_value(
     _assert_comparison(named, 140, None, False, status="SUCCESS_WITH_WARNINGS", current=None)
     assert named["Prepare Validated Rows"][0]["liability_rows"] == []
     terminal = _finalize(workflow, named)
-    assert terminal["net_worth_eur"] is None and terminal["status"] == "SUCCESS_WITH_WARNINGS"
+    assert terminal["net_worth_eur"] == "" and terminal["status"] == "SUCCESS_WITH_WARNINGS"
 
 
 @pytest.mark.parametrize("coverage", ["PARTIAL", "UNAVAILABLE"])

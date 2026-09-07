@@ -30,6 +30,16 @@ VALIDATED_NODES = {
     "Select Success Run",
     "Prepare Failed Run",
 }
+SERIALIZED_NODES = {
+    "Select Account Rows",
+    "Select Position Rows",
+    "Select Liability Rows",
+    "Select History Rows",
+    "Select Daily Row",
+    "Select Success Run",
+    "Prepare Failed Run",
+    "Select Failure Row",
+}
 
 
 def api_contract():
@@ -102,7 +112,10 @@ def code_node_source_path(workflow_name, node_name):
 
 def expected_code(workflow_name, node_name):
     body = code_node_source_path(workflow_name, node_name).read_text()
-    return generated_block() + body if node_name in VALIDATED_NODES else body
+    prelude = generated_block() if node_name in VALIDATED_NODES else ""
+    if node_name in SERIALIZED_NODES:
+        prelude += (ROOT / "n8n" / "sheets-serialization.js").read_text()
+    return prelude + body
 
 
 def main():

@@ -271,7 +271,9 @@ def test_recorded_failure_replay_selects_no_additional_terminal_write() -> None:
         named_rows={"Prepare Sanitized Failure": [first]},
         input_rows=[first],
     )
-    assert selected == [{"json": first["row"]}]
+    assert selected == [{
+        "json": {key: "" if value is None else value for key, value in first["row"].items()}
+    }]
     replay = _run_error_classifier(trigger, [selected[0]["json"]])
     assert replay["should_record"] is False
 

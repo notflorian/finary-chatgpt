@@ -175,7 +175,7 @@ def test_structured_failure_and_error_replays_preserve_terminal(workflow, schema
         named_rows=named,
         input_rows=[{}],
     )[0]["json"]
-    assert failed["run_id"] == run["run_id"] and failed["gross_assets_eur"] is None
+    assert failed["run_id"] == run["run_id"] and failed["gross_assets_eur"] == ""
     old = {**failed, "status": status}
     before = deepcopy(old)
     assert (

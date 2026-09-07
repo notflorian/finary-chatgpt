@@ -1,1 +1,2 @@
-return $('Prepare Validated Rows').first().json.history_rows.map((json) => ({ json }));
+const prepared = $('Prepare Validated Rows').first().json;
+return sheetsItems(prepared.schema, 'positions_history', prepared.history_rows);

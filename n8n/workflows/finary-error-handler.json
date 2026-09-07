@@ -123,7 +123,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const prepared = $('Prepare Sanitized Failure').first().json;\nreturn [{ json: prepared.row }];"
+        "jsCode": "// Only call after contract validation. Keep internal rows immutable and nullable;\n// auto-mapped Sheets updates skip null but write '' as an explicit cell clear.\nconst sheetsItems = (schema, sheetName, rows) => {\n  const columns = schema.sheets[sheetName].columns;\n  const expected = columns.map((column) => column.name);\n  return rows.map((row) => {\n    const actual = Object.keys(row);\n    if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) throw new Error(`TARGET_SCHEMA_MISMATCH:${sheetName}`);\n    const json = {};\n    for (const column of columns) {\n      const value = row[column.name];\n      // Never hide absent fields, explicit undefined, or invalid required blanks.\n      if (value === undefined || (!column.nullable && (value === null || value === ''))) throw new Error(`CONTRACT_VALIDATION_FAILED:${sheetName}.${column.name}`);\n      json[column.name] = value === null ? '' : value;\n    }\n    return { json };\n  });\n};\nconst prepared = $('Prepare Sanitized Failure').first().json;\nreturn sheetsItems(prepared.schema, 'sync_runs', [prepared.row]);\n"
       },
       "id": "80000000-0000-4000-8000-000000000006",
       "name": "Select Failure Row",
