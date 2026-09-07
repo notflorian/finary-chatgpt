@@ -13,11 +13,12 @@ from copy import deepcopy
 from datetime import datetime
 
 import pytest
-from test_n8n_workflow_v2 import _empty_workbook, _upsert
+from test_n8n_workflow_v2 import _empty_workbook, _known_eur_snapshot, _upsert
 from test_n8n_workflow_v2 import schema as schema
 from test_n8n_workflow_v2 import workflow as workflow
 from test_n8n_zero_position_runtime import WRITES, _execute, _output, _substitute_io
 from test_n8n_zero_position_runtime import runtime_image as runtime_image
+from test_net_worth_baseline import WARNING, _retained_identity_baseline
 from test_operations import ERROR_PATH, _load
 from test_restore_run_identity import NEXT, NOW, restore_snapshot
 from workbook_consumer import select_assets, validated_daily
@@ -321,3 +322,31 @@ def test_runtime_missing_crypto_fails_without_any_write(runtime_image, tmp_path,
     result = execution["data"]["resultData"]
     assert result["error"]["message"].startswith("RUN_IDENTITY_UNAVAILABLE")
     assert not set(WRITES) & result["runData"].keys()
+
+
+def test_runtime_reused_number_retains_legacy_net_worth_baseline(
+    runtime_image, tmp_path, workflow, schema
+):
+    book = _retained_identity_baseline(workflow, schema, "n8n-execution:1", older=True)
+    retained = deepcopy(book)
+    snapshot = _known_eur_snapshot("2026-09-05T12:00:00Z", first_value=170)
+    assert snapshot["coverage"]["liabilities"] == "COMPLETE"
+    assert snapshot["net_worth_eur"] == 210
+    exported = _substitute_io(workflow, schema, snapshot, book)
+    execution = _execute(tmp_path, runtime_image, exported)
+    assert not execution["data"]["resultData"].get("error")
+    data = _apply_execution(book, schema, execution)
+    run = _output(data, "Initialize Run")[0]
+    assert run["run_id"].startswith("n8n-run:1:")
+    prepared = _output(data, "Prepare Validated Rows")[0]
+    assert WARNING in prepared["warnings"]
+    terminal = _output(data, "Record Successful Sync")[0]
+    assert terminal["run_id"] == run["run_id"]
+    assert terminal["previous_net_worth_eur"] == 140
+    assert terminal["net_worth_change_pct"] == 0.5
+    assert terminal["status"] == "SUCCESS_WITH_WARNINGS"
+    assert WARNING in terminal["error_message"]
+    for sheet in ("portfolio_daily", "positions_history", "sync_runs"):
+        assert book[sheet][: len(retained[sheet])] == retained[sheet]
+    assert len(book["sync_runs"]) == 3
+    assert validated_daily(book, retained["portfolio_daily"][-1]) is not None

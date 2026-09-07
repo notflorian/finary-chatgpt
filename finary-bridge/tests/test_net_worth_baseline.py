@@ -18,6 +18,7 @@ from test_n8n_workflow_v2 import schema as schema
 from test_n8n_workflow_v2 import workflow as workflow
 from test_operations import _run_error_classifier, _trigger
 from test_sync_completion import _finalize, _prepare
+from workbook_consumer import validated_daily
 
 WARNING = "NET_WORTH_CHANGE_OVER_20_PERCENT"
 
@@ -556,3 +557,67 @@ def test_tied_latest_usable_states_do_not_fall_through_to_an_arbitrary_older_sta
     _commit(workflow, schema, book, _attempt(workflow, schema, book, "D", 220, "06"))
     book["sync_runs"][1]["completed_at"] = book["sync_runs"][2]["completed_at"]
     _assert_comparison(_attempt(workflow, schema, book, day="07"), None, None, False)
+
+
+def _retained_identity_baseline(workflow, schema, historical_id, *, warnings=False, older=False):
+    """Model retained workbook identities without imposing the live UUID format."""
+    book = _empty_workbook()
+    snapshot = _known_eur_snapshot("2026-09-04T12:00:00Z")
+    if warnings:
+        snapshot["positions"][0]["market_value_eur"] = None
+    named = _prepare(
+        workflow, schema, execution_id="retained", start=snapshot["generated_at"],
+        snapshot=snapshot, workbook=book,
+    )
+    terminal = _commit(workflow, schema, book, named)
+    assert terminal["net_worth_eur"] == 140
+    assert terminal["liability_coverage"] == "COMPLETE"
+    assert terminal["status"] == ("SUCCESS_WITH_WARNINGS" if warnings else "SUCCESS")
+    # Fixture-only historical encoding; production never rewrites retained identities.
+    for rows in book.values():
+        for row in rows:
+            for key in ("run_id", "last_seen_run_id"):
+                if row.get(key) == terminal["run_id"]:
+                    row[key] = historical_id
+    if older:
+        older_book = _empty_workbook()
+        _commit(
+            workflow, schema, older_book,
+            _attempt(workflow, schema, older_book, "older", 100, "03"),
+        )
+        for sheet in ("portfolio_daily", "positions_history", "sync_runs"):
+            book[sheet] = older_book[sheet] + book[sheet]
+    return book
+
+
+@pytest.mark.parametrize("execution_id", ["42", "43"])
+@pytest.mark.parametrize("warnings", [False, True], ids=["SUCCESS", "SUCCESS_WITH_WARNINGS"])
+@pytest.mark.parametrize("older", [False, True])
+def test_reused_number_keeps_latest_legacy_net_worth_baseline(
+    workflow, schema, execution_id, warnings, older
+):
+    book = _retained_identity_baseline(
+        workflow, schema, "n8n-execution:42", warnings=warnings, older=older
+    )
+    retained = deepcopy(book)
+    named = _attempt(workflow, schema, book, execution_id=execution_id)
+    _assert_comparison(named, 140, 0.5, True)
+    terminal = _commit(workflow, schema, book, named)
+    assert terminal["previous_net_worth_eur"] == 140
+    assert terminal["net_worth_change_pct"] == 0.5
+    assert WARNING in terminal["error_message"]
+    assert terminal["status"] == "SUCCESS_WITH_WARNINGS"
+    for sheet in ("portfolio_daily", "positions_history", "sync_runs"):
+        assert book[sheet][: len(retained[sheet])] == retained[sheet]
+    assert validated_daily(book, retained["portfolio_daily"][-1]) is not None
+    assert len(book["sync_runs"]) == len(retained["sync_runs"]) + 1
+
+
+def test_distinct_uuid_with_reused_number_is_an_eligible_baseline(workflow, schema):
+    historical_id = "n8n-run:42:11111111-1111-4111-8111-111111111111"
+    book = _retained_identity_baseline(workflow, schema, historical_id)
+    named = _attempt(workflow, schema, book, execution_id="42")
+    current_id = named["Validate Snapshot"][0]["run"]["run_id"]
+    assert current_id.split(":")[1] == historical_id.split(":")[1] == "42"
+    assert current_id.split(":")[2] != historical_id.split(":")[2]
+    _assert_comparison(named, 140, 0.5, True)
