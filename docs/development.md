@@ -259,7 +259,7 @@ read-only repository permissions. It has five bounded jobs:
 | Job | Checks |
 | --- | --- |
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
-| `session-validation-python314` | Python 3.14 session validation, including real JSON and injected decoder failures |
+| `session-validation-python314` | Python 3.14 session and upstream-response validation, including real payloads and injected decoder/copy failures |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |

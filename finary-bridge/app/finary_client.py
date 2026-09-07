@@ -610,7 +610,13 @@ class FinaryApiClient:
                 raise FinaryMalformedResponseError(
                     f"Finary {operation} result contains a non-object item"
                 )
-            records.append(deepcopy(dict(item)))
+            try:
+                record = deepcopy(dict(item))
+            except RecursionError:
+                raise FinaryMalformedResponseError(
+                    "Finary returned an uncopyable result record"
+                ) from None
+            records.append(record)
         return tuple(records)
 
     def _get_entity_response_locked(self, url: str, *, operation: str) -> _HttpResponse:
@@ -640,7 +646,7 @@ class FinaryApiClient:
             raise FinaryUpstreamError("Finary returned an unexpected HTTP status")
         try:
             payload = response.json()
-        except (ValueError, curl_exceptions.RequestException):
+        except (ValueError, RecursionError, curl_exceptions.RequestException):
             raise FinaryMalformedResponseError(
                 "Finary returned an undecodable JSON response"
             ) from None

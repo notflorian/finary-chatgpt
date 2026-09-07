@@ -139,7 +139,7 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     )
 
 
-def test_python314_compatibility_job_runs_session_validation_only() -> None:
+def test_python314_compatibility_job_runs_session_and_upstream_validation() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
     job = ci.split("  session-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
     assert 'python-version: "3.14.6"' in job
@@ -148,6 +148,10 @@ def test_python314_compatibility_job_runs_session_validation_only() -> None:
     assert (
         'python -m pytest -q -m "not live" --ignore=tests/live '
         'tests/test_session_state_validation.py'
+    ) in job
+    assert (
+        'python -m pytest -q -m "not live" --ignore=tests/live '
+        'tests/test_upstream_response_recursion.py'
     ) in job
     assert "docker" not in job
     assert "n8n" not in job
