@@ -1,13 +1,13 @@
 """Writer-side comparison regressions using exported JavaScript and synthetic writes."""
 
 import json
+import subprocess
 from copy import deepcopy
 from datetime import datetime, timedelta
 
 import pytest
-from test_n8n_workflow import _run_code_node
+from test_n8n_workflow import _run_code_node, _run_id
 from test_n8n_workflow_v2 import (
-    V2_ERROR_PATH,
     _apply_prepared_writes,
     _empty_workbook,
     _known_eur_snapshot,
@@ -16,7 +16,7 @@ from test_n8n_workflow_v2 import (
 )
 from test_n8n_workflow_v2 import schema as schema
 from test_n8n_workflow_v2 import workflow as workflow
-from test_operations import _trigger
+from test_operations import _run_error_classifier, _trigger
 from test_sync_completion import _finalize, _prepare
 
 WARNING = "NET_WORTH_CHANGE_OVER_20_PERCENT"
@@ -30,18 +30,9 @@ def _failure(
     step="Upsert Portfolio Daily",
     message="execution timed out",
 ):
-    error_workflow = json.loads(V2_ERROR_PATH.read_text())
-    return _run_code_node(
-        error_workflow,
-        "Prepare Sanitized Failure",
-        named_rows={
-            "Workflow Error Trigger": [_trigger(message, step, execution_id=execution_id)],
-            "Fetch Operational Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
-        },
-        input_rows=records,
-        execution_id="handler",
-        now="2026-09-05T12:02:00Z",
-    )[0]["json"]
+    return _run_error_classifier(
+        _trigger(message, step, execution_id=execution_id), records,
+    )
 
 
 def _legacy_selection(workflow):
@@ -81,7 +72,7 @@ def _attempt(workflow, schema, book, execution_id="C", worth=210, day="05", **kw
 def _commit(workflow, schema, book, named, *, completed_at=None):
     prepared = named["Prepare Validated Rows"][0]
     run = named["Validate Snapshot"][0]["run"]
-    execution_id = run["run_id"].removeprefix("n8n-execution:")
+    execution_id = run["run_id"].split(":")[1]
     completed_at = (
         completed_at
         or (datetime.fromisoformat(run["started_at"]) + timedelta(minutes=1)).isoformat()
@@ -183,7 +174,7 @@ def test_same_day_success_cannot_validate_replacement_or_reconstruct_missing_dai
     )
     if b_failed:
         book["sync_runs"].append(_failure(schema, book["sync_runs"])["row"])
-    assert not any(row["run_id"] == "n8n-execution:old-same-day" for row in book["portfolio_daily"])
+    assert not any(row["run_id"] == _run_id("old-same-day") for row in book["portfolio_daily"])
     _assert_comparison(
         _attempt(workflow, schema, book),
         140 if fallback else None,
@@ -421,7 +412,9 @@ def test_daily_baseline_does_not_depend_on_current_membership_or_history(workflo
 def test_current_execution_is_excluded_and_reruns_and_terminal_retries_preserve_identity(
     workflow, schema, book
 ):
-    _assert_comparison(_attempt(workflow, schema, book, execution_id="A"), None, None, False)
+    with pytest.raises(subprocess.CalledProcessError) as collision:
+        _attempt(workflow, schema, book, execution_id="A")
+    assert collision.value.stderr == "RUN_IDENTITY_COLLISION"
     c = _attempt(workflow, schema, book)
     _assert_comparison(c, 140, 0.50, True)
     terminal = _commit(workflow, schema, book, c)
@@ -429,19 +422,21 @@ def test_current_execution_is_excluded_and_reruns_and_terminal_retries_preserve_
     for _ in range(3):
         book["sync_runs"] = _upsert(book["sync_runs"], [terminal], "run_id")
     assert book == before
-    assert terminal["run_id"] == "n8n-execution:C"
+    assert terminal["run_id"] == _run_id("C")
     assert terminal["completed_at"] == "2026-09-05T13:01:00.000Z"
     assert terminal["duration_ms"] == 60000
-    _assert_comparison(_attempt(workflow, schema, book), 140, 0.50, True)
+    with pytest.raises(subprocess.CalledProcessError) as collision:
+        _attempt(workflow, schema, book)
+    assert collision.value.stderr == "RUN_IDENTITY_COLLISION"
     rerun = _attempt(workflow, schema, book, execution_id="D", worth=210)
     _assert_comparison(rerun, 210, 0, False)
     _commit(workflow, schema, book, rerun, completed_at="2026-09-05T14:01:00Z")
     assert len(book["portfolio_daily"]) == 2
     assert len({row["history_key"] for row in book["positions_history"]}) == 4
     assert [row["run_id"] for row in book["sync_runs"]] == [
-        "n8n-execution:A",
-        "n8n-execution:C",
-        "n8n-execution:D",
+        _run_id("A"),
+        _run_id("C"),
+        _run_id("D"),
     ]
 
 
@@ -547,7 +542,7 @@ def test_failed_evidence_read_stops_writes_and_uses_sanitized_error_path(
     assert failure["should_record"] is True
     row = failure["row"]
     assert row["status"] == "FAILED" and row["error_code"] == code
-    assert row["run_id"] == "n8n-execution:C"
+    assert row["run_id"] == _run_id("C")
     assert row["previous_net_worth_eur"] is None and row["net_worth_change_pct"] is None
     assert WARNING not in row["error_message"]
     assert "SYNTHETIC_PRIVATE_DETAIL" not in json.dumps(failure)

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_n8n_workflow import _run_code_node
+from test_n8n_workflow import _run_code_node, _run_context, _run_id
 
 ROOT = Path(__file__).parents[2]
 DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
@@ -25,11 +25,22 @@ def _node(workflow: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def _run_error_classifier(
-    trigger: dict[str, Any], existing: list[dict[str, Any]]
+    trigger: dict[str, Any], existing: list[dict[str, Any]], *,
+    run: dict[str, Any] | None = None, saved: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     workflow = _load(ERROR_PATH)
     schema = _load(SCHEMA_PATH)
+    if run is None:
+        run = _run_context(trigger.get("execution", {}).get("id", "missing"))
+    if saved is None:
+        saved = _saved_execution(trigger, run)
+    resolved = _run_code_node(
+        workflow, "Resolve Source Execution",
+        named_rows={"Workflow Error Trigger": [trigger]},
+        input_rows=[{"statusCode": 200, "body": saved}],
+    )[0]["json"]
     named = {
+        "Resolve Source Execution": [resolved],
         "Workflow Error Trigger": [trigger],
         "Fetch Operational Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
     }
@@ -42,6 +53,20 @@ def _run_error_classifier(
     )[0]["json"]
 
 
+def _saved_execution(trigger, run):
+    execution = trigger.get("execution", {})
+    return {
+        "id": execution.get("id"), "workflowId": trigger["workflow"]["id"],
+        "mode": execution.get("mode"),
+        "data": {
+            "executionData": {"runtimeData": execution.get("executionContext")},
+            "resultData": {"runData": {
+                "Initialize Run": [{"data": {"main": [[{"json": run}]]}}],
+            }},
+        },
+    }
+
+
 def _trigger(
     message: str,
     step: str = "Read Current Positions",
@@ -52,6 +77,7 @@ def _trigger(
     return {
         "execution": {
             "id": execution_id,
+            "executionContext": {"version": 1, "establishedAt": 1787203812000, "source": "trigger"},
             "error": {"message": message, "stack": "private stack"},
             "lastNodeExecuted": step,
             "mode": "trigger",
@@ -137,7 +163,7 @@ def test_operational_errors_are_stably_classified_and_sanitized(
 ) -> None:
     result = _run_error_classifier(_trigger(message, step), [])
     assert result["row"]["error_code"] == expected
-    assert result["row"]["run_id"] == "n8n-execution:execution-42"
+    assert result["row"]["run_id"] == _run_id("execution-42")
     assert "secret-token" not in json.dumps(result)
     assert "private stack" not in json.dumps(result)
     assert result["row"]["gross_assets_eur"] is None
@@ -159,8 +185,9 @@ def test_terminal_run_is_never_overwritten_and_last_success_ignores_failures(
             "completed_at": "2026-08-21T08:00:00+02:00",
         },
         {
-            "run_id": "n8n-execution:execution-42",
+            "run_id": _run_id("execution-42"),
             "status": status,
+            "started_at": _run_context()["started_at"],
             "completed_at": "2026-08-21T09:00:00+02:00",
         },
     ]
@@ -178,7 +205,7 @@ def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identi
 ) -> None:
     existing = [
         {
-            "run_id": "n8n-execution:original-41",
+            "run_id": _run_id("original-41"),
             "status": "SUCCESS",
             "completed_at": "2026-09-05T12:00:00Z",
         }
@@ -187,18 +214,18 @@ def test_error_workflow_uses_failed_source_execution_not_retry_or_handler_identi
         "synthetic retry failure", execution_id="retry-42", retry_of="original-41"
     )
     if custom_context:
-        trigger["execution"]["executionContext"] = {"run_id": "synthetic-wrong-context"}
+        trigger["execution"]["executionContext"]["run_id"] = "synthetic-wrong-context"
         trigger["execution"]["error"]["context"] = {"run_id": "synthetic-wrong-error"}
         trigger["error"] = {"context": {"run_id": "synthetic-wrong-top-level"}}
     result = _run_error_classifier(trigger, existing)
 
-    assert result["row"]["run_id"] == "n8n-execution:retry-42"
+    assert result["row"]["run_id"] == _run_id("retry-42")
     assert result["diagnostics"]["execution_id"] == "retry-42"
     assert result["should_record"] is True
     persisted = {row["run_id"]: row for row in existing}
     persisted[result["row"]["run_id"]] = result["row"]
-    assert persisted["n8n-execution:original-41"]["status"] == "SUCCESS"
-    assert persisted["n8n-execution:retry-42"]["status"] == "FAILED"
+    assert persisted[_run_id("original-41")]["status"] == "SUCCESS"
+    assert persisted[_run_id("retry-42")]["status"] == "FAILED"
 
 
 @pytest.mark.parametrize("source_id", [None, "", 42, False, [], {}, ["42"]])
@@ -291,7 +318,10 @@ def test_error_terminal_write_is_only_reachable_through_new_failure_branch() -> 
         for edge in connections
     }
     assert edges == {
-        ("Workflow Error Trigger", 0, "Fetch Operational Schema"),
+        ("Workflow Error Trigger", 0, "Validate Source Execution ID"),
+        ("Validate Source Execution ID", 0, "Fetch Source Execution"),
+        ("Fetch Source Execution", 0, "Resolve Source Execution"),
+        ("Resolve Source Execution", 0, "Fetch Operational Schema"),
         ("Fetch Operational Schema", 0, "Read Sync Runs"),
         ("Read Sync Runs", 0, "Prepare Sanitized Failure"),
         ("Prepare Sanitized Failure", 0, "Failure Is New"),

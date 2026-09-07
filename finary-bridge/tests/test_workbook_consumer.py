@@ -45,7 +45,21 @@ def _prepare(workflow, schema, workbook, run_id, timestamp, **changes):
 
 def _prepare_snapshot(workflow, schema, workbook, run_id, snapshot):
     assert _run_validation(workflow, schema, snapshot)["can_write"] is True
-    return _prepare_for_run(workflow, schema, snapshot, workbook, run_id)
+    execution_id = run_id.removeprefix("n8n-execution:")
+    prepared = _prepare_for_run(workflow, schema, snapshot, workbook, execution_id)
+    current_id = prepared["sync_run_rows"][0]["run_id"]
+    legacy_id = run_id if run_id.startswith("n8n-execution:") else f"n8n-execution:{run_id}"
+    # Keep historical consumer fixtures and their legacy IDs intact. The current
+    # export validates fresh output first; this fixture adapter then models rows
+    # retained from an older writer. It never changes the production reader.
+    for name, rows in prepared.items():
+        if not name.endswith("_rows"):
+            continue
+        for row in rows:
+            for field in ("run_id", "last_seen_run_id"):
+                if row.get(field) == current_id:
+                    row[field] = legacy_id
+    return prepared
 
 
 @pytest.fixture

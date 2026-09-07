@@ -247,6 +247,14 @@ Its executable specification is test-only; it does not automatically enforce
 validation inside ChatGPT. Sequential reads can detect observed inconsistencies
 but cannot create a transactional snapshot or exclude unobserved concurrent writes.
 
+Run identities include a fresh random UUID, so replacing an n8n database does
+not reuse retained workbook run identities. Existing IDs and workbook schema
+`2.1` remain valid. Before adopting both updated workflows or restoring n8n,
+follow the [identity adoption and restore procedure](docs/operations.md#adopting-restore-safe-run-identities):
+drain saved/running executions and error handlers, configure local n8n execution
+read access, and enable the built-in crypto module. No live change is performed
+by importing this repository.
+
 ## Security and limitations
 
 - This project uses Finary's private, unsupported API. Upstream changes may

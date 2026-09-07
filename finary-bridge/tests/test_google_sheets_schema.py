@@ -112,8 +112,8 @@ def test_required_sheets_and_order_are_canonical() -> None:
         "history_key": "{snapshot_date}:{position_key}",
         "portfolio_daily": "{snapshot_date}",
         "run_id": (
-            "opaque n8n-execution:{execution_id}; "
-            "legacy timestamp identifiers remain valid strings"
+            "opaque n8n-run:{execution_id}:{uuid_v4}; "
+            "retained n8n-execution and timestamp identifiers remain valid strings"
         ),
     }
     assert [entry["key"] for entry in schema["readme_entries"]] == [

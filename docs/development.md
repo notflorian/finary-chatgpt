@@ -46,10 +46,12 @@ Run repository contracts from the repository root:
 
 ```bash
 python scripts/validate-json.py
+python scripts/build-workflow-validation.py --check
 COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
 COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q \
-  finary-bridge/tests/test_n8n_zero_position_runtime.py
+  finary-bridge/tests/test_n8n_zero_position_runtime.py \
+  finary-bridge/tests/test_restore_run_identity_runtime.py
 ```
 
 The n8n validator imports both workflow exports into an isolated ephemeral n8n
@@ -77,10 +79,24 @@ it does not test the Google service or upstream completeness beyond fixtures.
 Without Docker/the pinned image, normal tests skip these cases; the explicit
 `FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
 
+The restore-identity module also executes the daily graph in fresh disposable
+SQLite databases that reuse execution number `1`, with real cryptographic UUIDs.
+It covers interrupted and completed writes, every collision gate, and native
+terminal-response-loss retries with an identical finalized payload. The installed
+pinned n8n error dispatcher receives the real synthetic execution result; only
+its delivery service is intercepted to capture the actual Error Trigger payload.
+That payload and the saved execution feed the real exported error Code/If graph,
+with synthetic local API/Sheets I/O and a manual input driver. Replays, failures
+before writes, lost successful responses and mismatched source context are
+checked. This verifies dispatcher fields and graph behavior, not live trigger
+scheduling, public API authentication, Google transport, or a database backup
+restoration. Python workbook regressions simulate restoration by ID reuse;
+fresh-container engine tests prove new-installation ID reuse separately.
+
 ## Workflow validation maintenance
 
-The shared [validation source](../n8n/validation.js) is embedded in the daily
-export by [build-workflow-validation.py](../scripts/build-workflow-validation.py).
+The shared [validation source](../n8n/validation.js) is embedded in both workflow
+exports by [build-workflow-validation.py](../scripts/build-workflow-validation.py).
 The build reads `PortfolioSnapshotV2.model_json_schema()` and the verified empty
 metadata default factories; it does not maintain another API field list. Its
 small schema interpreter supports only the vocabulary used by these models.

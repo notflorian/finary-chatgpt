@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 from test_finary_client import _credentials, _FakeResponse, _FakeSession
+from test_n8n_workflow import _run_id
 from test_n8n_workflow_v2 import (
     _apply_prepared_writes,
     _empty_workbook,
@@ -234,7 +235,7 @@ def test_zero_position_lifecycle_and_consumer(workflow, schema, populated, cover
         state = select_assets(book, now=NOW)
         assert state.source == "current" and state.current_complete
         assert state.positions == state.history == []
-        assert state.run_id == f"n8n-execution:zero-{index}"
+        assert state.run_id == _run_id(f"zero-{index}")
         assert state.daily["gross_assets_eur"] == 100
         assert state.accounts[0]["market_value_eur"] == 100
         assert book["positions_history"] == before["positions_history"]
@@ -251,7 +252,7 @@ def test_zero_position_lifecycle_and_consumer(workflow, schema, populated, cover
             liability = select_liabilities(book)
             assert liability.complete is populated
             if populated:
-                assert liability.reference_run_id == "n8n-execution:2026-08-20"
+                assert liability.reference_run_id == _run_id("2026-08-20")
         else:
             assert select_liabilities(book).liabilities_eur == 0
             assert book["liabilities_current"] == [

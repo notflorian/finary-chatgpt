@@ -75,18 +75,23 @@ source_asset_id = {position_kind}:{asset_id}
 position_key    = finary:{account_id}:asset:{position_kind}:{asset_id}
 history_key     = {snapshot_date}:{position_key}
 portfolio_daily = {snapshot_date}
-run_id          = n8n-execution:{execution_id}
+run_id          = n8n-run:{execution_id}:{uuid_v4}
 ```
 
 The position kind is part of both asset identifiers because equal numeric IDs
 may occur in separate upstream collections. Do not shorten these keys in
 Sheets.
 
-`run_id` is an opaque identity derived once from n8n's persisted execution ID.
-It is independent of timestamps, ordering, timezone, and daylight-saving
-transitions. Timestamp-shaped identifiers written by older workflow versions
-remain valid legacy strings and must not be rewritten or interpreted as current
-n8n execution IDs.
+`run_id` combines a cryptographically random UUID created by `Initialize Run`
+with the verified n8n execution ID. Saved node output retains that identity and
+timing through native retries. New initializations remain distinct when a fresh
+or restored database reuses an execution number. The error workflow retrieves
+the exact saved origin through the local n8n execution API, with source-context
+validation. See the [identity and restore lifecycle](operations.md#error-correlation-and-terminal-replay).
+
+Run IDs are opaque equality keys, independent of ordering, timezone and daylight
+saving. Old `n8n-execution:{execution_id}` and timestamp-shaped identifiers remain
+valid read values; never rewrite them or infer a current execution from them.
 
 ## Current state and retention
 
@@ -161,8 +166,8 @@ cannot be treated as complete under the selection rule below.
 Native retries performed by a node inside one execution keep the same
 `run_id` and deterministic row keys. n8n's saved-data retry creates a new n8n
 execution while retaining earlier node output. The workflow therefore refuses
-to publish its terminal success when the saved `run_id` differs from the
-current n8n execution ID. Except for retrying the already-reached terminal
+to prepare rows or publish terminal success when the saved identity belongs
+to a different n8n execution or the prepared run context no longer matches. Except for retrying the already-reached terminal
 Sheets write itself, recover with a full new workflow execution so a fresh
 snapshot receives a fresh identity.
 

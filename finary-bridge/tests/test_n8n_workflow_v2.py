@@ -14,6 +14,7 @@ from test_n8n_workflow import (
     _headers,
     _prepare_named_rows,
     _run_code_node,
+    _run_id,
     _snapshot,
 )
 from test_operations import _run_error_classifier, _trigger
@@ -58,9 +59,9 @@ def _run_validation(
         named_rows={
             "Initialize Run": [
                 {
-                    "run_id": "20260820-073012",
+                    "run_id": _run_id("test-execution"),
                     "started_at": "2026-08-20T07:30:12+02:00",
-                    "started_epoch_ms": 0,
+                    "started_epoch_ms": 1787203812000,
                 }
             ],
             "Fetch Canonical Schema": [{"statusCode": 200, "body": schema}],
@@ -102,7 +103,7 @@ def _prepare_for_run(
 ) -> dict[str, Any]:
     named = _prepare_named_rows(schema, snapshot)
     named["Validate Snapshot"][0]["run"] = {
-        "run_id": run_id if run_id.startswith("n8n-execution:") else f"n8n-execution:{run_id}",
+        "run_id": run_id if run_id.startswith("n8n-run:") else _run_id(run_id),
         "started_at": snapshot["generated_at"],
         "started_epoch_ms": int(
             datetime.fromisoformat(snapshot["generated_at"]).timestamp() * 1000
@@ -118,7 +119,7 @@ def _prepare_for_run(
         "Prepare Validated Rows",
         named_rows=named,
         input_rows=[{}],
-        execution_id=run_id.removeprefix("n8n-execution:"),
+        execution_id=run_id.split(":")[1] if run_id.startswith("n8n-run:") else run_id,
     )[0]["json"]
 
 
@@ -348,7 +349,8 @@ def test_success_marker_follows_history_and_daily_writes(
     expected_success_suffix = {
         "Upsert Position History": "Select Daily Row",
         "Select Daily Row": "Upsert Portfolio Daily",
-        "Upsert Portfolio Daily": "Select Success Run",
+        "Upsert Portfolio Daily": "Read Terminal Before Success",
+        "Read Terminal Before Success": "Select Success Run",
         "Select Success Run": "Record Successful Sync",
     }
 
@@ -373,8 +375,8 @@ def test_initialize_run_uses_distinct_n8n_execution_identity(
     first = _initialize_run(workflow, execution_id="4101", now=first_time)
     second = _initialize_run(workflow, execution_id="4102", now=second_time)
 
-    assert first["run_id"] == "n8n-execution:4101"
-    assert second["run_id"] == "n8n-execution:4102"
+    assert first["run_id"] == _run_id("4101")
+    assert second["run_id"] == _run_id("4102")
     assert first["run_id"] != second["run_id"]
 
 
@@ -497,9 +499,9 @@ def test_source_execution_correlates_partial_writes_and_preserves_lost_success_r
     # For success, the remote write persisted but its response was lost.
     failure = _run_error_classifier(
         _trigger("synthetic lost write response", "Record Successful Sync", execution_id="4701"),
-        workbook["sync_runs"],
+        workbook["sync_runs"], run=run,
     )
-    assert failure["row"]["run_id"] == run["run_id"] == "n8n-execution:4701"
+    assert failure["row"]["run_id"] == run["run_id"] == _run_id("4701")
     if stop_after == "success":
         assert failure["should_record"] is False
         assert workbook["sync_runs"][0]["status"] == "SUCCESS"
@@ -606,7 +608,7 @@ def test_interleaved_executions_are_incomplete_until_fresh_recovery(
     )
     selected = _latest_complete_position_state(workbook, "2026-09-05")
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:4403"
+    assert selected[0]["run_id"] == _run_id("4403")
     assert {row["market_value_eur"] for row in selected[1]} == {110.0, 50.0}
 
 
@@ -641,7 +643,7 @@ def test_saved_data_retry_cannot_publish_stale_execution_identity(
         schema,
         _known_eur_snapshot("2026-09-05T14:50:00+02:00"),
         _empty_workbook(),
-        "n8n-execution:4601",
+        _run_id("4601"),
     )
 
     matching = _run_code_node(
@@ -650,14 +652,14 @@ def test_saved_data_retry_cannot_publish_stale_execution_identity(
         named_rows={
             "Prepare Validated Rows": [prepared],
             "Validate Snapshot": [{"run": {
-                "run_id": "n8n-execution:4601", "started_epoch_ms": 1788612600000,
+                "run_id": _run_id("4601"), "started_epoch_ms": 1788612600000,
                 "started_at": "2026-09-05T14:50:00+02:00",
             }}],
         },
         input_rows=[{}],
         execution_id="4601",
     )
-    assert matching[0]["json"]["run_id"] == "n8n-execution:4601"
+    assert matching[0]["json"]["run_id"] == _run_id("4601")
 
     with pytest.raises(subprocess.CalledProcessError) as error:
         _run_code_node(
@@ -679,9 +681,9 @@ def test_text_schema_full_response_shape_passes_validation(
         named_rows={
             "Initialize Run": [
                 {
-                    "run_id": "20260820-073012",
+                    "run_id": _run_id("test-execution"),
                     "started_at": "2026-08-20T07:30:12+02:00",
-                    "started_epoch_ms": 0,
+                    "started_epoch_ms": 1787203812000,
                 }
             ],
             "Fetch Canonical Schema": [{"statusCode": 200, "data": json.dumps(schema)}],
@@ -892,7 +894,7 @@ def test_same_day_disappearance_has_distinct_successful_history_membership(
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
     assert selected[0]["status"] == "SUCCESS_WITH_WARNINGS"
-    assert selected[0]["run_id"] == "n8n-execution:20260820-083012"
+    assert selected[0]["run_id"] == _run_id("20260820-083012")
     assert [row["position_key"] for row in selected[1]] == [
         "finary:account-001:asset:cryptos:101"
     ]
@@ -918,7 +920,7 @@ def test_same_day_disappearance_has_distinct_successful_history_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-084012"
+    assert selected[0]["run_id"] == _run_id("20260820-084012")
     assert len(selected[1]) == 1
     assert len(workbook["positions_history"]) == 2
 
@@ -1099,7 +1101,7 @@ def test_partial_history_write_is_detected_and_identical_retry_recovers(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-084000"
+    assert selected[0]["run_id"] == _run_id("20260820-084000")
     assert {row["market_value_eur"] for row in selected[1]} == {110.0, 50.0}
 
 
@@ -1133,7 +1135,7 @@ def test_current_write_interruption_and_changed_retry_recover_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-073000"
+    assert selected[0]["run_id"] == _run_id("20260820-073000")
 
     changed_retry = _prepare_for_run(
         workflow,
@@ -1155,7 +1157,7 @@ def test_current_write_interruption_and_changed_retry_recover_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-084500"
+    assert selected[0]["run_id"] == _run_id("20260820-084500")
     assert {row["market_value_eur"] for row in selected[1]} == {60.0, 20.0}
 
 
@@ -1206,7 +1208,7 @@ def test_daily_write_without_success_is_not_complete_and_retry_recovers(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-083100"
+    assert selected[0]["run_id"] == _run_id("20260820-083100")
     assert len(selected[1]) == 1
 
 
@@ -1327,7 +1329,7 @@ def test_legacy_history_rows_are_retained_but_not_complete_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "n8n-execution:20260820-073000"
+    assert selected[0]["run_id"] == _run_id("20260820-073000")
     assert any(row["position_key"].endswith(":legacy") for row in workbook["positions_history"])
 
 
@@ -1372,23 +1374,10 @@ def test_v2_error_handler_is_separate_inactive_and_coverage_compatible(
     assert "liability_coverage: null" in serialized
     assert [column["name"] for column in schema["sheets"]["sync_runs"]["columns"]]
 
-    result = _run_code_node(
-        workflow,
-        "Prepare Sanitized Failure",
-        named_rows={
-            "Workflow Error Trigger": [
-                {
-                    "execution": {
-                        "id": "synthetic-execution",
-                        "error": {"message": "429 private-project-detail"},
-                        "lastNodeExecuted": "Read Current Positions",
-                    }
-                }
-            ],
-            "Fetch Operational Schema": [{"statusCode": 200, "body": schema}],
-        },
-        input_rows=[],
-    )[0]["json"]
+    result = _run_error_classifier(
+        _trigger("429 private-project-detail", "Read Current Positions",
+                 execution_id="synthetic-execution"), [],
+    )
     assert result["row"]["liability_coverage"] is None
     assert result["row"]["error_code"] == "GOOGLE_RATE_LIMITED"
     assert "private-project-detail" not in result["row"]["error_message"]

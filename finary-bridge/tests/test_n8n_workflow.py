@@ -8,6 +8,7 @@ import subprocess
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 
@@ -37,6 +38,23 @@ def _headers(schema: dict[str, Any], sheet_name: str) -> dict[str, str]:
     }
 
 
+def _nonce(execution_id: str) -> str:
+    # Controlled entropy for exported-node tests; engine tests use real crypto.
+    return str(UUID(bytes=uuid5(NAMESPACE_URL, str(execution_id)).bytes, version=4))
+
+
+def _run_id(execution_id: str) -> str:
+    return f"n8n-run:{execution_id}:{_nonce(execution_id)}"
+
+
+def _run_context(execution_id: str = "test-execution") -> dict[str, Any]:
+    return {
+        "run_id": _run_id(execution_id),
+        "started_at": "2026-08-20T07:30:12+02:00",
+        "started_epoch_ms": 1787203812000,
+    }
+
+
 def _run_code_node(
     workflow: dict[str, Any],
     node_name: str,
@@ -47,11 +65,14 @@ def _run_code_node(
     now: str | None = None,
     clock_step_ms: int = 0,
     setup_js: str = "",
+    nonce: str | None = None,
 ) -> list[dict[str, Any]]:
     if shutil.which("node") is None:
         pytest.skip("Node.js is required to execute n8n Code node tests")
     code = _node(workflow, node_name)["parameters"]["jsCode"]
+    controlled_nonce = nonce if nonce is not None else _nonce(execution_id)
     harness = f"""
+require('crypto').randomUUID = () => {json.dumps(controlled_nonce)};
 const namedRows = {json.dumps(named_rows)};
 const inputRows = {json.dumps(input_rows)};
 const $execution = {{ id: {json.dumps(execution_id)}, mode: 'test' }};
@@ -184,7 +205,7 @@ def _prepare_named_rows(
     context = {
         "can_write": True,
         "run": {
-            "run_id": "n8n-execution:test-execution",
+            "run_id": _run_id("test-execution"),
             "started_at": "2026-08-20T07:30:12+02:00",
             "started_epoch_ms": 1787203812000,
         },
@@ -199,6 +220,7 @@ def _prepare_named_rows(
         "Preflight History Header": "positions_history",
         "Preflight Daily Header": "portfolio_daily",
         "Preflight Sync Header": "sync_runs",
+        "Preflight Failure Sync Header": "sync_runs",
     }
     named = {"Validate Snapshot": [context]}
     named.update(
@@ -240,9 +262,9 @@ def _validate_snapshot_failure(
     retryable: bool,
 ) -> dict[str, Any]:
     run = {
-        "run_id": "20260820-073012",
+        "run_id": _run_id("test-execution"),
         "started_at": "2026-08-20T07:30:12+02:00",
-        "started_epoch_ms": 0,
+        "started_epoch_ms": 1787203812000,
     }
     return _run_code_node(
         workflow,
@@ -375,9 +397,9 @@ def test_structured_bridge_failure_cannot_reach_portfolio_writes(
     workflow: dict[str, Any], sheets_schema: dict[str, Any]
 ) -> None:
     run = {
-        "run_id": "20260820-073012",
+        "run_id": _run_id("test-execution"),
         "started_at": "2026-08-20T07:30:12+02:00",
-        "started_epoch_ms": 0,
+        "started_epoch_ms": 1787203812000,
     }
     result = _run_code_node(
         workflow,
@@ -434,8 +456,11 @@ def test_bridge_auth_failure_reaches_sanitized_failed_sync_run(
     failed_run = _run_code_node(
         workflow,
         "Prepare Failed Run",
-        named_rows={"Validate Snapshot": [context]},
-        input_rows=[_headers(sheets_schema, "sync_runs")],
+        named_rows={
+            "Validate Snapshot": [context],
+            "Preflight Failure Sync Header": [_headers(sheets_schema, "sync_runs")],
+        },
+        input_rows=[],
     )[0]["json"]
     assert failed_run["status"] == "FAILED"
     assert failed_run["error_code"] == "BRIDGE_AUTH_FAILED"
@@ -446,7 +471,7 @@ def test_bridge_auth_failure_reaches_sanitized_failed_sync_run(
     assert false_branch == [
         {"node": "Preflight Failure Sync Header", "type": "main", "index": 0}
     ]
-    assert workflow["connections"]["Preflight Failure Sync Header"]["main"][0] == [
+    assert workflow["connections"]["Read Terminal Before Failure"]["main"][0] == [
         {"node": "Prepare Failed Run", "type": "main", "index": 0}
     ]
     assert workflow["connections"]["Prepare Failed Run"]["main"][0] == [
@@ -507,9 +532,9 @@ def test_complete_snapshot_passes_prewrite_gate(
     workflow: dict[str, Any], sheets_schema: dict[str, Any]
 ) -> None:
     run = {
-        "run_id": "20260820-073012",
+        "run_id": _run_id("test-execution"),
         "started_at": "2026-08-20T07:30:12+02:00",
-        "started_epoch_ms": 0,
+        "started_epoch_ms": 1787203812000,
     }
     result = _run_code_node(
         workflow,
@@ -535,9 +560,9 @@ def test_suspicious_empty_snapshot_fails_prewrite_gate(
         named_rows={
             "Initialize Run": [
                 {
-                    "run_id": "20260820-073012",
+                    "run_id": _run_id("test-execution"),
                     "started_at": "2026-08-20T07:30:12+02:00",
-                    "started_epoch_ms": 0,
+                    "started_epoch_ms": 1787203812000,
                 }
             ],
             "Fetch Canonical Schema": [{"statusCode": 200, "body": sheets_schema}],

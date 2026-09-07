@@ -92,7 +92,8 @@ For a portfolio-wide question, ChatGPT should:
    the latest unambiguous `SUCCESS` or `SUCCESS_WITH_WARNINGS` using parsed,
    timezone-aware `completed_at`. Require exactly one terminal record per run
    across statuses. Reject missing evidence, conflicting duplicates and tied
-   newest instants; `run_id` is an opaque equality key. Absence of `FAILED` is
+   newest instants; `run_id` is an opaque equality key, including new UUID-bearing IDs and
+   retained `n8n-execution` or timestamp-shaped legacy IDs. Absence of `FAILED` is
    not proof of success.
 2. Before filtering current accounts or positions, validate non-empty unique
    canonical keys and valid activity flags across both tables. Require every
