@@ -226,7 +226,8 @@ def test_runtime_zero_branches(runtime_image, tmp_path, workflow, schema, popula
     assert "Select History Rows" not in data and "Upsert Position History" not in data
     assert book["positions_history"] == before["positions_history"]
     assert book["positions_current"] == [
-        {**row, "is_active": False} for row in before["positions_current"]
+        {**{key: "" if value is None else value for key, value in row.items()}, "is_active": False}
+        for row in before["positions_current"]
     ]
     if not populated:
         assert "Select Position Rows" not in data
@@ -275,7 +276,7 @@ def test_runtime_unproven_empty_never_writes_portfolio(runtime_image, tmp_path, 
     assert [name for name in WRITES if name in data] == ["Record Failed Sync"]
     terminal = _output(data, "Record Failed Sync")[0]
     assert terminal["status"] == "FAILED"
-    assert terminal["positions_count"] is None
+    assert terminal["positions_count"] == ""
 
 
 def test_runtime_repeated_zero_run_keeps_keys_and_terminal_unique(
@@ -329,7 +330,7 @@ def test_runtime_required_snapshot_fields_never_reach_portfolio(
     assert [name for name in WRITES if name in data] == ["Record Failed Sync"]
     assert "Prepare Validated Rows" not in data
     terminal = _output(data, "Record Failed Sync")[0]
-    assert terminal["status"] == "FAILED" and terminal["positions_count"] is None
+    assert terminal["status"] == "FAILED" and terminal["positions_count"] == ""
     assert terminal["error_code"] == "SNAPSHOT_VALIDATION_FAILED"
     assert len(terminal["error_message"]) < 180
 

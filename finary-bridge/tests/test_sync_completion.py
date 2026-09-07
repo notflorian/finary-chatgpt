@@ -98,12 +98,12 @@ def test_delayed_terminal_finalization(workflow, schema, warnings):
     assert terminal["duration_ms"] == 130000
     assert terminal["status"] == ("SUCCESS_WITH_WARNINGS" if warnings else "SUCCESS")
     assert terminal["warning_count"] == (1 if warnings else 0)
-    assert terminal["error_message"] == ("PARTIAL_POSITION_EUR_COVERAGE" if warnings else None)
+    assert terminal["error_message"] == ("PARTIAL_POSITION_EUR_COVERAGE" if warnings else "")
     columns = schema["sheets"]["sync_runs"]["columns"]
     assert list(terminal) == [column["name"] for column in columns]
     for column in columns:
         value = terminal[column["name"]]
-        if value is None:
+        if value == "":
             assert column["nullable"]
         elif column["type"] == "NUMBER":
             assert isinstance(value, (int, float)) and math.isfinite(value)
@@ -115,7 +115,9 @@ def test_delayed_terminal_finalization(workflow, schema, warnings):
         **terminal,
         "completed_at": before["sync_run_rows"][0]["completed_at"],
         "duration_ms": before["sync_run_rows"][0]["duration_ms"],
-    } == before["sync_run_rows"][0]
+    } == {
+        key: "" if value is None else value for key, value in before["sync_run_rows"][0].items()
+    }
 
 
 def test_reversed_finalization_order_uses_actual_terminal_instants(workflow, schema):

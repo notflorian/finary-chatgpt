@@ -402,6 +402,43 @@ terminal Sheets write after all required writes succeeded. Sheets writes remain
 nontransactional: prewrite validation cannot prevent later service failures or
 concurrent edits, so consumer membership checks and recovery rules still apply.
 
+## Nullable-cell clearing adoption
+
+The corrected exports explicitly clear intentional nullable cells during all
+eight Sheets write paths: current accounts, positions, authorized COMPLETE
+liabilities, position history, daily aggregates, successful telemetry, structured
+failed telemetry, and operational failure telemetry. Validation and calculations
+keep null values; only the final Sheets payload encodes them as empty strings.
+The pinned n8n auto-mapping path skips null updates even with
+`allowEmptyValues=true`, so earlier executions could update a run ID while
+retaining an old amount or optional string in the same row.
+
+During an operator-controlled maintenance window:
+
+1. Unpublish the daily schedule, stop new manual executions, and let daily and
+   error executions settle. Preserve an access-controlled workbook backup. Do
+   not resume old saved/pinned node data after adopting the corrected exports.
+2. Import **both inactive exports**, restore every Google credential binding,
+   the local n8n API credential on **Fetch Source Execution**, and the daily
+   Error Workflow link. Follow the installation checklist below; retain RAW
+   formatting, all-row writes, and Execute Once on reads/preflights.
+3. Start a **complete new manual synchronization**. Verify terminal success,
+   current membership/counts, same-day history membership, and actual blank
+   cells where the new snapshot has unknown values. Matching run IDs alone
+   cannot prove that cells written by the older exports were accurate.
+4. Republish the schedule only after the new successful state passes the
+   [first-run checks](#first-run-verification).
+
+API schema `2.0` and workbook schema `2.1` stay unchanged; no column migration,
+bridge restart, manual-sheet modification or history deletion is needed. A new
+successful run refreshes observed current data and its same-day history keys.
+Liability details refresh only with COMPLETE coverage. Inactive retained rows
+keep their last observation; absent same-day history keys remain retained.
+This does **not** reconstruct historical values from earlier dates or repair
+unobserved retained data. Do not relabel old observations or infer their missing
+values. Any historical investigation requires separate evidence and operator
+action. Repository validation performs no production repair or publication.
+
 ## n8n installation checklist
 
 After importing both JSON exports:

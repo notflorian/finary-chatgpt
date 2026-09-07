@@ -445,7 +445,7 @@ def test_valid_failed_telemetry_preserves_nullable_unavailable_values(workflow, 
         "liabilities_eur",
         "net_worth_eur",
     ]:
-        assert result[key] is None
+        assert result[key] == ""
 
 
 @pytest.mark.parametrize(

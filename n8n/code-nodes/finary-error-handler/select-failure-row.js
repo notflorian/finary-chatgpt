@@ -1,2 +1,2 @@
 const prepared = $('Prepare Sanitized Failure').first().json;
-return [{ json: prepared.row }];
+return sheetsItems(prepared.schema, 'sync_runs', [prepared.row]);

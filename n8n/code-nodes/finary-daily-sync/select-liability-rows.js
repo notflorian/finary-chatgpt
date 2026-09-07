@@ -1,1 +1,2 @@
-return $('Prepare Validated Rows').first().json.liability_rows.map((json) => ({ json }));
+const prepared = $('Prepare Validated Rows').first().json;
+return sheetsItems(prepared.schema, 'liabilities_current', prepared.liability_rows);

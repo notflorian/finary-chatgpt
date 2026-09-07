@@ -13,4 +13,4 @@ const completedAt = completed.toISOString();
 const rows = prepared.sync_run_rows.map((json) => ({ ...json, completed_at: completedAt, duration_ms: durationMs }));
 validateBatch(prepared.schema, 'sync_runs', rows);
 if (rows.length !== 1 || rows[0].started_at !== run.started_at || !['SUCCESS', 'SUCCESS_WITH_WARNINGS'].includes(rows[0].status)) invalidContract('sync_runs.status');
-return rows.map((json) => ({ json }));
+return sheetsItems(prepared.schema, 'sync_runs', rows);

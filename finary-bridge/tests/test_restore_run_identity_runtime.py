@@ -206,7 +206,7 @@ def test_fresh_database_id_reuse_and_actual_error_graph(
     assert not data.get("error"), data.get("error")
     row = _output(data["runData"], "Record Operational Failure")[0]
     assert row["run_id"] == origin["run_id"] and row["started_at"] == origin["started_at"]
-    assert row["gross_assets_eur"] is None and row["status"] == "FAILED"
+    assert row["gross_assets_eur"] == "" and row["status"] == "FAILED"
     assert _output(data["runData"], "Prepare Sanitized Failure")[0]["should_record"]
     book["sync_runs"].append(row)
     # Replay the same actual trigger through Code/If nodes: no second terminal write.

@@ -51,7 +51,8 @@ COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
 COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
   finary-bridge/tests/test_n8n_zero_position_runtime.py \
-  finary-bridge/tests/test_restore_run_identity_runtime.py
+  finary-bridge/tests/test_restore_run_identity_runtime.py \
+  finary-bridge/tests/test_sheets_connector_runtime.py
 ```
 
 The n8n validator imports both workflow exports into an isolated ephemeral n8n
@@ -78,6 +79,18 @@ This is runtime evidence distinct from an import or individual Code-node test;
 it does not test the Google service or upstream completeness beyond fixtures.
 Without Docker/the pinned image, normal tests skip these cases; the explicit
 `FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
+
+The connector regression loads the installed `appendOrUpdate.execute` and
+`GoogleSheet` implementation from that same Compose-pinned image. It executes
+the exported preparation and finalization code with synthetic snapshots, then
+applies the actual connector's emitted updates to individual in-memory cells.
+Only Sheets I/O is replaced; update preparation, column addressing, exported
+mapping expressions and append conversion remain real. A network-disabled Node
+process is reused within each test worker; no n8n server, database, credentials
+or project volumes are needed. This required gate covers all eight write paths,
+known/null transitions, same-day history, retries, zero/false preservation and
+consumer acceptance. Its null-versus-empty-string countercheck demonstrates why
+auto-mapped null retains an old cell even with `allowEmptyValues=true`.
 
 When `pytest-xdist` runs with `-n auto`, worker count comes from
 `tests/conftest.py`: local runs default to `2`, while CI scales to available CPU
@@ -162,6 +175,15 @@ files and prepends the generated contract block only for the nodes that use the
 shared validation helpers. The workflow JSON remains the self-contained import
 artifact for the pinned n8n version; n8n never reads repository files at
 runtime.
+
+The build also embeds [sheets-serialization.js](../n8n/sheets-serialization.js)
+only in the eight Code nodes immediately before Sheets upserts. This separate
+prelude is necessary because ordinary row selectors do not receive the contract
+validation prelude. Contract validation and the all-batch portfolio gate run
+before serialization. Internal nullable values remain null; outgoing null cells
+become explicit empty strings, with absent/undefined fields and required blanks
+rejected at the boundary. Edit this shared source and the readable Code nodes,
+then regenerate both exports with the same build command.
 
 ## Test design
 
