@@ -114,6 +114,14 @@ Import both repository exports:
 - `n8n/workflows/finary-daily-sync.json`
 
 Assign the Google credential to **every** Google Sheets node in both workflows.
+
+Create an **n8n API** credential for the local instance with base URL
+`http://127.0.0.1:5678/api/v1` and access to the daily execution data
+(`execution:read` scope where available). Assign it to **Fetch Source Execution**
+in the error workflow so the handler can retrieve the originating run and record
+its failure. Store the API key only in n8n's credential store. See the
+[detailed credential setup](docs/operations.md#adopting-restore-safe-run-identities).
+
 Publish the error handler, then select it as the daily workflow's error
 workflow. Keep the daily workflow unpublished until its manual run passes.
 
