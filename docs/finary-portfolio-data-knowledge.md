@@ -114,6 +114,28 @@ present a filtered subset as a complete portfolio. Use the historical procedure
 below, without requiring invalid current tables to pass first. Valid current
 membership does not itself validate a daily aggregate or missing history.
 
+## Zero positions with successful evidence
+
+A valid successful run can record `positions_count = 0`, including the first
+synchronization or liquidation of all dedicated positions. Require the same full
+table, terminal, count and membership checks above; an empty read, missing count,
+failed run or partially written workbook is never proof of zero. Retained
+inactive positions carry their previous observation IDs and do not count.
+
+For that run's validated daily/history state, zero matching historical members
+is correct. Older same-day and prior-date rows remain retained; never borrow
+those rows to resurrect holdings. Missing or inconsistent daily/terminal
+history evidence is still unusable. A valid dated historical fallback to zero
+must be labeled with its own provenance, just like a nonempty fallback.
+
+The writer allows zero only after the bridge proves successful retrieval and
+normalization of every collection in its verified adapter surface. This is not
+a guarantee of global Finary completeness or an atomic observation. Account
+balances can remain positive and continue to establish gross assets. Do not
+infer zero assets, zero liabilities or known net worth from zero positions.
+Allocation percentages stay blank with a zero denominator. Liability coverage
+and last-known COMPLETE liability evidence are validated independently.
+
 ## Historical fallback and independently usable aggregates
 
 For each candidate business date, newest date first:

@@ -137,6 +137,8 @@ def normalize_positions(
             seen_source_ids.add(position.source_asset_id)
             seen_position_keys.add(position.position_key)
             normalized.append(position)
+    if not raw_positions.has_complete_collection_membership:
+        raise SnapshotNormalizationError("position collection membership is incomplete")
     return tuple(normalized)
 
 

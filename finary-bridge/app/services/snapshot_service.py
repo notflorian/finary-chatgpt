@@ -98,7 +98,9 @@ class SnapshotService:
 
             return PortfolioSnapshotV2(
                 generated_at=self._clock(),
-                coverage=SnapshotCoverage(liabilities=coverage),
+                # _get_normalized_assets requires every adapter collection and
+                # successful normalization of every record before reaching here.
+                coverage=SnapshotCoverage(liabilities=coverage, position_collections="COMPLETE"),
                 gross_assets_eur=assets.gross_assets_eur,
                 liabilities_eur=liabilities_eur,
                 net_worth_eur=net_worth_eur,

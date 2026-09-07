@@ -140,6 +140,26 @@ current n8n execution ID. Except for retrying the already-reached terminal
 Sheets write itself, recover with a full new workflow execution so a fresh
 snapshot receives a fresh identity.
 
+## Proven zero-position state
+
+A successful run may have `positions_count = 0` while account balances and
+`gross_assets_eur` remain positive. The writer requires explicit
+`coverage.position_collections = COMPLETE` from the bridge for an empty snapshot;
+this proves validated collection of the verified adapter surface, not global
+upstream completeness or an atomic observation. See the
+[API contract](architecture.md#api-contracts).
+
+Apply all current-table and independent history checks unchanged. Zero active
+positions and zero history members for the selected successful run are valid;
+retained inactive rows and other runs' history do not count. Never resurrect
+holdings from earlier same-day history. No position or history placeholder is
+written, and an empty table or a failed/missing terminal record is not zero
+proof. The workflow still writes accounts, `portfolio_daily`, and one terminal
+record. Asset-class totals are zero and allocation percentages are blank when
+the position denominator is zero; account-derived gross assets remain separate.
+Liability coverage and its last successful COMPLETE evidence remain independent.
+No workbook columns or migration are added.
+
 ## Currency and portfolio totals
 
 EUR-normalized cells are populated only when the bridge proved EUR provenance

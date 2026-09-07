@@ -46,13 +46,30 @@ Run repository contracts from the repository root:
 
 ```bash
 python scripts/validate-json.py
-docker compose config --quiet
-bash scripts/validate-n8n-imports.sh
+COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
+COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
+FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q \
+  finary-bridge/tests/test_n8n_zero_position_runtime.py
 ```
 
 The n8n validator imports both workflow exports into an isolated ephemeral n8n
-instance with no network and no persistent project volumes. Docker must already
-have the image pinned by `docker-compose.yml`.
+instance with no network and no persistent project volumes. The import script pulls the
+image pinned by `docker-compose.yml` before running network-disabled containers.
+Use an otherwise unset/synthetic Compose environment; `COMPOSE_ENV_FILES` avoids
+loading the local `.env`. No project container or volume is used.
+
+The runtime regression separately imports a synthetic copy and executes the real
+n8n graph with its persisted execution identity in disposable containers. Only
+HTTP/Sheets I/O nodes are replaced; production Code/If nodes, connections,
+empty-read flags, all-row writes, retry counts/delays, and finalization remain.
+It covers header-only reads, zero position/history/liability branches,
+liquidation, normal nonempty writes, and exhausted write retries preventing
+success. It checks execution data for single continuation, real row counts,
+write order and terminal timing, then checks the resulting synthetic workbook.
+This is runtime evidence distinct from an import or individual Code-node test;
+it does not test the Google service or upstream completeness beyond fixtures.
+Without Docker/the pinned image, normal tests skip these cases; the explicit
+`FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
 
 ## Test design
 
@@ -130,7 +147,7 @@ read-only repository permissions. It has four bounded jobs:
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
-| `n8n-import` | network-isolated import of both workflow exports using pinned n8n |
+| `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
 
 Actions are pinned to immutable revisions, runtime versions are explicit, and
 the workflow does not read repository secrets, start the live stack, upload

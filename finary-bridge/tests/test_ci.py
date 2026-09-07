@@ -112,3 +112,13 @@ def test_ci_does_not_activate_the_daily_workflow() -> None:
     assert "activate:workflow" not in validator
     assert "publish:workflow" not in validator
     assert "docker compose up" not in ci
+
+
+def test_ci_requires_pinned_runtime_execution_after_import():
+    ci = CI_PATH.read_text(encoding="utf-8")
+    job = ci.split("  n8n-import:", 1)[1]
+    assert 'FINARY_REQUIRE_N8N_RUNTIME: "1"' in job
+    assert "python -m pytest -q finary-bridge/tests/test_n8n_zero_position_runtime.py" in job
+    assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
+        "FINARY_REQUIRE_N8N_RUNTIME"
+    )

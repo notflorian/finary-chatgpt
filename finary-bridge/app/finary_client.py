@@ -144,6 +144,17 @@ class FinaryRawPositions:
 
     groups: tuple[FinaryRawPositionGroup, ...]
 
+    @property
+    def has_complete_collection_membership(self) -> bool:
+        """Require exactly one group per verified adapter collection.
+
+        This proves membership only. The adapter must validate each retrieval,
+        and the normalizer must accept every record before publishing evidence.
+        """
+        kinds = [group.kind for group in self.groups]
+        expected = {kind for kind, _ in _POSITION_ENDPOINTS}
+        return len(kinds) == len(expected) and set(kinds) == expected
+
 
 @dataclass(frozen=True, slots=True)
 class FinaryRawLiabilities:
