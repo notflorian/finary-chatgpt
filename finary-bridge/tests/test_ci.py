@@ -124,7 +124,7 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     assert "Pre-pull Compose-pinned n8n image for parallel runtime tests" in job
     assert "docker pull \"$n8n_image\" >/dev/null" in job
     assert (
-        "python -m pytest -q -n auto --dist worksteal --max-worker-restart 0 --durations=15"
+        "python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
         in job
     )
     assert "finary-bridge/tests/test_n8n_zero_position_runtime.py" in job

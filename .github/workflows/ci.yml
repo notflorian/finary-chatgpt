@@ -142,6 +142,6 @@ jobs:
         env:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
         run: >-
-          python -m pytest -q -n auto --dist worksteal --max-worker-restart 0 --durations=15
+          python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
           finary-bridge/tests/test_n8n_zero_position_runtime.py
           finary-bridge/tests/test_restore_run_identity_runtime.py
