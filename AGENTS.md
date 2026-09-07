@@ -98,6 +98,9 @@ Code, identifiers, comments, filenames, logs, API fields, and commit messages
 must be in English. Prefer small typed functions, immutable models where useful,
 dependency injection, deterministic transformations, and structured logging.
 
+Never mention issue numbers in comments or docstrings. Describe the enduring
+behavior, constraint, or rationale directly; issue references become obsolete.
+
 ## Architectural boundaries
 
 ### Finary adapter
