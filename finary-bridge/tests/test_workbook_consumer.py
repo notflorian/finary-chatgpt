@@ -287,7 +287,7 @@ def test_older_date_fallback_is_explicit_and_independent(workflow, schema, workb
     )
     _apply_prepared_writes(schema, workbook, interrupted, history_limit=1)
     state = select_assets(workbook, now=NOW)
-    assert state.latest_success_run_id == A and state.run_id == "legacy-old"
+    assert state.latest_success_run_id == A and state.run_id == "n8n-execution:legacy-old"
     assert state.source == "history" and state.dated_fallback and state.stale
     assert state.snapshot_date == "2026-08-17"
     assert state.completed_at == "2026-08-17T05:31:00Z"

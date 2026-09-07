@@ -333,6 +333,25 @@ schedule. It:
 8. upserts same-day position history with `run_id` membership and the daily summary;
 9. writes one terminal `sync_runs` row.
 
+The prewrite gate has two independent boundaries. `Validate Snapshot` uses a
+generated projection of the Pydantic field contract, rejects malformed objects,
+extra fields and invalid scalar values, and applies only canonical model
+defaults before overrides. Metadata scalars are validated and then discarded
+under the empty downstream allowlist. Existing key, reference, coverage and
+monetary safety checks still apply. This is defense in depth: the canonical
+FastAPI response model normally prevents malformed snapshots from reaching n8n.
+
+`Prepare Validated Rows` validates all six write batches against the canonical
+workbook columns, order, types, nullability and enum bindings before emitting
+the first account row. It also checks keys, run context, counts, observation
+membership and shared totals. A malformed history, daily or provisional success
+row blocks every portfolio write. Retained current rows selected for inactivation
+are explicitly decoded from Sheets encodings and validated without replacing
+their previous observation timestamps or run IDs. Missing required retained
+values stop the run; this gate does not repair historical data. Finalization
+still checks execution identity and timing after the required writes and
+validates the final terminal row before its write.
+
 Explicit count checks branch around empty position and history write batches;
 liability writes use their existing independent batch check. Each check reduces
 the preceding batch to one control item, so the exclusive skip and write paths

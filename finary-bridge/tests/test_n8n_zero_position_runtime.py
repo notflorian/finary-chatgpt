@@ -302,3 +302,70 @@ def test_runtime_zero_daily_failure_blocks_terminal(runtime_image, tmp_path, wor
     assert "Upsert Portfolio Daily" in result["runData"]
     assert "Upsert Position History" not in result["runData"]
     assert "Record Successful Sync" not in result["runData"]
+
+
+@pytest.mark.parametrize(
+    "case", ["account-name", "account-currency", "position-class", "liability-name"]
+)
+def test_runtime_required_snapshot_fields_never_reach_portfolio(
+    runtime_image, tmp_path, workflow, schema, case,
+):
+    snapshot = _known_eur_snapshot("2026-08-20T07:30:00+02:00")
+    if case == "account-name":
+        del snapshot["accounts"][0]["name"]
+    elif case == "account-currency":
+        snapshot["accounts"][0]["currency"] = "EURO"
+    elif case == "position-class":
+        del snapshot["positions"][0]["asset_class"]
+    else:
+        snapshot["liabilities"][0]["name"] = None
+    exported = _substitute_io(workflow, schema, snapshot, _empty_workbook())
+    data = _execute(tmp_path, runtime_image, exported)["data"]["resultData"]["runData"]
+    assert [name for name in WRITES if name in data] == ["Record Failed Sync"]
+    assert "Prepare Validated Rows" not in data
+    terminal = _output(data, "Record Failed Sync")[0]
+    assert terminal["status"] == "FAILED" and terminal["positions_count"] is None
+    assert terminal["error_code"] == "SNAPSHOT_VALIDATION_FAILED"
+    assert len(terminal["error_message"]) < 180
+
+
+@pytest.mark.parametrize(
+    "case", ["retained-required-cell", "late-history-undefined", "late-daily-enum"]
+)
+def test_runtime_prepared_contract_blocks_the_first_portfolio_write(
+    runtime_image, tmp_path, workflow, schema, case,
+):
+    from test_prewrite_validation import mutated_preparation
+
+    book = _empty_workbook()
+    snapshot = _known_eur_snapshot("2026-08-20T07:30:00+02:00")
+    if case == "retained-required-cell":
+        initial = _prepare_for_run(workflow, schema, snapshot, book, "synthetic-before")
+        _apply_prepared_writes(schema, book, initial)
+        book["liabilities_current"][0]["name"] = None
+        snapshot = zero_snapshot("COMPLETE")
+        expected_path = "liabilities_current.name"
+    else:
+        mutation = (
+            "prepared.history_rows[0].name = undefined;"
+            if case == "late-history-undefined"
+            else "prepared.daily_rows[0].liability_coverage = 'invalid';"
+        )
+        # Controlled output fault only. The complete snapshot, real gate and
+        # graph remain intact; an input-only validator cannot catch this.
+        workflow = mutated_preparation(workflow, mutation)
+        expected_path = (
+            "positions_history.name" if case == "late-history-undefined"
+            else "portfolio_daily.liability_coverage"
+        )
+    exported = _substitute_io(workflow, schema, snapshot, book)
+    result = _execute(tmp_path, runtime_image, exported)["data"]["resultData"]
+    # The n8n runner splits Error("CODE:path") into description and message.
+    assert result["error"]["description"] == "CONTRACT_VALIDATION_FAILED"
+    assert result["error"]["message"].startswith(expected_path + " [line ")
+    data = result["runData"]
+    assert _output(data, "Validate Snapshot")[0]["can_write"] is True
+    assert "Prepare Validated Rows" in data
+    assert not any(name in data for name in WRITES)
+    assert "Select Account Rows" not in data
+    assert "Select Success Run" not in data

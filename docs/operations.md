@@ -366,6 +366,41 @@ warning correctly gives `SUCCESS_WITH_WARNINGS`; otherwise expect `SUCCESS`.
 Repeated runs must preserve unique keys and one terminal record per execution.
 No deployment, live workbook write or workflow activation is performed by tests.
 
+## Prewrite contract validation adoption
+
+Issue #59 strengthens the daily workflow's input and prepared-row validation.
+API schema `2.0`, workbook schema `2.1`, headers, manual sheets and the bridge
+remain unchanged. The canonical FastAPI response model normally rejects the
+malformed inputs this defense-in-depth gate now catches independently.
+
+During an operator-controlled maintenance window, unpublish the schedule and
+let executions settle, then reimport the corrected **inactive daily workflow**.
+Restore its Google credential bindings and Error Workflow link using the
+installation checklist below. The error-handler export is unchanged. No bridge
+restart, session-file change, workbook migration or history cleanup is needed.
+Check the isolated synthetic regressions in
+[development.md](development.md#required-local-checks) before an operator verifies
+a normal manual run and republishes. Repository checks do not perform these
+operator actions.
+
+A contract failure identifies only a trusted sheet/field path or a fixed error
+code. Input failures may record sanitized `FAILED` telemetry; row-preparation
+failures stop before portfolio writes and use the existing error workflow.
+Missing or corrupt required values on a retained row that must be inactivated
+now stop preparation. Investigate the named field through the normal operator
+process; the workflow must not guess a name, classification, observation time or
+run ID to continue. Optional Sheets blanks and supported numeric/boolean read
+encodings remain valid. Under `PARTIAL` or `UNAVAILABLE` coverage, liability
+rows remain untouched even if their old cells are corrupt. Unrelated retained
+history is neither rewritten nor automatically repaired.
+
+Saved-data retries with a stale execution identity now also fail at preparation;
+the existing terminal identity check remains. Recover by starting a full new
+execution, with the existing exception for retrying only the already-finalized
+terminal Sheets write after all required writes succeeded. Sheets writes remain
+nontransactional: prewrite validation cannot prevent later service failures or
+concurrent edits, so consumer membership checks and recovery rules still apply.
+
 ## n8n installation checklist
 
 After importing both JSON exports:
