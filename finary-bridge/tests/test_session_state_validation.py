@@ -50,9 +50,12 @@ def _write_payload(path: Path, payload: dict[str, object]) -> None:
         json.dump(payload, stream, indent=2)
 
 
-def _file_identity(path: Path) -> tuple[bytes, int, int, int]:
+def _file_identity(path: Path) -> tuple[bytes, int, int, int, int, int, int]:
     metadata = path.stat()
-    return path.read_bytes(), metadata.st_mode, metadata.st_ino, metadata.st_mtime_ns
+    return (
+        path.read_bytes(), metadata.st_mode, metadata.st_ino, metadata.st_mtime_ns,
+        metadata.st_ctime_ns, metadata.st_uid, metadata.st_gid,
+    )
 
 
 @pytest.mark.parametrize("field", ["session_id", "client_cookie"])
@@ -250,6 +253,121 @@ def test_http_preserves_authentication_envelope_and_malformed_file(
                 "retryable": False,
             }
         }
+        assert _file_identity(path) == before
+        assert _file_identity(lock) == lock_before
+        assert path.parent.stat().st_mode == directory_mode
+
+
+_INVALID_VERSION_JSON = [
+    pytest.param("true", id="true"),
+    pytest.param("false", id="false"),
+    pytest.param("1.0", id="equal-float"),
+    pytest.param("1e0", id="equal-exponent"),
+    pytest.param("1.5", id="fraction"),
+    pytest.param('"1"', id="numeric-string"),
+    pytest.param('""', id="empty-string"),
+    pytest.param("null", id="null"),
+    pytest.param(None, id="missing"),
+    pytest.param("[]", id="array"),
+    pytest.param('{"synthetic-invalid-marker":"synthetic-value"}', id="object"),
+    pytest.param("0", id="zero"),
+    pytest.param("-1", id="negative"),
+    pytest.param("2", id="future"),
+]
+
+
+def _write_version_json(path: Path, version_json: str | None) -> None:
+    # Keep JSON tokens literal, especially exponent notation and boolean/float types.
+    version_field = "" if version_json is None else f'"version":{version_json},'
+    with path.open("x", encoding="utf-8") as stream:
+        path.chmod(0o600)
+        stream.write(
+            "{" + version_field
+            + '"session_id":"synthetic-session-marker",'
+            '"client_cookie":"synthetic-cookie-marker"}'
+        )
+
+
+@pytest.mark.parametrize("version_json", _INVALID_VERSION_JSON)
+@pytest.mark.parametrize("operation", ["load", "snapshot"])
+def test_store_rejects_invalid_version_without_mutation(
+    tmp_path: Path, version_json: str | None, operation: str
+) -> None:
+    store, path = _store(tmp_path)
+    store.clear()
+    _write_version_json(path, version_json)
+    lock = path.with_name(path.name + ".lock")
+    before, lock_before = _file_identity(path), _file_identity(lock)
+    directory_mode = path.parent.stat().st_mode
+    message = (
+        "Finary session file has unexpected fields" if version_json is None
+        else "Finary session file version is unsupported"
+    )
+    for _ in range(2):
+        with pytest.raises(FinarySessionStoreError, match=f"^{message}$"):
+            getattr(store, operation)()
+        assert _file_identity(path) == before
+        assert _file_identity(lock) == lock_before
+        assert path.parent.stat().st_mode == directory_mode
+
+
+@pytest.mark.parametrize("existing_revision", [False, True])
+def test_integer_version_loads_without_rewriting(
+    tmp_path: Path, existing_revision: bool
+) -> None:
+    store, path = _store(tmp_path)
+    if existing_revision:
+        store.clear()
+    _write_version_json(path, "1")
+    before = _file_identity(path)
+    snapshot = store.snapshot()
+    lock = path.with_name(path.name + ".lock")
+    lock_before = _file_identity(lock)
+    assert bool(snapshot.revision) is existing_revision
+    for _ in range(2):
+        assert store.snapshot() == snapshot
+        assert store.load() == FinarySessionState(
+            "synthetic-session-marker", "synthetic-cookie-marker"
+        )
+        assert _file_identity(path) == before
+        assert _file_identity(lock) == lock_before
+
+
+@pytest.mark.parametrize("version_json", _INVALID_VERSION_JSON)
+@pytest.mark.parametrize("boundary", ["adapter", "/v1/snapshot", "/v2/snapshot"])
+def test_invalid_version_stops_before_authentication_and_preserves_file(
+    guarded_adapter: tuple[FinaryApiClient, Path], version_json: str | None, boundary: str
+) -> None:
+    adapter, path = guarded_adapter
+    _write_version_json(path, version_json)
+    lock = path.with_name(path.name + ".lock")
+    before, lock_before = _file_identity(path), _file_identity(lock)
+    directory_mode = path.parent.stat().st_mode
+
+    async def request() -> Response:
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            return await client.get(boundary, headers={"X-API-Key": "synthetic-bridge-key-marker"})
+
+    for _ in range(2):
+        if boundary == "adapter":
+            with pytest.raises(
+                FinaryAuthenticationError, match="^Stored Finary session is unusable$"
+            ):
+                adapter.authenticate()
+        else:
+            response = asyncio.run(request())
+            assert response.status_code == 502
+            assert response.headers["content-type"] == "application/json"
+            assert response.json() == {
+                "error": {
+                    "code": "FINARY_AUTH_FAILED",
+                    "message": "Unable to authenticate with Finary",
+                    "retryable": False,
+                }
+            }
+            assert "synthetic-" not in response.text
         assert _file_identity(path) == before
         assert _file_identity(lock) == lock_before
         assert path.parent.stat().st_mode == directory_mode

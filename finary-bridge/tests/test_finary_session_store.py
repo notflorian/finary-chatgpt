@@ -121,6 +121,8 @@ def test_serialized_state_excludes_stronger_credentials(tmp_path: Path) -> None:
     store.save(_state())
     payload = json.loads(path.read_text(encoding="utf-8"))
 
+    assert type(payload["version"]) is int
+    assert payload["version"] == 1
     assert set(payload) == {"version", "session_id", "client_cookie"}
     for prohibited in (
         "password",

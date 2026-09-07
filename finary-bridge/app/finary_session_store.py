@@ -193,7 +193,8 @@ class FileFinarySessionStore:
             "client_cookie",
         }:
             raise FinarySessionStoreError("Finary session file has unexpected fields")
-        if payload["version"] != _FORMAT_VERSION:
+        version = payload["version"]
+        if type(version) is not int or version != _FORMAT_VERSION:
             raise FinarySessionStoreError("Finary session file version is unsupported")
         try:
             return FinarySessionState(
