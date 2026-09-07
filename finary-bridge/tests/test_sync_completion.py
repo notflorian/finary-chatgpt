@@ -38,6 +38,7 @@ def _prepare(
     start="2026-09-05T12:00:00Z",
     prepared_at="2026-09-05T12:00:10Z",
     snapshot=None,
+    workbook=None,
 ):
     run = _initialize_run(workflow, execution_id=execution_id, now=start)
     snapshot = snapshot or _known_eur_snapshot(start)
@@ -55,6 +56,15 @@ def _prepare(
     assert context["can_write"] is True
     named = _prepare_named_rows(schema, snapshot)
     named["Validate Snapshot"] = [context]
+    if workbook is not None:
+        for node, sheet in (
+            ("Read Current Accounts", "accounts_current"),
+            ("Read Current Positions", "positions_current"),
+            ("Read Current Liabilities", "liabilities_current"),
+            ("Read Portfolio Daily", "portfolio_daily"),
+            ("Read Sync Runs", "sync_runs"),
+        ):
+            named[node] = deepcopy(workbook[sheet])
     prepared = _run_code_node(
         workflow,
         "Prepare Validated Rows",

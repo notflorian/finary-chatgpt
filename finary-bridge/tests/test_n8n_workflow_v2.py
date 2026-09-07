@@ -110,6 +110,7 @@ def _prepare_for_run(
     named["Read Current Positions"] = deepcopy(workbook["positions_current"])
     named["Read Current Liabilities"] = deepcopy(workbook["liabilities_current"])
     named["Read Portfolio Daily"] = deepcopy(workbook["portfolio_daily"])
+    named["Read Sync Runs"] = deepcopy(workbook["sync_runs"])
     return _run_code_node(
         workflow,
         "Prepare Validated Rows",

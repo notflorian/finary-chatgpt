@@ -166,6 +166,49 @@ with its own run and date, especially when position detail comes from an older
 fallback. Unavailable detail does not automatically invalidate an independently
 validated aggregate. Do not combine different states into one portfolio snapshot.
 
+## Workflow net-worth comparison baseline
+
+The writer calculates `sync_runs.previous_net_worth_eur` from retained daily
+aggregates independently of current-table or position-history availability.
+It reads the complete `portfolio_daily` and `sync_runs` tables before preparation
+and portfolio writes. A failed read stops the workflow; only a successful empty
+read supplies empty evidence.
+
+Each candidate must pass the daily aggregate checks above: exactly one physical
+row for its business date, a non-empty opaque run ID joined by exact equality,
+exactly one terminal record across all statuses, successful status, valid
+timezone-aware completion and generation timestamps, and a Europe/Paris
+generation date matching the daily key. Coverage and shared totals must agree
+exactly. A numeric baseline requires `COMPLETE`, finite numbers, non-negative
+gross assets and liabilities, and gross minus liabilities equal to net worth
+within `1e-8` EUR. Nullable analytical numbers may be blank; malformed populated
+numbers invalidate the daily aggregate. Duplicate daily or terminal records are
+rejected even when identical; filtering successes first must not hide failures.
+
+Exclude the current execution. Among eligible retained aggregates, select the
+newest parsed terminal completion instant, regardless of physical row order,
+business-date order, or run ID. If the newest eligible instants tie, leave the
+comparison unavailable. The latest successful execution may have lost its daily
+evidence to a same-day overwrite; its terminal totals cannot reconstruct that
+state or validate the replacement. An older independently valid daily aggregate
+can supply the comparison fallback. If none survives, both comparison fields
+remain blank. Current tables and position history neither repair invalid daily
+evidence nor need to pass validation for this aggregate comparison.
+
+A legitimate zero baseline remains zero, with a blank relative change. With
+incomplete current liability coverage, current net worth and relative change
+remain blank even when a prior complete baseline exists. Otherwise the formula
+is `(currentNetWorth - previousNetWorth) / Math.abs(previousNetWorth)`.
+The result is a decimal fraction: `0.50` means 50%. Only an absolute change
+strictly greater than `0.20` emits `NET_WORTH_CHANGE_OVER_20_PERCENT`; exactly
+positive or negative 20% does not. These are valuation changes, not investment
+performance. The existing schema stores the previous amount, not a separate
+baseline run ID or fallback indicator.
+
+These sequential Sheets reads are not a transaction. Matching run IDs or
+repeated reads do not make overlapping executions atomic; the limits below
+still apply to the writer's comparison.
+
 ## Sequential-read limits
 
 These are read-side interpretation checks, not transactions or locks. Sequential

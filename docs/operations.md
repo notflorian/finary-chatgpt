@@ -302,6 +302,40 @@ executable consumer specification is test-only, not a deployed enforcement
 layer. No workflow import, publication or service restart is required solely for
 this correction. The existing completion-timestamp behavior is unchanged.
 
+## Net-worth baseline correction adoption
+
+The comparison fix preserves workbook schema `2.1`, headers, keys, and existing
+rows. No workbook README update or data repair is required. The daily workflow
+now reads all `sync_runs` statuses before row preparation, including failures
+and physical duplicates. The new **Read Sync Runs** node must receive the same
+Google Sheets credential as the other reads. It uses **Execute Once**, successful
+empty-read continuation, three bounded attempts, and the existing workflow
+timeout. Read errors stop before portfolio writes and use the sanitized error
+handler; they must never be replaced with empty evidence.
+
+The baseline is the newest unambiguous, independently validated retained
+`COMPLETE` daily aggregate by parsed successful terminal completion time,
+excluding the current execution. It can be older than the latest successful
+execution when that execution's daily evidence was overwritten. Telemetry alone
+cannot reconstruct the missing aggregate. Missing, conflicting, duplicate, or
+invalid evidence makes that candidate unusable; tied newest eligible completion
+instants leave the comparison blank. Zero remains a valid previous amount, but
+its relative change is blank. See the
+[eligibility and valuation-change rules](finary-portfolio-data-knowledge.md#workflow-net-worth-comparison-baseline).
+
+For deployment, an operator must unpublish the daily schedule, let running
+executions settle, import both corrected inactive workflow exports, restore all
+Google credential bindings and the Error Workflow link, and verify a manual run
+before publishing again. Replace the ChatGPT Project knowledge reference if it
+should describe this comparison behavior. Repository tests perform none of these
+operator actions and never rewrite prior telemetry. No service restart or schema
+migration is required for this correction.
+
+Sequential Sheets reads are not a transaction. Neither matching run IDs nor
+identical repeated reads makes overlapping executions atomic. Avoid overlapping
+executions during adoption and recovery; terminal payload timing and final-write
+retry semantics remain as described under [Partial write](#partial-write).
+
 ## n8n installation checklist
 
 After importing both JSON exports:
