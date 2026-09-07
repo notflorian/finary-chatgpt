@@ -386,3 +386,57 @@ def test_non_empty_liability_collection_is_not_fabricated() -> None:
                 coverage=FinaryLiabilityCoverage.COMPLETE,
             )
         )
+
+
+def test_oversized_integer_is_a_sanitized_normalization_error(
+    numeric_raw_inputs, numeric_field, oversized_integer,
+):
+    accounts, positions = numeric_raw_inputs(numeric_field, oversized_integer)
+    with pytest.raises(SnapshotNormalizationError, match="must be finite") as caught:
+        keys = _account_keys(accounts)
+        normalize_positions(positions, account_keys=keys)
+    assert str(caught.value) == {
+        "balance": "account balance must be finite",
+        "current_value": "position current value must be finite",
+        "quantity": "position quantity must be finite",
+    }[numeric_field]
+    assert caught.value.__suppress_context__ is True
+    assert caught.value.__cause__ is None
+
+
+@pytest.mark.parametrize("value", [True, False, "123", float("nan"), float("inf"), -float("inf")])
+def test_numeric_normalization_preserves_invalid_input_rejection(
+    numeric_raw_inputs, numeric_field, value,
+):
+    accounts, positions = numeric_raw_inputs(numeric_field, value)
+    with pytest.raises(SnapshotNormalizationError):
+        keys = _account_keys(accounts)
+        normalize_positions(positions, account_keys=keys)
+
+
+@pytest.mark.parametrize("value", [10**300, -(10**300), 1e300, -1e300, 0, 0.0, -2.5])
+def test_numeric_normalization_preserves_finite_values(numeric_raw_inputs, numeric_field, value):
+    accounts, positions = numeric_raw_inputs(numeric_field, value)
+    normalized_accounts = normalize_accounts(accounts)
+    normalized_positions = normalize_positions(
+        positions, account_keys={account.account_key for account in normalized_accounts},
+    )
+    security = next(p for p in normalized_positions if p.source_asset_id == "securities:1001")
+    actual = {
+        "balance": normalized_accounts[0].market_value_eur,
+        "current_value": security.market_value_native,
+        "quantity": security.quantity,
+    }[numeric_field]
+    assert actual == float(value)
+
+
+def test_numeric_normalization_preserves_nullability(numeric_raw_inputs, numeric_field):
+    accounts, positions = numeric_raw_inputs(numeric_field, None)
+    if numeric_field == "quantity":
+        normalized = normalize_positions(positions, account_keys=_account_keys(accounts))
+        security = next(p for p in normalized if p.source_asset_id == "securities:1001")
+        assert security.quantity is None
+    else:
+        with pytest.raises(SnapshotNormalizationError, match="is required"):
+            keys = _account_keys(accounts)
+            normalize_positions(positions, account_keys=keys)

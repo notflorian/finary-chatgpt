@@ -59,16 +59,21 @@ class _FakeClient:
         return FinaryRawLiabilities(records=(), coverage=self.liability_coverage)
 
 
-def _request(path: str, client: _FakeClient) -> Response:
+def _request(
+    path: str, client: _FakeClient, *, raise_app_exceptions: bool = True
+) -> Response:
     async def send_request() -> Response:
+        previous_overrides = app.dependency_overrides.copy()
         app.dependency_overrides[get_authenticated_finary_client] = lambda: client
         try:
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver"
+                transport=ASGITransport(app=app, raise_app_exceptions=raise_app_exceptions),
+                base_url="http://testserver",
             ) as http_client:
                 return await http_client.get(path)
         finally:
             app.dependency_overrides.clear()
+            app.dependency_overrides.update(previous_overrides)
 
     return asyncio.run(send_request())
 
@@ -511,3 +516,41 @@ def test_authorized_construction_failure_is_sanitized_and_next_request_recovers(
         )
         assert response.status_code == 200
     assert calls == 2
+
+
+@pytest.mark.parametrize("path", ["/v1/snapshot", "/v2/snapshot"])
+def test_api_rejects_oversized_raw_integer_without_private_details(
+    numeric_raw_inputs, numeric_field, oversized_integer, path, caplog,
+):
+    client = _FakeClient(*numeric_raw_inputs(numeric_field, oversized_integer))
+    with caplog.at_level(logging.DEBUG):
+        response = _request(path, client, raise_app_exceptions=False)
+    assert response.status_code == 502
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {
+        "error": {
+            "code": "SNAPSHOT_VALIDATION_FAILED",
+            "message": "Unable to build a valid portfolio snapshot",
+            "retryable": False,
+        }
+    }
+    for private_detail in (
+        str(oversized_integer), "synthetic-raw-marker", "holdings_account_id",
+        "OverflowError", "int too large to convert to float", "must be finite",
+    ):
+        assert private_detail not in response.text
+        assert private_detail not in caplog.text
+    assert client.authentication_calls == 1
+
+
+@pytest.mark.parametrize("path", ["/v1/snapshot", "/v2/snapshot"])
+@pytest.mark.parametrize("value", [10**300, 0, None], ids=["large-finite", "zero", "nullable"])
+def test_api_preserves_numeric_controls(numeric_raw_inputs, path, value):
+    accounts, positions = numeric_raw_inputs("quantity", value)
+    response = _request(path, _FakeClient(accounts, positions))
+    assert response.status_code == 200
+    payload = response.json()
+    security = next(p for p in payload["positions"] if p["source_asset_id"] == "securities:1001")
+    assert security["quantity"] == (None if value is None else float(value))
+    assert payload["gross_assets_eur"] == 150.0
+    assert payload["liabilities_eur"] == 0.0

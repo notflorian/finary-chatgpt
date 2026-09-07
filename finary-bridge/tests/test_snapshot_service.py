@@ -177,3 +177,13 @@ def test_v2_service_complete_empty_coverage_produces_known_zero(
     assert snapshot.coverage.liabilities.value == "COMPLETE"
     assert snapshot.liabilities_eur == 0.0
     assert snapshot.net_worth_eur == snapshot.gross_assets_eur
+
+
+@pytest.mark.parametrize("method", ["get_snapshot", "get_snapshot_v2"])
+def test_service_rejects_oversized_raw_integer(
+    numeric_raw_inputs, numeric_field, oversized_integer, method,
+):
+    client = _FakeClient(*numeric_raw_inputs(numeric_field, oversized_integer))
+    with pytest.raises(SnapshotNormalizationError, match="must be finite"):
+        getattr(SnapshotService(client), method)()
+    assert client.calls == ["authenticate", "get_accounts", "get_positions", "get_liabilities"]
