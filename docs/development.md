@@ -50,7 +50,7 @@ python scripts/build-workflow-validation.py --check
 COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
 COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q \
-  -n 2 --dist worksteal --max-worker-restart 0 --durations=15 \
+  -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
   finary-bridge/tests/test_n8n_zero_position_runtime.py \
   finary-bridge/tests/test_restore_run_identity_runtime.py
 ```
@@ -80,17 +80,21 @@ it does not test the Google service or upstream completeness beyond fixtures.
 Without Docker/the pinned image, normal tests skip these cases; the explicit
 `FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
 
-The required runtime gate uses two `pytest-xdist` worker processes on the same
-runner after the image has been pulled and both exports have been imported.
+The required runtime gate uses CPU-detected `pytest-xdist` worker processes,
+capped at four, on the same runner after the image has been pulled and both
+exports have been imported. This uses all four CPUs on the public repository's
+standard Ubuntu runner while reducing concurrency on smaller machines. The cap
+also bounds simultaneous n8n containers on larger development machines.
 Tests retain separate temporary directories and fresh network-disabled
 containers/SQLite databases, including executions within a single test. Work
 stealing balances cases with different numbers of engine executions; it does
 not change the workflow graph or its real retry delays. The normal Python suite
 remains serial. A worker crash fails the gate without restarting that worker.
 The slowest 15 test phases are reported to make later timing changes visible.
-For a serial comparison on the same runner and image, replace `-n 2` with
-`-n 0` and `--dist worksteal` with `--dist no`; compare the pytest summaries and
-test counts as well as the total job duration. The job includes import checks
+For a serial comparison on the same runner and image, replace
+`-n auto --maxprocesses 4` with `-n 0` and `--dist worksteal` with `--dist no`;
+for the previous two-worker baseline, replace it with `-n 2`. Compare pytest
+summaries and test counts as well as the total job duration. The job includes import checks
 and engine execution, so its duration is not an import-only benchmark.
 
 The restore-identity module also executes the daily graph in fresh disposable
