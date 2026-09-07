@@ -1,3 +1,8 @@
+---
+name: code-review
+description: Review pull requests and proposed code changes in this repository for correctness, regressions, security, data integrity, and contract compatibility.
+---
+
 # Code Review Skill
 
 Use this skill when reviewing a pull request or proposed code change in this repository.
