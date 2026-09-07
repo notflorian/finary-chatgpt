@@ -102,9 +102,11 @@ def _prepare_for_run(
 ) -> dict[str, Any]:
     named = _prepare_named_rows(schema, snapshot)
     named["Validate Snapshot"][0]["run"] = {
-        "run_id": run_id,
+        "run_id": run_id if run_id.startswith("n8n-execution:") else f"n8n-execution:{run_id}",
         "started_at": snapshot["generated_at"],
-        "started_epoch_ms": 0,
+        "started_epoch_ms": int(
+            datetime.fromisoformat(snapshot["generated_at"]).timestamp() * 1000
+        ),
     }
     named["Read Current Accounts"] = deepcopy(workbook["accounts_current"])
     named["Read Current Positions"] = deepcopy(workbook["positions_current"])
@@ -116,6 +118,7 @@ def _prepare_for_run(
         "Prepare Validated Rows",
         named_rows=named,
         input_rows=[{}],
+        execution_id=run_id.removeprefix("n8n-execution:"),
     )[0]["json"]
 
 
@@ -647,7 +650,8 @@ def test_saved_data_retry_cannot_publish_stale_execution_identity(
         named_rows={
             "Prepare Validated Rows": [prepared],
             "Validate Snapshot": [{"run": {
-                "run_id": "n8n-execution:4601", "started_epoch_ms": 0,
+                "run_id": "n8n-execution:4601", "started_epoch_ms": 1788612600000,
+                "started_at": "2026-09-05T14:50:00+02:00",
             }}],
         },
         input_rows=[{}],
@@ -765,7 +769,10 @@ def test_complete_known_empty_coverage_inactivates_last_known_liability(
     named = _prepare_named_rows(schema, snapshot)
     named["Read Current Liabilities"] = [
         {
-            **_headers(schema, "liabilities_current"),
+            **_run_code_node(
+                workflow, "Prepare Validated Rows",
+                named_rows=_prepare_named_rows(schema, _v2_snapshot()), input_rows=[{}],
+            )[0]["json"]["liability_rows"][0],
             "liability_key": "finary:liability:last-known",
             "source": "finary",
             "source_liability_id": "last-known",
@@ -885,7 +892,7 @@ def test_same_day_disappearance_has_distinct_successful_history_membership(
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
     assert selected[0]["status"] == "SUCCESS_WITH_WARNINGS"
-    assert selected[0]["run_id"] == "20260820-083012"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-083012"
     assert [row["position_key"] for row in selected[1]] == [
         "finary:account-001:asset:cryptos:101"
     ]
@@ -911,7 +918,7 @@ def test_same_day_disappearance_has_distinct_successful_history_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-084012"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-084012"
     assert len(selected[1]) == 1
     assert len(workbook["positions_history"]) == 2
 
@@ -1092,7 +1099,7 @@ def test_partial_history_write_is_detected_and_identical_retry_recovers(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-084000"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-084000"
     assert {row["market_value_eur"] for row in selected[1]} == {110.0, 50.0}
 
 
@@ -1126,7 +1133,7 @@ def test_current_write_interruption_and_changed_retry_recover_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-073000"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-073000"
 
     changed_retry = _prepare_for_run(
         workflow,
@@ -1148,7 +1155,7 @@ def test_current_write_interruption_and_changed_retry_recover_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-084500"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-084500"
     assert {row["market_value_eur"] for row in selected[1]} == {60.0, 20.0}
 
 
@@ -1199,7 +1206,7 @@ def test_daily_write_without_success_is_not_complete_and_retry_recovers(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-083100"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-083100"
     assert len(selected[1]) == 1
 
 
@@ -1320,7 +1327,7 @@ def test_legacy_history_rows_are_retained_but_not_complete_membership(
     )
     selected = _latest_complete_position_state(workbook)
     assert selected is not None
-    assert selected[0]["run_id"] == "20260820-073000"
+    assert selected[0]["run_id"] == "n8n-execution:20260820-073000"
     assert any(row["position_key"].endswith(":legacy") for row in workbook["positions_history"])
 
 
@@ -1328,7 +1335,9 @@ def test_v2_missing_position_becomes_inactive_under_unavailable_liabilities(
     workflow: dict[str, Any], schema: dict[str, Any]
 ) -> None:
     named = _prepare_named_rows(schema, _v2_snapshot("UNAVAILABLE"))
-    old = {column["name"]: None for column in schema["sheets"]["positions_current"]["columns"]}
+    old = _run_code_node(
+        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
+    )[0]["json"]["position_rows"][0]
     old.update(
         {
             "position_key": "finary:account-001:asset:securities:old",

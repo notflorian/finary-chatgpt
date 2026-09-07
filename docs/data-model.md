@@ -127,7 +127,33 @@ that row is not a member of the later run. Historical rows are never
 automatically deleted. `portfolio_daily` similarly upserts one summary per
 `snapshot_date` and records the run that wrote it.
 
-An invalid snapshot is rejected before portfolio writes. Google Sheets writes
+Both invalid snapshots and invalid prepared write batches are rejected before
+portfolio writes. The writer validates all six automated batches together,
+including history, the daily summary and provisional success telemetry. API
+validation follows the current Pydantic field definitions, including their
+defaults; a non-nullable destination column does not make a defaulted API
+property required on input. API JSON types are strict, currency codes match
+three uppercase letters, and optional signed values remain supported.
+
+Write-ready rows have exactly the canonical columns in order and no `undefined`
+values. Nullable cells may be intentional `null` or empty-string blanks. Only
+retained Sheets reads decode decimal numeric strings (including signs,
+exponents and surrounding whitespace), native booleans or exact `TRUE`/`FALSE`,
+and omitted nullable empty cells. An explicit `undefined` is never a blank.
+Required retained cells cannot be absent, null or empty. Rows rewritten for
+inactivation retain their previous `last_seen_at` and `last_seen_run_id`;
+corruption aborts preparation rather than inventing replacement observations.
+Untouched historical rows and liabilities under incomplete coverage are not
+rewritten or subjected to this write contract.
+
+The Sheets `DATE` constraint is checked with the actual calendar, and `DATETIME`
+requires a valid explicit timezone offset. In particular, `Liability.end_date`
+is an optional string in the API model but must be a valid date or blank when
+written to Sheets. Enum bindings resolve `asset_class` to `asset_class`, `status`
+to `sync_status`, and `liability_coverage` to `liability_coverage` in the canonical
+schema; there are no new columns or versions.
+
+Google Sheets writes
 are not transactional, so an execution failure can leave partial current,
 history, or daily writes. Such an attempt has no successful terminal marker and
 cannot be treated as complete under the selection rule below.

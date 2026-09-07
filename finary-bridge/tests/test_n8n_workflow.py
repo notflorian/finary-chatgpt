@@ -46,6 +46,7 @@ def _run_code_node(
     execution_id: str = "test-execution",
     now: str | None = None,
     clock_step_ms: int = 0,
+    setup_js: str = "",
 ) -> list[dict[str, Any]]:
     if shutil.which("node") is None:
         pytest.skip("Node.js is required to execute n8n Code node tests")
@@ -72,6 +73,7 @@ const $input = {{
   first: () => ({{ json: inputRows[0] || {{}} }}),
   all: () => inputRows.map((json) => ({{ json }})),
 }};
+{setup_js}
 (async () => {{
 {code}
 }})().then((result) => process.stdout.write(JSON.stringify(result))).catch((error) => {{
@@ -80,7 +82,8 @@ const $input = {{
 }});
 """
     completed = subprocess.run(  # noqa: S603
-        ["node", "-e", harness],
+        ["node"],
+        input=harness,
         check=True,
         capture_output=True,
         text=True,
@@ -181,9 +184,9 @@ def _prepare_named_rows(
     context = {
         "can_write": True,
         "run": {
-            "run_id": "20260820-073012",
+            "run_id": "n8n-execution:test-execution",
             "started_at": "2026-08-20T07:30:12+02:00",
-            "started_epoch_ms": 0,
+            "started_epoch_ms": 1787203812000,
         },
         "schema": schema,
         "snapshot": snapshot,
@@ -582,10 +585,9 @@ def test_missing_current_rows_are_retained_as_inactive(
     workflow: dict[str, Any], sheets_schema: dict[str, Any]
 ) -> None:
     named = _prepare_named_rows(sheets_schema, _snapshot())
-    old = {
-        column["name"]: None
-        for column in sheets_schema["sheets"]["positions_current"]["columns"]
-    }
+    old = _run_code_node(
+        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
+    )[0]["json"]["position_rows"][0]
     old.update(
         {
             "position_key": "finary:account-001:asset:securities:old",
@@ -641,18 +643,16 @@ def test_count_change_warning_thresholds_are_applied(
     workflow: dict[str, Any], sheets_schema: dict[str, Any]
 ) -> None:
     named = _prepare_named_rows(sheets_schema, _snapshot())
-    account_template = {
-        column["name"]: None
-        for column in sheets_schema["sheets"]["accounts_current"]["columns"]
-    }
-    position_template = {
-        column["name"]: None
-        for column in sheets_schema["sheets"]["positions_current"]["columns"]
-    }
+    initial = _run_code_node(
+        workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}]
+    )[0]["json"]
+    account_template = initial["account_rows"][0]
+    position_template = initial["position_rows"][0]
     named["Read Current Accounts"] = [
         {
             **account_template,
             "account_key": f"finary:account:old-{index}",
+            "source_account_id": f"old-{index}",
             "is_active": True,
         }
         for index in range(4)
@@ -661,6 +661,8 @@ def test_count_change_warning_thresholds_are_applied(
         {
             **position_template,
             "position_key": f"finary:old-{index}:asset:securities:{index}",
+            "account_key": f"finary:account:old-{index}",
+            "source_asset_id": f"securities:{index}",
             "is_active": True,
         }
         for index in range(4)

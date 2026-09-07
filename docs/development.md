@@ -64,12 +64,48 @@ HTTP/Sheets I/O nodes are replaced; production Code/If nodes, connections,
 empty-read flags, all-row writes, retry counts/delays, and finalization remain.
 It covers header-only reads, zero position/history/liability branches,
 liquidation, normal nonempty writes, and exhausted write retries preventing
+success. The same required runtime file also covers four malformed required-field
+snapshots, a corrupt retained liability selected for inactivation, and controlled
+history/daily output faults injected immediately before the real all-batch gate.
+Only those last two fault cases modify preparation to inject the synthetic
+defect; its validator and the remaining graph stay intact. These executions
+prove that an invalid later batch prevents the first portfolio write and terminal
 success. It checks execution data for single continuation, real row counts,
 write order and terminal timing, then checks the resulting synthetic workbook.
 This is runtime evidence distinct from an import or individual Code-node test;
 it does not test the Google service or upstream completeness beyond fixtures.
 Without Docker/the pinned image, normal tests skip these cases; the explicit
 `FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
+
+## Workflow validation maintenance
+
+The shared [validation source](../n8n/validation.js) is embedded in the daily
+export by [build-workflow-validation.py](../scripts/build-workflow-validation.py).
+The build reads `PortfolioSnapshotV2.model_json_schema()` and the verified empty
+metadata default factories; it does not maintain another API field list. Its
+small schema interpreter supports only the vocabulary used by these models.
+Source-field constraints are also reused for the workbook columns that reference
+those fields, alongside the fetched canonical workbook schema. The export is
+self-contained and requires no additional n8n package or runtime endpoint.
+
+After changing models or shared validation, run from the repository root with
+the bridge development environment active:
+
+```bash
+python scripts/build-workflow-validation.py
+python scripts/build-workflow-validation.py --check
+python -m pytest -q finary-bridge/tests/test_prewrite_validation.py
+```
+
+Contract-parity tests compare every embedded copy with the generated source and
+the model/workbook enums. The field matrix uses Pydantic as an independent input
+oracle and executes the exported JavaScript. Separate output mutations exercise
+every column, including missing keys and JavaScript `undefined` before JSON
+serialization, batch structure, enum/date/number rules, and retained-row decoding.
+Legacy workbook fixture IDs remain valid as read data; newly prepared fixture
+runs now use realistic execution identities and timing origins. Import tests,
+individual Code-node execution, workbook simulation and real n8n engine execution
+are complementary evidence, not interchangeable checks.
 
 ## Test design
 
