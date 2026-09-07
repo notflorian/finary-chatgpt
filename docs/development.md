@@ -192,11 +192,12 @@ genuinely changed.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main` with
-read-only repository permissions. It has four bounded jobs:
+read-only repository permissions. It has five bounded jobs:
 
 | Job | Checks |
 | --- | --- |
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
+| `session-validation-python314` | Python 3.14 session validation, including real JSON and injected decoder failures |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
