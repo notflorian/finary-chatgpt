@@ -336,6 +336,36 @@ identical repeated reads makes overlapping executions atomic. Avoid overlapping
 executions during adoption and recovery; terminal payload timing and final-write
 retry semantics remain as described under [Partial write](#partial-write).
 
+## Zero-position synchronization adoption
+
+This correction adds `coverage.position_collections` to API schema `2.0` and
+keeps workbook schema `2.1`, headers, keys and README entries unchanged. It needs
+both the updated bridge and daily workflow. Older nonempty payloads remain
+accepted; an older bridge cannot authorize zero-position writes. Older workflows
+still reject zero positions even with the new bridge. Update any strict API
+client response allowlist for the additive field.
+
+During an operator-controlled maintenance window, unpublish the daily schedule
+and let existing executions settle. Rebuild/recreate the bridge with this
+revision, preserving its session volume, and reimport the corrected inactive
+daily export. Restore all Sheets credentials and the error-workflow link using
+the installation checklist below. Keep **Execute Once** on reads/preflights and
+all-row processing on writes. The error-handler export is unchanged. Replace the
+uploaded knowledge reference and update Project instructions for the
+[zero-position rules](finary-portfolio-data-knowledge.md#zero-positions-with-successful-evidence).
+No workbook column migration, history cleanup or manual-sheet edit is needed.
+
+Verify the new branches with the isolated synthetic runtime regression described
+in [development.md](development.md#required-local-checks), never by deleting real
+holdings or forcing an upstream failure. Before the operator republishes, check
+a manual run's required writes and unique terminal success. For a legitimately
+empty position snapshot, expect zero active positions, preserved observation
+IDs/timestamps on inactive rows, unchanged retained history, updated accounts and
+daily totals, and `positions_count = 0`. A count-change or incomplete-liability
+warning correctly gives `SUCCESS_WITH_WARNINGS`; otherwise expect `SUCCESS`.
+Repeated runs must preserve unique keys and one terminal record per execution.
+No deployment, live workbook write or workflow activation is performed by tests.
+
 ## n8n installation checklist
 
 After importing both JSON exports:

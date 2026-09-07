@@ -694,7 +694,7 @@ def test_real_adapter_api_recovery_returns_complete_snapshot(tmp_path: Path) -> 
     assert len(payload["accounts"]) == 2
     assert len(payload["positions"]) == 6
     assert payload["gross_assets_eur"] == 150
-    assert payload["coverage"] == {"liabilities": "UNAVAILABLE"}
+    assert payload["coverage"] == {"liabilities": "UNAVAILABLE", "position_collections": "COMPLETE"}
     assert payload["net_worth_eur"] is None
     assert len(transport.reads) == 11
     assert transport.refreshes == 2

@@ -169,6 +169,8 @@ class SnapshotCoverage(StableModel):
     """Coverage decisions that qualify nullable v2 portfolio totals."""
 
     liabilities: LiabilityCoverage
+    # Additive evidence; legacy payloads never acquire completeness by default.
+    position_collections: Literal["COMPLETE", "UNAVAILABLE"] = "UNAVAILABLE"
 
 
 class PortfolioSnapshotV2(StableModel):

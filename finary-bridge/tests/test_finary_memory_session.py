@@ -467,7 +467,10 @@ def test_snapshot_crosses_memory_renewal_boundary_without_partial_results(
         assert len(payload["accounts"]) == 2
         assert len(payload["positions"]) == 6
         assert payload["gross_assets_eur"] == 150
-        assert payload["coverage"] == {"liabilities": "UNAVAILABLE"}
+        assert payload["coverage"] == {
+            "liabilities": "UNAVAILABLE",
+            "position_collections": "COMPLETE",
+        }
         assert payload["net_worth_eur"] is None
         assert [name for name, _ in transport.reads] == [
             "holdings_accounts", "securities", "cryptos", "cryptos",

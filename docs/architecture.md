@@ -120,7 +120,7 @@ This is the canonical downstream API. Its top-level schema is:
   "schema_version": "2.0",
   "generated_at": "2026-08-24T07:30:12+02:00",
   "reference_currency": "EUR",
-  "coverage": {"liabilities": "UNAVAILABLE"},
+  "coverage": {"liabilities": "UNAVAILABLE", "position_collections": "COMPLETE"},
   "gross_assets_eur": 12345.67,
   "liabilities_eur": null,
   "net_worth_eur": null,
@@ -144,6 +144,29 @@ references are rejected.
 
 For `PARTIAL` and `UNAVAILABLE`, liability-dependent totals are null. Empty
 liability arrays never imply zero debt.
+
+`coverage.position_collections` is additive evidence with values `COMPLETE`
+and `UNAVAILABLE` (the default when absent in an older payload). The service
+publishes `COMPLETE` only after the adapter successfully retrieves and validates
+every required dedicated collection, exact collection membership and uniqueness
+are verified, and every returned record normalizes successfully. Present empty
+collections count; missing groups, malformed envelopes, failed reads and
+unsupported nonempty records abort snapshot construction.
+
+Completeness is limited to the adapter's verified collection surface. It does
+not prove global upstream coverage, undiscovered collections, pagination beyond
+the verified responses, or an atomic observation across sequential requests.
+Private endpoint names and raw records remain inside the adapter boundary.
+
+The updated n8n gate accepts zero positions only with this explicit `COMPLETE`
+evidence and at least one valid account. Older nonempty payloads without the
+field retain their existing behavior; older empty payloads remain representable
+by the API model for compatibility but cannot authorize synchronization. A model
+instance alone is not proof that upstream collection retrieval occurred. The new
+service never emits incomplete collection success, even for nonempty positions.
+Clients with closed response-field allowlists must accept the additive coverage
+field before adopting the updated bridge. API schema stays `2.0`; workbook
+schema stays `2.1` without new columns.
 
 ### `GET /v1/snapshot`
 
@@ -309,6 +332,16 @@ schedule. It:
 7. updates liability state only for `COMPLETE` coverage;
 8. upserts same-day position history with `run_id` membership and the daily summary;
 9. writes one terminal `sync_runs` row.
+
+Explicit count checks branch around empty position and history write batches;
+liability writes use their existing independent batch check. Each check reduces
+the preceding batch to one control item, so the exclusive skip and write paths
+continue once. Successful empty table reads use n8n's `alwaysOutputData` and row
+preparation discards their empty control items. No dummy row reaches Sheets.
+A complete zero-position run updates accounts and the daily summary, inactivates
+retained positions without changing observation timestamps or IDs, writes no
+history observation, and publishes a zero-count terminal record only after the
+required writes. Old history, including earlier same-day runs, is retained.
 
 Current-state rows that disappear become inactive rather than being deleted.
 History is append-retained across dates and idempotently replaced for the same

@@ -95,3 +95,17 @@ jobs:
           persist-credentials: false
       - name: Import-validate workflows with Compose-pinned n8n
         run: bash scripts/validate-n8n-imports.sh
+      - name: Set up Python for isolated runtime regressions
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+      - name: Set up Node.js for fixture preparation
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.23.2"
+      - name: Install synthetic test dependencies
+        run: python -m pip install -e "./finary-bridge[dev]"
+      - name: Execute zero-position paths in isolated pinned n8n
+        env:
+          FINARY_REQUIRE_N8N_RUNTIME: "1"
+        run: python -m pytest -q finary-bridge/tests/test_n8n_zero_position_runtime.py

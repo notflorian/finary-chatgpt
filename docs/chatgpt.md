@@ -141,6 +141,12 @@ consumer validator. It does not automatically enforce these checks inside
 ChatGPT. If retrieval cannot supply enough data to validate completeness, report
 the requested data unavailable.
 
+A validated `positions_count = 0` accepts an empty active set and zero same-run
+history members. Retained inactive positions and earlier runs' history are not
+current holdings. Require all evidence checks above; missing or failed evidence
+never proves zero. Positive account balances remain authoritative. See
+[zero-position interpretation](finary-portfolio-data-knowledge.md#zero-positions-with-successful-evidence).
+
 With incomplete liability coverage, liabilities and net worth are unknown, not
 zero.
 

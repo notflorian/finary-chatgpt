@@ -276,7 +276,10 @@ def test_v2_snapshot_returns_assets_with_null_unknown_liability_totals(
     assert response.status_code == 200
     payload = response.json()
     assert payload["schema_version"] == "2.0"
-    assert payload["coverage"] == {"liabilities": coverage.value}
+    assert payload["coverage"] == {
+        "liabilities": coverage.value,
+        "position_collections": "COMPLETE",
+    }
     assert payload["gross_assets_eur"] == 150.0
     assert payload["liabilities_eur"] is None
     assert payload["net_worth_eur"] is None
