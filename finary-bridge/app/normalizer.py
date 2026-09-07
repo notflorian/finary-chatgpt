@@ -404,7 +404,10 @@ def _optional_number(value: object, description: str) -> float | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise SnapshotNormalizationError(f"{description} must be numeric")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        raise SnapshotNormalizationError(f"{description} must be finite") from None
     if not math.isfinite(number):
         raise SnapshotNormalizationError(f"{description} must be finite")
     return number
