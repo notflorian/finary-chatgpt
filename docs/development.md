@@ -49,8 +49,7 @@ python scripts/validate-json.py
 python scripts/build-workflow-validation.py --check
 COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
 COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
-FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q \
-  -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
+FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
   finary-bridge/tests/test_n8n_zero_position_runtime.py \
   finary-bridge/tests/test_restore_run_identity_runtime.py
 ```
@@ -80,6 +79,10 @@ it does not test the Google service or upstream completeness beyond fixtures.
 Without Docker/the pinned image, normal tests skip these cases; the explicit
 `FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
 
+When `pytest-xdist` runs with `-n auto`, worker count comes from
+`tests/conftest.py`: local runs default to `2`, while CI scales to available CPU
+capacity (capped at `4`). Set `PYTEST_XDIST_WORKER_COUNT=<N>` to force an exact
+worker count in both local and CI environments.
 The required runtime gate uses CPU-detected `pytest-xdist` worker processes,
 capped at four, on the same runner after the image has been pulled and both
 exports have been imported. This uses all four CPUs on the public repository's
@@ -225,6 +228,9 @@ the workflow does not read repository secrets, start the live stack, upload
 portfolio artifacts, or publish n8n workflows. A green CI run validates the
 repository artifacts; it does not prove that external credentials, Finary, or
 Google Sheets are available.
+
+The `n8n-import` CI job pre-pulls the Compose-pinned n8n image before isolated
+runtime regression execution so parallel workers reuse a warm local image cache.
 
 ## Change checklist
 

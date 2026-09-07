@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -18,6 +19,34 @@ from app.finary_client import (
 from app.main import _reset_finary_client_for_tests
 
 _FIXTURE_DIRECTORY = Path(__file__).parent / "fixtures" / "finary"
+_LOCAL_DEFAULT_WORKER_COUNT = 2
+_CI_MAX_WORKER_COUNT = 4
+
+
+def _parse_worker_count_override(raw_value: str) -> int:
+    try:
+        parsed = int(raw_value)
+    except ValueError as exc:  # pragma: no cover - defensive path
+        raise pytest.UsageError(
+            "PYTEST_XDIST_WORKER_COUNT must be a positive integer."
+        ) from exc
+    if parsed < 1:
+        raise pytest.UsageError("PYTEST_XDIST_WORKER_COUNT must be at least 1.")
+    return parsed
+
+
+def _determine_xdist_worker_count(*, env: dict[str, str], cpu_count: int | None) -> int:
+    override = env.get("PYTEST_XDIST_WORKER_COUNT")
+    if override:
+        return _parse_worker_count_override(override)
+
+    if env.get("CI") != "true":
+        return _LOCAL_DEFAULT_WORKER_COUNT
+
+    if cpu_count is None or cpu_count < 1:
+        return _LOCAL_DEFAULT_WORKER_COUNT
+
+    return min(max(cpu_count - 1, _LOCAL_DEFAULT_WORKER_COUNT), _CI_MAX_WORKER_COUNT)
 
 
 def _load_json(name: str) -> dict[str, object]:
@@ -61,3 +90,8 @@ def isolated_finary_client() -> Iterator[None]:
         yield
     finally:
         _reset_finary_client_for_tests()
+
+
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int:
+    del config  # unused, hook signature required by pytest-xdist
+    return _determine_xdist_worker_count(env=dict(os.environ), cpu_count=os.cpu_count())
