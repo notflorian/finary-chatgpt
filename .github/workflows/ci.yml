@@ -63,6 +63,9 @@ jobs:
       - name: Check session validation compatibility
         working-directory: finary-bridge
         run: python -m pytest -q -m "not live" --ignore=tests/live tests/test_session_state_validation.py
+      - name: Check upstream response recursion compatibility
+        working-directory: finary-bridge
+        run: python -m pytest -q -m "not live" --ignore=tests/live tests/test_upstream_response_recursion.py
 
   static-analysis:
     name: static-analysis
