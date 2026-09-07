@@ -12,7 +12,5 @@ jobs:
   copilot-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Request Copilot Review
-        uses: github/copilot-code-review-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Copilot review is managed by GitHub
+        run: echo "Copilot review requests are handled by GitHub's built-in reviewer workflow."
