@@ -221,6 +221,7 @@ def _prepare_named_rows(
             "Read Current Positions": [],
             "Read Current Liabilities": [],
             "Read Portfolio Daily": [],
+            "Read Sync Runs": [],
         }
     )
     return named
