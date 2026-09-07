@@ -1,4 +1,4 @@
-"""Issue #58: verified empty collections through the real bridge and writer."""
+"""Verify empty collections through the real bridge and writer."""
 
 import json
 from copy import deepcopy

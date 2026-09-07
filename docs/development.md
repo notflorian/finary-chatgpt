@@ -64,7 +64,7 @@ HTTP/Sheets I/O nodes are replaced; production Code/If nodes, connections,
 empty-read flags, all-row writes, retry counts/delays, and finalization remain.
 It covers header-only reads, zero position/history/liability branches,
 liquidation, normal nonempty writes, and exhausted write retries preventing
-success. The same required runtime file also covers all four issue #59 malformed
+success. The same required runtime file also covers four malformed required-field
 snapshots, a corrupt retained liability selected for inactivation, and controlled
 history/daily output faults injected immediately before the real all-batch gate.
 Only those last two fault cases modify preparation to inject the synthetic

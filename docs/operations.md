@@ -368,7 +368,7 @@ No deployment, live workbook write or workflow activation is performed by tests.
 
 ## Prewrite contract validation adoption
 
-Issue #59 strengthens the daily workflow's input and prepared-row validation.
+The daily workflow validates snapshot inputs and all prepared write batches.
 API schema `2.0`, workbook schema `2.1`, headers, manual sheets and the bridge
 remain unchanged. The canonical FastAPI response model normally rejects the
 malformed inputs this defense-in-depth gate now catches independently.

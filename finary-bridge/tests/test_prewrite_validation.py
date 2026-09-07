@@ -1,4 +1,4 @@
-"""Issue #59: execute both exported contract boundaries with synthetic data.
+"""Execute both exported contract boundaries with synthetic data.
 
 Pydantic is the API field oracle. Output mutations run after valid preparation,
 before its real all-batch gate; they cannot be caught by the input validator.
