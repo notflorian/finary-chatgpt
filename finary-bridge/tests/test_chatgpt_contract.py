@@ -217,3 +217,19 @@ def test_independent_liability_provenance_and_read_limits_are_published() -> Non
         text = " ".join((REPOSITORY_ROOT / filename).read_text().split())
         assert "not automatically rewrit" in text
         assert "knowledge" in text
+
+
+
+def test_combined_exposure_guidance_preserves_scope_and_uncertainty():
+    knowledge = " ".join(KNOWLEDGE_PATH.read_text().split())
+    for phrase in (
+        "Combined-cap certification is indeterminate",
+        "classification/membership evidence, or denominator is unknown",
+        "zero subset percentage is not proof of zero actual exposure",
+        "Every calculation must state its scope and denominator",
+        "A zero denominator has no defined exposure percentage",
+        "denominator is EUR 760",
+        "does not remove independent liability warnings",
+        "coverage of undiscovered upstream holdings",
+    ):
+        assert phrase in knowledge

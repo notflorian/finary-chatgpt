@@ -201,11 +201,21 @@ or used a verified conversion. A missing `currency`, `fx_to_eur`, or
 account balances. Position values are analytical detail and must never be added
 to account balances. Consequently:
 
-- asset-class totals use only active positions with known `market_value_eur`;
+- an asset-class total is null if any active member has unknown `market_value_eur`;
+  otherwise it sums the known members (an empty class has total zero);
 - allocation percentages divide by that known-EUR position subset;
 - those analytical totals may not equal gross assets;
 - `PARTIAL_POSITION_EUR_COVERAGE` warns that some active positions are omitted
   from the known-EUR analytical subset.
+
+A zero subset percentage is not proof of zero actual exposure. Combined-cap
+certification requires every needed value, membership/classification and a known
+nonzero denominator for the explicitly stated scope. See the
+[worked consumer example](finary-portfolio-data-knowledge.md#combined-exposure-checks).
+Complete valuation of retrieved positions neither proves global upstream coverage
+nor reconciles position totals to account-derived gross assets. The verified
+SCPI/crypto native amount mappings and unsupported variants are documented in
+[the valuation evidence note](finary-valuations.md).
 
 `financial_assets_eur` and account-type aggregates are derived and nullable.
 They must not be presented as full portfolio totals unless their required input

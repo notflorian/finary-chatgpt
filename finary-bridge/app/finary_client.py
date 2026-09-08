@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from collections.abc import Callable, Mapping, MutableMapping
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -121,6 +122,94 @@ class FinaryLiabilityCoverage(StrEnum):
     COMPLETE = "COMPLETE"
     PARTIAL = "PARTIAL"
     UNAVAILABLE = "UNAVAILABLE"
+
+
+@dataclass(frozen=True, slots=True)
+class FinaryPositionCurrencyEvidence:
+    """Amount-specific denomination, without upstream fields or assumed FX."""
+
+    market: str | None = None
+    cost: str | None = None
+
+
+def verified_position_currency_evidence(
+    kind: FinaryPositionKind, record: Mapping[str, object],
+) -> FinaryPositionCurrencyEvidence:
+    """Recognize the current holding formats verified in docs/finary-valuations.md.
+
+    Legacy records and unverified ownership variants deliberately supply no new
+    evidence. Matching product identities bind the dedicated product to the
+    valuable used by Finary's native amount renderer. Display fields, account
+    currency and upstream default fallbacks are never denomination evidence.
+    """
+    if kind is FinaryPositionKind.CRYPTOS:
+        if (
+            record.get("type") != "user_crypto"
+            or record.get("owning_type") not in ("hodled", "staked")
+        ):
+            return FinaryPositionCurrencyEvidence()
+        product_name = "crypto"
+        currency = _valuation_currency_code(record.get("buying_price_currency"))
+    elif kind is FinaryPositionKind.SCPIS:
+        if (
+            record.get("type") != "user_scpi"
+            or record.get("property_type") not in ("full_ownership", "bare_ownership", "usufruct")
+        ):
+            return FinaryPositionCurrencyEvidence()
+        product_name = "scpi"
+        product = _valuation_object(record.get(product_name))
+        currency = _valuation_currency_code(product.get("currency"))
+    else:
+        return FinaryPositionCurrencyEvidence()
+
+    product = _valuation_object(record.get(product_name))
+    valuable = _valuation_object(record.get("valuable"))
+    product_id = _valuation_product_id(product.get("id"))
+    valuable_id = _valuation_product_id(valuable.get("id"))
+    if product_id is not None and valuable_id is not None and product_id != valuable_id:
+        raise FinaryMalformedResponseError("Position valuation product identities conflict")
+
+    # These alternate native currency paths exist in the holding renderer, but
+    # are not independently verified positive fallbacks for these categories.
+    candidates = [
+        _valuation_currency_code(record.get(key))
+        for key in ("buying_price_currency", "currency", "fiat")
+    ]
+    valuable_currency = _valuation_currency_code(valuable.get("currency"))
+    candidates.extend((currency, valuable_currency))
+    if len({code for code in candidates if code is not None}) > 1:
+        raise FinaryMalformedResponseError("Position valuation currencies conflict")
+
+    market = currency if product_id is not None and valuable_id is not None else None
+    if kind is FinaryPositionKind.SCPIS and valuable_currency is None:
+        market = None
+    return FinaryPositionCurrencyEvidence(market=market, cost=currency)
+
+
+def _valuation_object(value: object) -> Mapping[str, object]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise FinaryMalformedResponseError("Position valuation evidence must be an object")
+    return value
+
+
+def _valuation_currency_code(value: object) -> str | None:
+    code = _valuation_object(value).get("code")
+    if code is None or code == "":
+        return None
+    if not isinstance(code, str) or re.fullmatch(r"[A-Z]{3}", code.strip()) is None:
+        raise FinaryMalformedResponseError("Position valuation currency is invalid")
+    return code.strip()
+
+
+def _valuation_product_id(value: object) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, str | int):
+        raise FinaryMalformedResponseError("Position valuation product identity is invalid")
+    identifier = str(value).strip()
+    return identifier or None
 
 
 @dataclass(frozen=True, slots=True)

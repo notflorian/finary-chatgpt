@@ -348,3 +348,30 @@ def select_liabilities(workbook: Workbook) -> LiabilitySelection:
             instant(result.snapshot_at).astimezone(ZoneInfo("Europe/Paris")).date().isoformat()
         )
     return result
+
+
+
+def scpi_crypto_exposure(
+    positions: list[Row], *, scope: str,
+    membership_complete: bool, classification_complete: bool,
+) -> Row:
+    """Test-only worked example for an explicitly verified retrieved-position scope.
+
+    Call only after selecting validated current/history rows. Classification
+    completeness includes evidence that OTHER members are outside both classes.
+    This computes no policy threshold and makes no claim about undiscovered assets.
+    """
+    result = {"scope": scope, "denominator_eur": None,
+              "combined_value_eur": None, "fraction": None}
+    if not scope or not membership_complete or not classification_complete:
+        return result
+    values = [number(row.get("market_value_eur")) for row in positions]
+    if any(value is None for value in values):
+        return result
+    denominator = sum((value for value in values if value is not None), Decimal(0))
+    combined = sum((value for row, value in zip(positions, values, strict=True)
+                    if value is not None and row["asset_class"] in {"SCPI", "CRYPTO"}), Decimal(0))
+    result.update(denominator_eur=denominator, combined_value_eur=combined)
+    if denominator > 0:
+        result["fraction"] = combined / denominator
+    return result

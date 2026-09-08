@@ -554,3 +554,35 @@ def test_api_preserves_numeric_controls(numeric_raw_inputs, path, value):
     assert security["quantity"] == (None if value is None else float(value))
     assert payload["gross_assets_eur"] == 150.0
     assert payload["liabilities_eur"] == 0.0
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+def test_current_currency_conflict_is_a_sanitized_api_failure(
+    kind, raw_accounts, verified_raw_positions,
+):
+    group = next(group for group in verified_raw_positions.groups if group.kind.value == kind)
+    group.records[0]["valuable"]["currency"] = {"code": "USD"}
+    group.records[0]["private"] = "synthetic-private-marker"
+    response = _request("/v2/snapshot", _FakeClient(raw_accounts, verified_raw_positions))
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "FINARY_MALFORMED_RESPONSE"
+    assert "synthetic-private-marker" not in response.text
+    assert "positions" not in response.json()
+
+
+def test_verified_values_reach_the_unchanged_public_schema(raw_accounts, verified_raw_positions):
+    response = _request("/v2/snapshot", _FakeClient(
+        raw_accounts, verified_raw_positions,
+        liability_coverage=FinaryLiabilityCoverage.UNAVAILABLE,
+    ))
+    assert response.status_code == 200
+    snapshot = response.json()
+    assert snapshot["schema_version"] == "2.0"
+    assert snapshot["gross_assets_eur"] == 150
+    assert snapshot["net_worth_eur"] is None
+    for position in snapshot["positions"]:
+        assert position["market_value_eur"] == position["market_value_native"]
+        assert position["fx_to_eur"] == 1
+        assert position["metadata"] == {}
+    for private_field in ("valuable", "buying_price_currency", "property_type", "owning_type"):
+        assert private_field not in response.text
