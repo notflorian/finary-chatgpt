@@ -1440,3 +1440,44 @@ def test_verified_values_still_fail_before_writes_on_aggregate_overflow(
     with pytest.raises(subprocess.CalledProcessError) as error:
         _prepare_for_run(workflow, schema, snapshot, _empty_workbook(), "overflow")
     assert error.value.stderr == "CONTRACT_VALIDATION_FAILED:positions_current.market_value_eur"
+
+
+
+def test_staked_and_held_same_token_remain_distinct_and_usufruct_zero_is_known(
+    workflow, schema, verified_position_payloads, ownership_position_payloads, valuation_snapshot,
+):
+    payloads = ownership_position_payloads
+    payloads["cryptos"]["result"].append(verified_position_payloads["cryptos"]["result"][0])
+    usufruct = payloads["scpis"]["result"][1]
+    usufruct.update(current_value=0, display_current_value=0,
+                    bought_at="2016-09-08", months_until_dismemberment_ends=0)
+    snapshot = valuation_snapshot(payloads)
+    assert _run_validation(workflow, schema, snapshot)["can_write"] is True
+    book = _empty_workbook()
+    prepared = _prepare_for_run(workflow, schema, snapshot, book, "ownership-zero")
+    _apply_prepared_writes(schema, book, prepared)
+    current = {row["source_asset_id"]: row for row in book["positions_current"]}
+    assert current["cryptos:1102"]["market_value_eur"] == 45
+    assert current["cryptos:1002"]["market_value_eur"] == 60
+    assert current["cryptos:1102"]["position_key"] != current["cryptos:1002"]["position_key"]
+    zero = current["scpis:1107"]
+    assert zero["market_value_eur"] == zero["weight_portfolio"] == 0
+    assert zero["fx_to_eur"] == 1
+    assert zero["cost_basis_eur"] == 40
+    assert zero["quantity"] == 2
+    assert zero["is_active"] is True
+    assert zero["unit_price"] is None
+    daily = book["portfolio_daily"][0]
+    assert daily["crypto_eur"] == 105
+    assert daily["scpi_eur"] == 75
+    assert daily["crypto_pct"] == pytest.approx(105 / 625)
+    assert daily["scpi_pct"] == pytest.approx(75 / 625)
+    assert daily["gross_assets_eur"] == 150
+    assert daily["net_worth_eur"] is None
+    assert prepared["warnings"] == ["LIABILITY_COVERAGE_UNAVAILABLE"]
+    assert book["sync_runs"][-1]["status"] == "SUCCESS_WITH_WARNINGS"
+    history = next(row for row in book["positions_history"]
+                   if row["source_asset_id"] == "scpis:1107")
+    assert history["position_key"] == zero["position_key"]
+    assert history["market_value_eur"] == 0
+    assert history["cost_basis_eur"] == 40

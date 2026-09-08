@@ -221,9 +221,18 @@ def test_all_eight_writers_clear_cells_and_repeat_idempotently(connector, workfl
 
 
 
+@pytest.mark.parametrize("ownership_variants", [False, True],
+                         ids=["held-full-ownership", "staked-dismembered"])
 def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
-    connector, workflow, schema, verified_position_payloads, valuation_snapshot,
+    connector, workflow, schema, verified_position_payloads, ownership_position_payloads,
+    ownership_variants, valuation_snapshot,
 ):
+    template = ownership_position_payloads if ownership_variants else verified_position_payloads
+    values = (("cryptos:1102", 45, 30), ("scpis:1106", 75, 70), ("scpis:1107", 12, 40)) if (
+        ownership_variants) else (("cryptos:1002", 60, 50), ("scpis:1006", 105, 100))
+    classes = ((("crypto", 45), ("scpi", 87)) if ownership_variants
+               else (("crypto", 60), ("scpi", 105)))
+    count, denominator = (7, 577) if ownership_variants else (6, 610)
     workbook = _empty_workbook()
     manual = {name: [{"synthetic_manual_note": name}] for name in
               ("allocation_targets", "asset_overrides", "cashflows")}
@@ -233,10 +242,11 @@ def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
         ("8301", "07", "07", False), ("8302", "08", "07", False),
         ("8303", "08", "08", True), ("8304", "08", "09", False),
     ]:
-        payloads = deepcopy(verified_position_payloads)
+        payloads = deepcopy(template)
         if not known:
             for kind in ("cryptos", "scpis"):
-                payloads[kind]["result"][0].pop("valuable")
+                for record in payloads[kind]["result"]:
+                    record.pop("valuable")
         now = f"2026-09-{day}T{hour}:30:00+02:00"
         snapshot = valuation_snapshot(payloads, now)
         named = _prepare(workflow, schema, execution_id=identity, start=now,
@@ -256,11 +266,11 @@ def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
         assert daily["gross_assets_eur"] == 150
         assert daily["net_worth_eur"] == daily["liabilities_eur"] == ""
         assert workbook["sync_runs"][-1]["status"] == "SUCCESS_WITH_WARNINGS"
-        for asset_class, value, cost in (("CRYPTO", 60, 50), ("SCPI", 105, 100)):
+        for source_id, value, cost in values:
             current = next(row for row in workbook["positions_current"]
-                           if row["asset_class"] == asset_class)
+                           if row["source_asset_id"] == source_id)
             history = next(row for row in workbook["positions_history"]
-                           if row["asset_class"] == asset_class
+                           if row["source_asset_id"] == source_id
                            and row["snapshot_date"].endswith(day))
             assert history["position_key"] == current["position_key"]
             assert history["history_key"] == f"2026-09-{day}:" + current["position_key"]
@@ -269,15 +279,16 @@ def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
                 assert row["fx_to_eur"] == (1 if known else "")
                 assert row["currency"] == ("EUR" if known else "")
                 assert row["cost_basis_eur"] == cost
-            assert current["weight_portfolio"] == (pytest.approx(value / 610) if known else "")
+            expected_weight = pytest.approx(value / denominator) if known else ""
+            assert current["weight_portfolio"] == expected_weight
             assert current["market_value_native"] == value
-            prefix = asset_class.lower()
+        for prefix, value in classes:
             assert daily[prefix + "_eur"] == (value if known else "")
-            assert daily[prefix + "_pct"] == (pytest.approx(value / 610) if known else 0)
+            assert daily[prefix + "_pct"] == (pytest.approx(value / denominator) if known else 0)
         if identity == "8301":
             previous_day = deepcopy(workbook["positions_history"])
         else:
-            assert len(workbook["positions_history"]) == 12
+            assert len(workbook["positions_history"]) == 2 * count
             assert [row for row in workbook["positions_history"]
                     if row["snapshot_date"] == "2026-09-07"] == previous_day
         if identity == "8304":
@@ -287,8 +298,9 @@ def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
                     fields.append("weight_portfolio")
                 for field in fields:
                     assert sum(update["sheet"] == sheet and update["column"] == field
-                               and update["value"] == "" for update in result["updates"]) == 2
-    assert len(workbook["positions_current"]) == 6
+                               and update["value"] == ""
+                               for update in result["updates"]) == len(values)
+    assert len(workbook["positions_current"]) == count
     assert len(workbook["portfolio_daily"]) == 2
     before = deepcopy(workbook)
     now = "2026-09-08T10:30:00+02:00"
@@ -303,7 +315,7 @@ def test_verified_scpi_crypto_null_known_null_clears_actual_cells(
     ):
         if current["asset_class"] in {"SCPI", "CRYPTO"}:
             assert current == {**previous, "is_active": False}
-    assert len(workbook["positions_history"]) == 12
+    assert len(workbook["positions_history"]) == 2 * count
     for row in before["positions_history"]:
         if row["asset_class"] in {"SCPI", "CRYPTO"} or row["snapshot_date"] == "2026-09-07":
             assert row in workbook["positions_history"]

@@ -143,14 +143,17 @@ def verified_position_currency_evidence(
     currency and upstream default fallbacks are never denomination evidence.
     """
     if kind is FinaryPositionKind.CRYPTOS:
-        if record.get("type") != "user_crypto" or record.get("owning_type") != "hodled":
+        if (
+            record.get("type") != "user_crypto"
+            or record.get("owning_type") not in ("hodled", "staked")
+        ):
             return FinaryPositionCurrencyEvidence()
         product_name = "crypto"
         currency = _valuation_currency_code(record.get("buying_price_currency"))
     elif kind is FinaryPositionKind.SCPIS:
         if (
             record.get("type") != "user_scpi"
-            or record.get("property_type") != "full_ownership"
+            or record.get("property_type") not in ("full_ownership", "bare_ownership", "usufruct")
         ):
             return FinaryPositionCurrencyEvidence()
         product_name = "scpi"

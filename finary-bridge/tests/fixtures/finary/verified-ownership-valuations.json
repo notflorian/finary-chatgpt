@@ -1,0 +1,118 @@
+{
+  "cryptos": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1102,
+        "holdings_account_id": "account-synthetic-002",
+        "type": "user_crypto",
+        "owning_type": "staked",
+        "quantity": 1.5,
+        "current_price": 30.0,
+        "current_value": 45,
+        "buying_price": 20,
+        "buying_value": 30,
+        "buying_price_currency": {
+          "code": "EUR"
+        },
+        "display_current_price": 33.0,
+        "display_current_value": 49.5,
+        "crypto": {
+          "id": 2002,
+          "name": "Sample Token",
+          "code": "SYN"
+        },
+        "valuable": {
+          "id": 2002,
+          "name": "Sample Token",
+          "code": "SYN"
+        }
+      }
+    ]
+  },
+  "scpis": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1106,
+        "holdings_account_id": "account-synthetic-001",
+        "type": "user_scpi",
+        "property_type": "bare_ownership",
+        "quantity": 2.0,
+        "shares": 2.0,
+        "current_value": 75,
+        "buying_price": 35,
+        "buying_value": 70,
+        "display_current_value": 82.5,
+        "scpi": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        },
+        "valuable": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        },
+        "bought_at": "2021-09-08",
+        "dismemberment_month_period": 120,
+        "months_until_dismemberment_ends": 60
+      },
+      {
+        "id": 1107,
+        "holdings_account_id": "account-synthetic-001",
+        "type": "user_scpi",
+        "property_type": "usufruct",
+        "quantity": 2.0,
+        "shares": 2.0,
+        "current_value": 12,
+        "buying_price": 20,
+        "buying_value": 40,
+        "display_current_value": 13.2,
+        "scpi": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        },
+        "valuable": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        },
+        "bought_at": "2019-09-08",
+        "dismemberment_month_period": 120,
+        "months_until_dismemberment_ends": 36
+      }
+    ]
+  }
+}

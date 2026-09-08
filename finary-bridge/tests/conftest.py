@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Iterator
+from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
@@ -174,3 +175,18 @@ def valuation_snapshot(verified_position_payloads):
                                ).get_snapshot_v2().model_dump(mode="json")
 
     return build
+
+
+@pytest.fixture
+def ownership_position_payloads(verified_position_payloads):
+    """Synthetic ownership variants from the documented shared Finary renderers."""
+    payloads = deepcopy(verified_position_payloads)
+    payloads.update(_load_json("verified-ownership-valuations.json"))
+    return payloads
+
+
+@pytest.fixture(params=[("cryptos", 0), ("scpis", 0), ("scpis", 1)],
+                ids=["staked", "bare-ownership", "usufruct"])
+def ownership_variant(request, ownership_position_payloads):
+    kind, index = request.param
+    return kind, ownership_position_payloads[kind]["result"][index]

@@ -562,9 +562,10 @@ def test_scpi_shares_fallback_does_not_multiply_the_total(
 
 
 @pytest.mark.parametrize("kind, field, value", [
-    ("scpis", "property_type", "bare_ownership"),
-    ("scpis", "property_type", "usufruct"),
-    ("cryptos", "owning_type", "staked"),
+    ("scpis", "property_type", "unverified"),
+    ("cryptos", "owning_type", "unverified"),
+    ("scpis", "property_type", []),
+    ("cryptos", "owning_type", {}),
 ])
 def test_unverified_ownership_variants_remain_unknown(
     kind, field, value, verified_position_payloads, valuation_snapshot,
@@ -587,4 +588,80 @@ def test_missing_cost_does_not_block_positive_market_coverage(
                     if row["source_asset_id"].startswith(kind + ":"))
     assert position["market_value_eur"] == (60 if kind == "cryptos" else 105)
     assert position["fx_to_eur"] == 1
+    assert position["cost_basis_eur"] is None
+
+
+
+def test_verified_ownership_variant_preserves_the_supplied_total(
+    ownership_position_payloads, ownership_variant, valuation_snapshot,
+):
+    kind, record = ownership_variant
+    snapshot = valuation_snapshot(ownership_position_payloads)
+    position = next(row for row in snapshot["positions"]
+                    if row["source_asset_id"] == f"{kind}:{record['id']}")
+    assert position["currency"] == "EUR"
+    assert position["market_value_native"] == record["current_value"]
+    assert position["market_value_eur"] == record["current_value"]
+    assert position["fx_to_eur"] == 1
+    assert position["cost_basis_eur"] == record["buying_value"]
+    assert position["quantity"] == record["quantity"]
+    assert position["unit_price"] == record.get("current_price")
+    assert snapshot["gross_assets_eur"] == 150
+    assert snapshot["net_worth_eur"] is None
+    if kind == "scpis":
+        assert record["current_value"] != record["shares"] * record["scpi"]["current_price"]
+
+
+@pytest.mark.parametrize("evidence", ["missing", "non-eur", "conflicting", "missing-product"])
+def test_ownership_variants_require_consistent_currency_evidence(
+    ownership_position_payloads, ownership_variant, valuation_snapshot, evidence,
+):
+    from app.finary_client import FinaryMalformedResponseError
+
+    kind, record = ownership_variant
+    if evidence == "missing-product":
+        record.pop("valuable")
+    elif evidence == "conflicting":
+        record["valuable"]["currency"] = {"code": "USD"}
+    elif kind == "cryptos":
+        record["buying_price_currency"] = None if evidence == "missing" else {"code": "USD"}
+        record["crypto"]["code"] = "EUR"
+    else:
+        for product in ("scpi", "valuable"):
+            record[product]["currency"] = None if evidence == "missing" else {"code": "USD"}
+    record["display_currency"] = {"code": "EUR"}
+    if evidence == "conflicting":
+        with pytest.raises(FinaryMalformedResponseError, match="currencies conflict"):
+            valuation_snapshot(ownership_position_payloads)
+        return
+    snapshot = valuation_snapshot(ownership_position_payloads)
+    position = next(row for row in snapshot["positions"]
+                    if row["source_asset_id"] == f"{kind}:{record['id']}")
+    assert position["market_value_eur"] is None
+    assert position["fx_to_eur"] is None
+    assert position["currency"] == ("USD" if evidence == "non-eur" else None)
+    assert position["cost_basis_eur"] == (record["buying_value"]
+                                           if evidence == "missing-product" else None)
+
+
+@pytest.mark.parametrize("invalid", [None, True, "12", float("inf"), 10**400],
+                         ids=["missing", "boolean", "string", "non-finite", "overflow"])
+def test_ownership_variant_malformed_total_still_fails(
+    ownership_position_payloads, ownership_variant, valuation_snapshot, invalid,
+):
+    _, record = ownership_variant
+    record["current_value"] = invalid
+    with pytest.raises(SnapshotNormalizationError):
+        valuation_snapshot(ownership_position_payloads)
+
+
+def test_ownership_variant_missing_cost_does_not_block_market_value(
+    ownership_position_payloads, ownership_variant, valuation_snapshot,
+):
+    kind, record = ownership_variant
+    record.pop("buying_value")
+    snapshot = valuation_snapshot(ownership_position_payloads)
+    position = next(row for row in snapshot["positions"]
+                    if row["source_asset_id"] == f"{kind}:{record['id']}")
+    assert position["market_value_eur"] == record["current_value"]
     assert position["cost_basis_eur"] is None
