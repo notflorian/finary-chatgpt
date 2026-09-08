@@ -707,3 +707,51 @@ def test_upstream_library_error_is_translated() -> None:
 
     with pytest.raises(FinaryUpstreamError, match="accounts request failed"):
         client.get_accounts()
+
+
+@pytest.mark.parametrize("kind", [FinaryPositionKind.CRYPTOS, FinaryPositionKind.SCPIS])
+def test_current_valuation_evidence_binds_product_and_native_currency(
+    kind, verified_position_payloads,
+):
+    from app.finary_client import verified_position_currency_evidence
+
+    record = verified_position_payloads[kind.value]["result"][0]
+    evidence = verified_position_currency_evidence(kind, record)
+    assert evidence.market == evidence.cost == "EUR"
+    record["valuable"]["id"] = str(record["valuable"]["id"])
+    assert verified_position_currency_evidence(kind, record) == evidence
+    record["valuable"]["id"] = "different-synthetic-product"
+    with pytest.raises(FinaryMalformedResponseError, match="identities conflict"):
+        verified_position_currency_evidence(kind, record)
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+@pytest.mark.parametrize("field", ["currency", "fiat", "buying_price_currency", "valuable"])
+def test_conflicting_native_currency_evidence_rejects_the_snapshot(
+    kind, field, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    if field == "valuable":
+        record[field]["currency"] = {"code": "USD"}
+    elif kind == "cryptos" and field == "buying_price_currency":
+        record[field] = {"code": "USD"}
+        record["valuable"]["currency"] = {"code": "EUR"}
+    else:
+        record[field] = {"code": "USD"}
+    with pytest.raises(FinaryMalformedResponseError, match="currencies conflict"):
+        valuation_snapshot()
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+@pytest.mark.parametrize("bad_currency", [True, "EUR", {"code": True}, {"code": "eur"}])
+def test_malformed_valuation_evidence_is_sanitized(
+    kind, bad_currency, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    if kind == "cryptos":
+        record["buying_price_currency"] = bad_currency
+    else:
+        record["scpi"]["currency"] = bad_currency
+    with pytest.raises(FinaryMalformedResponseError) as error:
+        valuation_snapshot()
+    assert "synthetic" not in str(error.value)

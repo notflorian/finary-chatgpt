@@ -135,3 +135,42 @@ def oversized_integer(request: pytest.FixtureRequest) -> int:
     value = json.loads(request.param + "1" + "0" * 400)
     assert isinstance(value, int) and abs(value) == 10**400
     return value
+
+
+@pytest.fixture
+def verified_position_payloads():
+    """Synthetic current response shapes documented in the valuation evidence note."""
+    payloads = _load_json("positions.json")
+    payloads.update(_load_json("verified-valuations.json"))
+    return payloads
+
+
+@pytest.fixture
+def verified_raw_positions(verified_position_payloads):
+    return FinaryRawPositions(groups=tuple(
+        FinaryRawPositionGroup(kind=kind, records=tuple(
+            verified_position_payloads[kind.value]["result"]
+        )) for kind in FinaryPositionKind
+    ))
+
+
+@pytest.fixture
+def valuation_snapshot(verified_position_payloads):
+    """Run real adapter decoding and snapshot construction with fake HTTP only."""
+    from datetime import datetime
+
+    from test_finary_client import _credentials, _FakeSession
+
+    from app.finary_client import FinaryApiClient
+    from app.services.snapshot_service import SnapshotService
+
+    def build(payloads=None, now="2026-09-08T07:30:00+02:00"):
+        session = _FakeSession(entity_payloads={
+            "holdings_accounts": _load_json("accounts.json"),
+            **(verified_position_payloads if payloads is None else payloads),
+        })
+        client = FinaryApiClient(_credentials(), session_factory=lambda: session)
+        return SnapshotService(client, clock=lambda: datetime.fromisoformat(now)
+                               ).get_snapshot_v2().model_dump(mode="json")
+
+    return build

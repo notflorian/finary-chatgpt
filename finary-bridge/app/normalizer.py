@@ -15,6 +15,7 @@ from app.finary_client import (
     FinaryRawAccounts,
     FinaryRawLiabilities,
     FinaryRawPositions,
+    verified_position_currency_evidence,
 )
 from app.models import Account, AssetClass, Liability, Position
 
@@ -268,6 +269,7 @@ def _extract_security(record: Mapping[str, object]) -> _PositionFields:
 
 def _extract_crypto(record: Mapping[str, object]) -> _PositionFields:
     crypto = _required_mapping(record.get("crypto"), "crypto")
+    evidence = verified_position_currency_evidence(FinaryPositionKind.CRYPTOS, record)
     cost_currency = _currency_from_container(
         record.get("buying_price_currency"), "crypto buying-price currency"
     )
@@ -275,7 +277,7 @@ def _extract_crypto(record: Mapping[str, object]) -> _PositionFields:
         name=_optional_text(crypto.get("name"), "crypto name"),
         ticker=_optional_text(crypto.get("code"), "crypto code"),
         isin=None,
-        market_currency=None,
+        market_currency=evidence.market,
         cost_currency=cost_currency,
         asset_class=AssetClass.CRYPTO,
     )
@@ -319,12 +321,13 @@ def _extract_real_estate(record: Mapping[str, object]) -> _PositionFields:
 
 def _extract_scpi(record: Mapping[str, object]) -> _PositionFields:
     scpi = _required_mapping(record.get("scpi"), "SCPI")
+    evidence = verified_position_currency_evidence(FinaryPositionKind.SCPIS, record)
     return _PositionFields(
         name=_optional_text(scpi.get("name"), "SCPI name"),
         ticker=None,
         isin=None,
-        market_currency=None,
-        cost_currency=None,
+        market_currency=evidence.market,
+        cost_currency=evidence.cost,
         asset_class=AssetClass.SCPI,
     )
 

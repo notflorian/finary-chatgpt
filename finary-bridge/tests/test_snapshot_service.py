@@ -187,3 +187,24 @@ def test_service_rejects_oversized_raw_integer(
     with pytest.raises(SnapshotNormalizationError, match="must be finite"):
         getattr(SnapshotService(client), method)()
     assert client.calls == ["authenticate", "get_accounts", "get_positions", "get_liabilities"]
+
+
+@pytest.mark.parametrize("coverage", list(FinaryLiabilityCoverage))
+def test_verified_position_values_leave_account_totals_and_liabilities_independent(
+    raw_accounts, raw_positions, verified_raw_positions, coverage,
+):
+    liabilities = FinaryRawLiabilities(records=(), coverage=coverage)
+    before = SnapshotService(_FakeClient(raw_accounts, raw_positions,
+                                        liabilities=liabilities)).get_snapshot_v2()
+    after = SnapshotService(_FakeClient(raw_accounts, verified_raw_positions,
+                                       liabilities=liabilities)).get_snapshot_v2()
+    assert before.gross_assets_eur == after.gross_assets_eur == 150
+    assert before.accounts == after.accounts
+    assert before.liabilities_eur == after.liabilities_eur
+    assert before.net_worth_eur == after.net_worth_eur
+    assert before.coverage == after.coverage
+    assert [p.position_key for p in before.positions] == [p.position_key for p in after.positions]
+    assert all(p.market_value_eur is not None for p in after.positions)
+    for old, new in zip(before.positions, after.positions, strict=True):
+        if old.asset_class.value not in {"SCPI", "CRYPTO"}:
+            assert old == new

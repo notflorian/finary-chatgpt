@@ -1381,3 +1381,62 @@ def test_v2_error_handler_is_separate_inactive_and_coverage_compatible(
     assert result["row"]["liability_coverage"] is None
     assert result["row"]["error_code"] == "GOOGLE_RATE_LIMITED"
     assert "private-project-detail" not in result["row"]["error_message"]
+
+
+@pytest.mark.parametrize("state", ["known", "mixed", "unknown", "zero"])
+def test_verified_adapter_values_preserve_allocation_scope_and_warnings(
+    state, workflow, schema, verified_position_payloads, valuation_snapshot,
+):
+    for kind in ("cryptos", "scpis"):
+        record = verified_position_payloads[kind]["result"][0]
+        if state == "mixed":
+            unknown = deepcopy(record)
+            unknown.update(id=9999, type="unverified")
+            verified_position_payloads[kind]["result"].append(unknown)
+        elif state == "unknown":
+            record["type"] = "unverified"
+    if state == "zero":
+        for envelope in verified_position_payloads.values():
+            for record in envelope["result"]:
+                record["current_value"] = 0
+    snapshot = valuation_snapshot()
+    assert _run_validation(workflow, schema, snapshot)["can_write"] is True
+    book = _empty_workbook()
+    prepared = _prepare_for_run(workflow, schema, snapshot, book, "valuations")
+    assert prepared["position_rows"]
+    daily = prepared["daily_rows"][0]
+    denominator = 445 if state == "unknown" else 610
+    if state == "zero":
+        denominator = 0
+    for kind, value in (("crypto", 60), ("scpi", 105)):
+        assert daily[kind + "_eur"] == (None if state in {"mixed", "unknown"}
+                                         else 0 if state == "zero" else value)
+        expected_pct = (None if state == "zero" else 0 if state == "unknown"
+                        else pytest.approx(value / denominator))
+        assert daily[kind + "_pct"] == expected_pct
+    assert daily["gross_assets_eur"] == 150
+    assert daily["liabilities_eur"] is None
+    assert daily["net_worth_eur"] is None
+    assert ("PARTIAL_POSITION_EUR_COVERAGE" in prepared["warnings"]) == (
+        state in {"mixed", "unknown"})
+    assert "LIABILITY_COVERAGE_UNAVAILABLE" in prepared["warnings"]
+    _apply_prepared_writes(schema, book, prepared)
+    assert book["sync_runs"][-1]["status"] == "SUCCESS_WITH_WARNINGS"
+    assert len(book["positions_history"]) == len(snapshot["positions"])
+    for current, history in zip(book["positions_current"], book["positions_history"], strict=True):
+        assert current["market_value_eur"] == history["market_value_eur"]
+        expected_weight = (None if current["market_value_eur"] is None or denominator == 0
+                           else pytest.approx(current["market_value_eur"] / denominator))
+        assert current["weight_portfolio"] == expected_weight
+
+
+def test_verified_values_still_fail_before_writes_on_aggregate_overflow(
+    workflow, schema, verified_position_payloads, valuation_snapshot,
+):
+    for kind in ("cryptos", "scpis"):
+        verified_position_payloads[kind]["result"][0]["current_value"] = 1e308
+    snapshot = valuation_snapshot()
+    assert _run_validation(workflow, schema, snapshot)["can_write"] is True
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        _prepare_for_run(workflow, schema, snapshot, _empty_workbook(), "overflow")
+    assert error.value.stderr == "CONTRACT_VALIDATION_FAILED:positions_current.market_value_eur"

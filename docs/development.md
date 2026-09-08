@@ -89,7 +89,11 @@ mapping expressions and append conversion remain real. A network-disabled Node
 process is reused within each test worker; no n8n server, database, credentials
 or project volumes are needed. This required gate covers all eight write paths,
 known/null transitions, same-day history, retries, zero/false preservation and
-consumer acceptance. Its null-versus-empty-string countercheck demonstrates why
+consumer acceptance. The `test_verified_scpi_crypto_null_known_null_clears_actual_cells`
+case starts with adapter-owned fixtures, constructs real snapshots, and verifies
+SCPI/crypto null → known → null transitions through the exported JavaScript and
+installed connector, including retained costs and prior-day history. Its
+null-versus-empty-string countercheck demonstrates why
 auto-mapped null retains an old cell even with `allowEmptyValues=true`.
 
 When `pytest-xdist` runs with `-n auto`, worker count comes from

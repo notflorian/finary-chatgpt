@@ -440,3 +440,151 @@ def test_numeric_normalization_preserves_nullability(numeric_raw_inputs, numeric
         with pytest.raises(SnapshotNormalizationError, match="is required"):
             keys = _account_keys(accounts)
             normalize_positions(positions, account_keys=keys)
+
+
+@pytest.mark.parametrize("kind, value, cost, unit_price", [
+    ("cryptos", 60, 50, 30), ("scpis", 105, 100, None),
+])
+def test_verified_current_valuation_uses_total_once(
+    raw_accounts, verified_raw_positions, kind, value, cost, unit_price,
+):
+    position = _position_by_kind(verified_raw_positions, raw_accounts)[kind]
+    assert position.currency == "EUR"
+    assert position.market_value_native == position.market_value_eur == value
+    assert position.fx_to_eur == 1
+    assert position.cost_basis_eur == cost
+    assert position.unit_price == unit_price
+    assert position.quantity == 2
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+@pytest.mark.parametrize("missing", ["currency", "valuable", "type", "ownership"])
+def test_missing_current_evidence_cannot_borrow_currency(
+    kind, missing, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    if missing == "currency":
+        if kind == "cryptos":
+            record.pop("buying_price_currency")
+            record["crypto"]["code"] = "EUR"
+        else:
+            record["scpi"].pop("currency")
+    elif missing == "ownership":
+        record.pop("owning_type" if kind == "cryptos" else "property_type")
+    else:
+        record.pop(missing)
+    # Adversarial fallback candidates never establish a positive native mapping.
+    record.update(currency={"code": "EUR"}, display_currency={"code": "EUR"},
+                  display_current_value=999, account={"currency": {"code": "EUR"}})
+    snapshot = valuation_snapshot()
+    position = next(row for row in snapshot["positions"]
+                    if row["source_asset_id"].startswith(kind + ":"))
+    assert snapshot["reference_currency"] == "EUR"
+    assert position["market_value_eur"] is None
+    assert position["fx_to_eur"] is None
+    assert position["market_value_native"] == (60 if kind == "cryptos" else 105)
+    if kind == "cryptos" and missing != "currency":
+        assert position["cost_basis_eur"] == 50
+    if kind == "scpis" and missing == "valuable":
+        assert position["cost_basis_eur"] == 100
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+def test_native_non_eur_is_not_converted_from_display_or_guessed_rates(
+    kind, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    if kind == "cryptos":
+        record["buying_price_currency"] = {"code": "USD"}
+        record["crypto"]["code"] = "EUR"
+    else:
+        for product in ("scpi", "valuable"):
+            record[product]["currency"] = {"code": "USD"}
+    record.update(display_currency={"code": "EUR"}, display_current_value=123)
+    # An uncontracted rate is adversarial input, not an upstream fixture schema.
+    for rate in (None, 0.9, 1 / 0.9, True, "0.9", float("inf"), 1e308):
+        record["fx_to_eur"] = rate
+        position = next(row for row in valuation_snapshot()["positions"]
+                        if row["source_asset_id"].startswith(kind + ":"))
+        assert position["currency"] == "USD"
+        assert position["market_value_eur"] is None
+        assert position["fx_to_eur"] is None
+        assert position["cost_basis_eur"] is None
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+@pytest.mark.parametrize("cost", [None, 0])
+def test_known_zero_market_value_is_independent_of_cost(
+    kind, cost, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    record.update(current_value=0, buying_value=cost)
+    position = next(row for row in valuation_snapshot()["positions"]
+                    if row["source_asset_id"].startswith(kind + ":"))
+    assert position["market_value_eur"] == position["market_value_native"] == 0
+    assert position["fx_to_eur"] == 1
+    assert position["cost_basis_eur"] == cost
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+@pytest.mark.parametrize("field", ["current_value", "current_price", "quantity", "buying_value"])
+@pytest.mark.parametrize("invalid", [True, "60", float("nan"), float("inf"), 10**400])
+def test_verified_currency_does_not_relax_monetary_validation(
+    kind, field, invalid, verified_position_payloads, valuation_snapshot,
+):
+    verified_position_payloads[kind]["result"][0][field] = invalid
+    with pytest.raises(SnapshotNormalizationError):
+        valuation_snapshot()
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+def test_missing_total_still_fails_instead_of_using_units_or_display(
+    kind, verified_position_payloads, valuation_snapshot,
+):
+    verified_position_payloads[kind]["result"][0].pop("current_value")
+    with pytest.raises(SnapshotNormalizationError, match="current value is required"):
+        valuation_snapshot()
+
+
+def test_scpi_shares_fallback_does_not_multiply_the_total(
+    verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads["scpis"]["result"][0]
+    record.pop("quantity")
+    snapshot = valuation_snapshot()
+    position = next(row for row in snapshot["positions"] if row["asset_class"] == "SCPI")
+    assert position["quantity"] == 2
+    assert position["unit_price"] is None
+    assert position["market_value_eur"] == 105
+    record["shares"] = "2"
+    with pytest.raises(SnapshotNormalizationError):
+        valuation_snapshot()
+
+
+@pytest.mark.parametrize("kind, field, value", [
+    ("scpis", "property_type", "bare_ownership"),
+    ("scpis", "property_type", "usufruct"),
+    ("cryptos", "owning_type", "staked"),
+])
+def test_unverified_ownership_variants_remain_unknown(
+    kind, field, value, verified_position_payloads, valuation_snapshot,
+):
+    verified_position_payloads[kind]["result"][0][field] = value
+    position = next(row for row in valuation_snapshot()["positions"]
+                    if row["source_asset_id"].startswith(kind + ":"))
+    assert position["currency"] is None
+    assert position["market_value_eur"] is None
+
+
+@pytest.mark.parametrize("kind", ["cryptos", "scpis"])
+def test_missing_cost_does_not_block_positive_market_coverage(
+    kind, verified_position_payloads, valuation_snapshot,
+):
+    record = verified_position_payloads[kind]["result"][0]
+    record.pop("buying_value")
+    record.pop("buying_price")
+    position = next(row for row in valuation_snapshot()["positions"]
+                    if row["source_asset_id"].startswith(kind + ":"))
+    assert position["market_value_eur"] == (60 if kind == "cryptos" else 105)
+    assert position["fx_to_eur"] == 1
+    assert position["cost_basis_eur"] is None

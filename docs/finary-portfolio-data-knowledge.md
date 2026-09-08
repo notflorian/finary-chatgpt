@@ -374,6 +374,39 @@ gross assets. Asset-class totals can also be blank when their class contains an
 unknown-EUR position. `financial_assets_eur` is nullable because no reliable,
 non-overlapping definition is guaranteed by the current contract.
 
+### Combined exposure checks
+
+Combined-cap certification is indeterminate if any required component value,
+classification/membership evidence, or denominator is unknown. A displayed zero
+subset percentage is not proof of zero actual exposure: a class with only
+unknown EUR values can have a blank class total and a zero subset percentage.
+For a mixed class, its total stays blank while its subset percentage includes
+only known members. Never add these subset percentages and label the result a
+full-portfolio percentage.
+
+Every calculation must state its scope and denominator. Verify membership and
+classification for that scope, including evidence that excluded members really
+are outside the requested categories. A fallback OTHER classification alone
+does not establish that exclusion. Use the user's actual policy definition and
+threshold only when supplied; a computable exposure alone does not certify an
+unspecified cap. A zero denominator has no defined exposure percentage.
+
+Synthetic example: consider exactly three retrieved, correctly classified
+positions, with other assets EUR 600, crypto EUR 60 and SCPI unknown. The
+known-subset denominator is EUR 660 and the displayed SCPI subset percentage is
+zero. Combined SCPI-plus-crypto exposure for all three positions is indeterminate.
+If SCPI is then verified at EUR 100 and membership/classification are complete
+for those three positions, the combined amount is EUR 160 and the denominator
+is EUR 760: 160 / 760, approximately 21.0526% of that stated scope. A missing
+crypto value produces the same indeterminate outcome. No policy limit is assumed.
+
+`PARTIAL_POSITION_EUR_COVERAGE` remains while any current position has an unknown
+EUR market value and disappears when all are known. Its disappearance does not
+remove independent liability warnings. Complete valuation of retrieved positions
+does not imply reconciliation with account-derived gross assets or coverage of
+undiscovered upstream holdings. Collection completeness, EUR valuation
+completeness and liability completeness remain independent.
+
 ## Valuation history versus investment performance
 
 `positions_history` and `portfolio_daily` show valuation and composition over

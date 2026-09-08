@@ -131,7 +131,11 @@ For a portfolio-wide question, ChatGPT should:
 8. Treat blank currency and numeric cells as unknown, never zero. Describe
    allocation as the known-EUR subset when coverage is partial. Use enabled
    manual targets and overrides according to the documented semantics, without
-   applying today's metadata retroactively to historical positions.
+   applying today's metadata retroactively to historical positions. For combined
+   exposure checks, state the scope and denominator; certification is indeterminate
+   when required values, membership/classification or the denominator are unknown.
+   A zero subset percentage does not prove zero exposure. Follow the
+   [combined exposure rules](finary-portfolio-data-knowledge.md#combined-exposure-checks).
 9. Distinguish valuation changes from investment performance when cashflows
    are incomplete. Reject observed inconsistencies or changes during sequential
    reads and repeat full reads after writes settle; these checks do not create

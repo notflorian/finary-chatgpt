@@ -1,0 +1,76 @@
+{
+  "cryptos": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1002,
+        "holdings_account_id": "account-synthetic-002",
+        "type": "user_crypto",
+        "owning_type": "hodled",
+        "quantity": 2.0,
+        "current_price": 30.0,
+        "current_value": 60.0,
+        "buying_price": 25.0,
+        "buying_value": 50.0,
+        "buying_price_currency": {
+          "code": "EUR"
+        },
+        "display_current_price": 33.0,
+        "display_current_value": 66.0,
+        "crypto": {
+          "id": 2002,
+          "name": "Sample Token",
+          "code": "SYN"
+        },
+        "valuable": {
+          "id": 2002,
+          "name": "Sample Token",
+          "code": "SYN"
+        }
+      }
+    ]
+  },
+  "scpis": {
+    "message": "OK",
+    "error": null,
+    "result": [
+      {
+        "id": 1006,
+        "holdings_account_id": "account-synthetic-001",
+        "type": "user_scpi",
+        "property_type": "full_ownership",
+        "quantity": 2.0,
+        "shares": 2.0,
+        "current_value": 105.0,
+        "buying_price": 50.0,
+        "buying_value": 100.0,
+        "display_current_value": 115.5,
+        "scpi": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        },
+        "valuable": {
+          "id": 2006,
+          "name": "Sample Property Fund",
+          "currency": {
+            "code": "EUR"
+          },
+          "current_price": 52.5,
+          "display_currency": {
+            "code": "USD"
+          },
+          "display_current_price": 57.75
+        }
+      }
+    ]
+  }
+}
