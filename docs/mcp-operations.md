@@ -279,3 +279,47 @@ required. Do not publish the schedule during isolated acceptance. Stop only this
 project with the same arguments and `stop`; preserve its volume and OAuth state
 until the operator has accepted cleanup. Never use the production project name
 or `down -v` in this procedure.
+
+## Isolated natural-expiry acceptance
+
+This opt-in test retains one bridge-owned OAuth HTTP session in memory between
+two bounded native portfolio collections. It waits until the SDK expiry derived
+from the issuer's `expires_in` has naturally elapsed, without changing tokens,
+clocks or collection limits. It verifies an expired SDK state, a new persisted
+renewal generation, a later advertised expiry and a second valid observation.
+The two MCP transport sessions remain separate, as in the production client.
+This proves advertised expiry and renewal in the same OAuth session; it does not
+probe whether the server would reject a deliberately reused expired token.
+
+Keep the test workbook PAUSED and n8n unpublished. Stop only the isolated bridge
+before using its renewable state from the host; do not run bootstrap, revoke or
+another collection concurrently. The existing independent test authorization is
+sufficient and no browser consent is initiated. From the repository root:
+
+```bash
+docker stop finary-mcp-candidate-finary-bridge-1
+cd finary-bridge
+FINARY_MCP_LIVE_TEST=1 \
+FINARY_MCP_LIVE_ISOLATED_STATE=1 \
+FINARY_MCP_LIVE_EXPIRY_TEST=1 \
+FINARY_MCP_LIVE_STATE_PATH="$FINARY_MCP_TEST_DIR/oauth.json" \
+python -m pytest -q -s --tb=no -m live \
+  tests/live/test_mcp_live.py::test_isolated_natural_expiry_renewal
+```
+
+The default maximum wait is 7,200 seconds; an explicit
+`FINARY_MCP_LIVE_EXPIRY_MAX_WAIT_SECONDS` may raise it up to 86,400. Missing expiry,
+an already expired initial state or an advertised lifetime beyond that bound
+cannot produce successful evidence. A structural countdown is printed at most
+every 30 seconds. Leave the process running without sleeping the computer. A
+successful result ends with NATURAL_EXPIRY_RENEWAL_VALIDATED. Interruption or
+failure is not evidence of successful renewal. No tokens, amounts or identifiers
+are printed. Restore the isolated bridge after the test exits if needed:
+
+```bash
+docker start finary-mcp-candidate-finary-bridge-1
+```
+
+Ordinary CI skips this test. Synthetic wait-bound regressions exercise unknown
+expiry, elapsed expiry, excessive lifetime and wall-clock discontinuity without
+network calls; they do not establish a live token lifetime.
