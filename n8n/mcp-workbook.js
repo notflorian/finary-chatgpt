@@ -18,7 +18,11 @@ const mcpDecode = (table,input) => {
     mcpAssert(value!==undefined);
     if(value==='')value=null;
     if(column.type==='BOOLEAN'&&['TRUE','FALSE'].includes(value))value=value==='TRUE';
-    if(column.type==='NUMBER'&&typeof value==='string'&&/^-?\d+(\.\d+)?$/.test(value))value=Number(value);
+    // Check exact integer syntax and bounds before any IEEE-754 conversion.
+    if(column.type==='NUMBER'&&typeof value==='string'&&/^-?\d+(?:\.0+)?$/.test(value)){
+      const integer=BigInt(value.split('.')[0]);
+      if(integer>=BigInt(Number.MIN_SAFE_INTEGER)&&integer<=BigInt(Number.MAX_SAFE_INTEGER))value=Number(integer);
+    }
     row[column.name]=value;
   }
   return row;

@@ -259,3 +259,26 @@ The tested interruption is a deliberate graph stop after a completed write,
 not a killed process, an interrupted HTTP request or a lost Google response.
 Those other failure cases retain their separately recorded isolated runtime
 evidence. No production data or ongoing OAuth expiry state was used.
+
+## Exact numeric-cell decoding regression
+
+Native MCP amount columns are STRING columns and retain the full contract
+precision. Review also identified a separate physical-read coercion risk in
+NUMBER columns: arbitrary numeric strings could round before validation,
+including a fractional writer generation that rounded to an authorized integer.
+The decoder now checks exact integer syntax and safe bounds with BigInt before
+conversion. Safe integer spellings with trailing fractional zeros remain
+compatible; fractional or unsafe values stay strings for later type validation
+rather than being silently rounded. Legacy provider exports are unchanged.
+Fifteen regressions cover safe boundaries, unsafe integers, 64-place amounts and
+the full prewrite rejection of a near-integer writer generation. Eight failed
+against the original decoder before the fix. Native text precision assertions
+already passed before this correction and remain separate from the NUMBER-cell
+coercion defect.
+
+Executed validation for this decoder correction: 65 focused tests passed;
+full credential-free suite 3,653 passed with 49 Docker skips (195.59s), followed
+by the separately executed mandatory pinned-engine/connector gate with all
+49 passed (216.72s). Ruff, mypy, JSON validation, generated parity, Compose,
+three inactive workflow imports, local documentation links and diff checks
+passed. No live OAuth or Google acceptance run was repeated for this correction.
