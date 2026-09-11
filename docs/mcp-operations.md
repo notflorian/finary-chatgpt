@@ -95,6 +95,13 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
 
    Ordinary CI excludes this module. Structural success prints only a fixed
    status and negotiated protocol revision. It writes no workbook.
+
+   If the structural test fails, repeat it with `FINARY_MCP_LIVE_DIAGNOSTICS=1`
+   and `--tb=no`. The test observes the unchanged production calls and validators
+   and prints only the tool name, failing boundary, allowlisted failure code,
+   and bounded paths/missing-field names from the checked-in contract schema.
+   It never prints instance paths, input values, remote schema contents or raw
+   exceptions. A successful diagnostic run remains a normal validated collection.
 6. Only after separately approving revocation of this **disposable** connection,
    get its current generation with `status` and run the explicit `revoke`
    command with `--state` and `--expected-generation`. Verify subsequent reads

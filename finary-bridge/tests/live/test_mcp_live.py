@@ -14,7 +14,7 @@ from app.services.mcp_snapshot_service import McpSnapshotService
 pytestmark = pytest.mark.live
 
 
-def test_isolated_native_collection_structure(capsys):
+def test_isolated_native_collection_structure(capsys, monkeypatch):
     if (
         os.getenv("FINARY_MCP_LIVE_TEST") != "1"
         or os.getenv("FINARY_MCP_LIVE_ISOLATED_STATE") != "1"
@@ -34,7 +34,18 @@ def test_isolated_native_collection_structure(capsys):
         assert result.provenance.provider == "finary_official_mcp"
         return revision
 
-    revision = asyncio.run(verify())
+    report = None
+    if os.getenv("FINARY_MCP_LIVE_DIAGNOSTICS") == "1":
+        from mcp_live_diagnostics import install_diagnostics
+
+        report = install_diagnostics(monkeypatch)
+    try:
+        revision = asyncio.run(verify())
+    except Exception as error:
+        if report is not None:
+            with capsys.disabled():
+                report(error)
+        raise
     with capsys.disabled():
         print(
             json.dumps({"status": "STRUCTURAL_COLLECTION_VALIDATED", "protocol_revision": revision})
