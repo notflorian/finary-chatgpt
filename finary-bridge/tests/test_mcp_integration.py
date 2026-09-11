@@ -176,3 +176,160 @@ def test_generated_model_and_package_parity():
     assert (root / "docs/finary-mcp-contract.json").read_bytes() == (
         root / "finary-bridge/app/mcp-contract.json"
     ).read_bytes()
+
+
+def test_native_catalog_pagination_and_repeated_cursor():
+    wire = SyntheticWire()
+    tools = wire.catalog()
+    wire.catalog_pages = {
+        None: {"tools": tools[:2], "nextCursor": "next"},
+        "next": {"tools": tools[2:]},
+    }
+    assert snapshot(wire)["coverage"]["accounts"] == "COMPLETE"
+    assert wire.requests.count("tools/list") == 2
+    wire.catalog_pages["next"]["nextCursor"] = "next"
+    with pytest.raises(McpFailure):
+        snapshot(wire)
+
+
+def test_missing_detail_is_qualified_but_missing_overview_fails():
+    wire = SyntheticWire()
+    wire.tools.remove("holdings")
+    assert snapshot(wire)["coverage"]["holdings"] == "UNAVAILABLE"
+    wire.tools.remove("accounts")
+    assert snapshot(wire)["coverage"]["accounts"] == "UNAVAILABLE"
+    wire.tools.remove("get_portfolio_overview")
+    with pytest.raises(McpFailure):
+        snapshot(wire)
+
+
+@pytest.mark.parametrize("mode", ["zero-debt", "unvalued", "assets-only"])
+def test_debt_quality_through_native_production_path(mode):
+    wire = SyntheticWire()
+    sheet = wire.values["overview"]["balance_sheet"]
+    if mode == "zero-debt":
+        sheet["owned_liabilities_direct"] = "0"
+        sheet["owned_net_worth_direct"] = sheet["owned_gross_assets_direct"]
+    if mode == "unvalued":
+        sheet["unvalued_liability_count"] = 1
+    if mode == "assets-only":
+        sheet["completeness"] = "assets_only"
+        sheet["owned_liabilities_direct"] = None
+        sheet["owned_net_worth_direct"] = None
+    result = snapshot(wire)
+    assert (
+        result["coverage"]["debt_valuation"]
+        == {"zero-debt": "COMPLETE", "unvalued": "PARTIAL", "assets-only": "UNAVAILABLE"}[mode]
+    )
+    assert result["coverage"]["debt_detail"] == "UNAVAILABLE"
+
+
+@pytest.mark.parametrize("mode", ["manual", "stale", "broken", "never"])
+def test_native_bank_sync_is_separate_from_ingestion(mode):
+    wire = SyntheticWire()
+    account = wire.values["accounts"]["data"][0]
+    if mode == "manual":
+        account["relationships"].pop("institution_connection", None)
+    else:
+        account["relationships"]["institution_connection"] = {
+            "data": {"type": "institution-connections", "id": "synthetic-bank"}
+        }
+        wire.values["accounts"]["included"].append(
+            {
+                "type": "institution-connections",
+                "id": "synthetic-bank",
+                "attributes": {
+                    "last_successful_sync_at": None
+                    if mode == "never"
+                    else "2026-09-01T10:00:00+02:00",
+                    "updated_at": NOW.isoformat(),
+                    "error_message": "Synthetic private bank error" if mode == "broken" else None,
+                },
+                "relationships": {},
+            }
+        )
+    result = snapshot(wire)
+    assert (
+        result["coverage"]["source_freshness"]
+        == {"manual": "NOT_APPLICABLE", "stale": "STALE", "broken": "BROKEN", "never": "UNKNOWN"}[
+            mode
+        ]
+    )
+    assert "private bank error" not in str(result)
+
+
+def test_empty_second_account_is_retrieved_without_name_deduplication():
+    wire = SyntheticWire()
+    second = deepcopy(wire.values["accounts"]["data"][0])
+    second["id"] = "synthetic-second"
+    wire.values["accounts"]["data"].append(second)
+
+    def mutate(name, args, value):
+        if name == "holdings" and args["account_id"] == "synthetic-second":
+            value["data"] = []
+            value["meta"].update(total=0, has_more=False)
+        return value
+
+    wire.mutate = mutate
+    value = snapshot(wire)
+    assert len(value["accounts"]) == 2 and len(value["positions"]) == 1
+    assert wire.requests.count("tools/call") == 4
+
+
+def test_transient_rate_limit_is_bounded_and_sanitized():
+    wire = SyntheticWire()
+    wire.http_status = lambda name, args: 429
+    with pytest.raises(McpFailure) as failed:
+        snapshot(wire)
+    assert failed.value.code == "MCP_RATE_LIMITED"
+    assert len(wire.calls) == 3
+
+
+def test_multiple_accounts_share_one_connection_record():
+    wire = SyntheticWire()
+    first = wire.values["accounts"]["data"][0]
+    first["relationships"]["institution_connection"] = {
+        "data": {"type": "institution-connections", "id": "synthetic-shared"}
+    }
+    second = deepcopy(first)
+    second["id"] = "synthetic-other"
+    wire.values["accounts"]["data"].append(second)
+    wire.values["accounts"]["included"].append(
+        {
+            "type": "institution-connections",
+            "id": "synthetic-shared",
+            "attributes": {"last_successful_sync_at": NOW.isoformat()},
+            "relationships": {},
+        }
+    )
+
+    def mutate(name, args, value):
+        if name == "holdings" and args["account_id"] == second["id"]:
+            value["data"] = []
+            value["meta"].update(total=0, has_more=False)
+        return value
+
+    wire.mutate = mutate
+    value = snapshot(wire)
+    assert len(value["accounts"]) == 2 and len(value["connections"]) == 1
+    assert value["coverage"]["source_freshness"] == "FRESH"
+
+
+@pytest.mark.parametrize(
+    "body", [b'{"result":1,"result":2}', b'{"result":NaN}', b'{"result":Infinity}']
+)
+def test_raw_json_is_validated_before_sdk_parsing(body):
+    import httpx2
+
+    from app.mcp_client import LimitedStream
+
+    class Chunks(httpx2.AsyncByteStream):
+        async def __aiter__(self):
+            yield body[:5]
+            yield body[5:]
+
+    async def read():
+        return b"".join([chunk async for chunk in LimitedStream(Chunks(), "application/json")])
+
+    with pytest.raises(McpFailure):
+        asyncio.run(read())

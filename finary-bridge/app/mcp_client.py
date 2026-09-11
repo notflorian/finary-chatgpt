@@ -35,6 +35,31 @@ class McpFailure(Exception):
         super().__init__(self.message)
 
 
+def sanitized_failure(error: BaseException, fallback: str = "MCP_PROTOCOL_ERROR") -> McpFailure:
+    """Recover only allowlisted failure types across SDK task-group boundaries."""
+    pending = [error]
+    seen: set[int] = set()
+    selected = fallback
+    while pending and len(seen) < 64:
+        item = pending.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, McpFailure) and item.code != "MCP_PROTOCOL_ERROR":
+            return McpFailure(item.code)
+        if isinstance(item, httpx2.HTTPStatusError):
+            if item.response.status_code in {401, 403}:
+                selected = "MCP_AUTH_UNAVAILABLE"
+            elif item.response.status_code == 429:
+                selected = "MCP_RATE_LIMITED"
+        if isinstance(item, BaseExceptionGroup):
+            pending.extend(item.exceptions)
+        for nested in (item.__cause__, item.__context__):
+            if nested is not None:
+                pending.append(nested)
+    return McpFailure(selected)
+
+
 def checked(name: str, value: Any) -> Any:
     try:
         validate(name, value)
@@ -66,7 +91,12 @@ def decode_result(result: CallToolResult) -> dict[str, Any]:
             text_payloads.append(json.loads(block.text, object_pairs_hook=_object_pairs))
         if len(text_payloads) > 1:
             raise ValueError
-        if structured is not None and text_payloads and structured != text_payloads[0]:
+        if (
+            structured is not None
+            and text_payloads
+            and json.dumps(structured, sort_keys=True, allow_nan=False)
+            != json.dumps(text_payloads[0], sort_keys=True, allow_nan=False)
+        ):
             raise ValueError
         payload = (
             structured if structured is not None else text_payloads[0] if text_payloads else None
@@ -79,16 +109,47 @@ def decode_result(result: CallToolResult) -> dict[str, Any]:
 
 
 class LimitedStream(httpx2.AsyncByteStream):
-    def __init__(self, stream: httpx2.AsyncByteStream) -> None:
+    def __init__(self, stream: httpx2.AsyncByteStream, content_type: str) -> None:
         self.stream = stream
+        self.content_type = content_type
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         total = 0
+        pending = b""
+        is_json = self.content_type.split(";")[0] == "application/json"
+        is_sse = self.content_type.split(";")[0] == "text/event-stream"
         async for chunk in self.stream:
             total += len(chunk)
             if total > LIMITS["max_response_bytes"]:
                 raise McpFailure()
+            pending += chunk
+            if is_json:
+                continue
+            if is_sse:
+                lines = pending.split(b"\n")
+                pending = lines.pop()
+                for line in lines:
+                    if line.startswith(b"data:") and line[5:].strip():
+                        self.validate_json(line[5:].strip())
+            else:
+                pending = b""
             yield chunk
+        if is_json and pending:
+            self.validate_json(pending)
+            yield pending
+        elif is_sse and pending.startswith(b"data:") and pending[5:].strip():
+            self.validate_json(pending[5:].strip())
+
+    @staticmethod
+    def validate_json(value: bytes) -> None:
+        try:
+            json.loads(
+                value,
+                object_pairs_hook=_object_pairs,
+                parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+            )
+        except (ValueError, RecursionError):
+            raise McpFailure() from None
 
     async def aclose(self) -> None:
         await self.stream.aclose()
@@ -108,7 +169,7 @@ class BoundedTransport(httpx2.AsyncBaseTransport):
                 body = json.loads(request.content)
                 retry_read = body.get("method") in {
                     "initialize",
-                    "discovery",
+                    "server/discover",
                     "tools/list",
                     "tools/call",
                 }
@@ -131,7 +192,9 @@ class BoundedTransport(httpx2.AsyncBaseTransport):
                         raise McpFailure()
                     if not isinstance(response.stream, httpx2.AsyncByteStream):
                         raise McpFailure()
-                    response.stream = LimitedStream(response.stream)
+                    response.stream = LimitedStream(
+                        response.stream, response.headers.get("content-type", "")
+                    )
                     return response
                 await response.aclose()
             await asyncio.sleep(0.25 * 2**attempt)
@@ -186,17 +249,16 @@ class McpSession:
             raise McpFailure("MCP_PROTOCOL_ERROR")
         if any(name not in catalog for name in required):
             raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
-        if "holdings" in required:
-            props = catalog["holdings"].input_schema.get("properties", {})
-            if any(
-                props.get(name, {}).get("type") != kind
-                for name, kind in (
-                    ("account_id", "string"),
-                    ("limit", "integer"),
-                    ("offset", "integer"),
-                )
-            ):
+        if "holdings" in catalog:
+            schema = catalog["holdings"].input_schema
+            props = schema.get("properties", {})
+            probe = {"account_id": "synthetic-account", "limit": 100, "offset": 0}
+            validator = Draft202012Validator(schema)
+            if any(name not in props for name in probe) or not validator.is_valid(probe):
                 raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
+            for name, invalid in (("account_id", 123), ("limit", "100"), ("offset", -1)):
+                if validator.is_valid({**probe, name: invalid}):
+                    raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
         return cls(client, catalog)
 
     async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -221,8 +283,8 @@ class McpSession:
             raise
         except TimeoutError:
             raise McpFailure("MCP_TIMEOUT") from None
-        except Exception:
-            raise McpFailure("MCP_PROTOCOL_ERROR") from None
+        except Exception as error:
+            raise sanitized_failure(error) from None
 
 
 class NativeMcpClient:
@@ -248,5 +310,5 @@ class NativeMcpClient:
             raise
         except TimeoutError:
             raise McpFailure("MCP_TIMEOUT") from None
-        except Exception:
-            raise McpFailure("MCP_PROTOCOL_ERROR") from None
+        except Exception as error:
+            raise sanitized_failure(error) from None

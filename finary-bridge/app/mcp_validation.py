@@ -76,8 +76,8 @@ def validate_money(value: dict[str, Any], view_currency: str | None = None) -> N
         require(eur is None and basis == "UNAVAILABLE")
 
 
-def validate_snapshot(value: dict[str, Any]) -> None:
-    """Cross-record rules complement the packaged JSON Schema, never detail sums."""
+def validate_collection_context(value: dict[str, Any]) -> None:
+    """Validate the collection window independently of retained detail availability."""
     p = value["provenance"]
     generated = datetime.fromisoformat(value["generated_at"])
     start, end = (
@@ -91,6 +91,12 @@ def validate_snapshot(value: dict[str, Any]) -> None:
     require(
         generated.astimezone(ZoneInfo("Europe/Paris")).date().isoformat() == value["snapshot_date"]
     )
+
+
+def validate_snapshot(value: dict[str, Any]) -> None:
+    """Cross-record rules complement the packaged JSON Schema, never detail sums."""
+    validate_collection_context(value)
+    p = value["provenance"]
     table_keys = {
         "accounts": ("account_key",),
         "connections": ("connection_key",),

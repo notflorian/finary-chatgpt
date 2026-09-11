@@ -1,5 +1,13 @@
 # ChatGPT integration
 
+For official MCP, follow the [nine-action source matrix](mcp-consumer.md). Direct
+authorized reads answer current questions; validated workbook observations
+provide retained history and manual analysis. Explicitly date any fallback and
+never present a live overview plus stale workbook detail as one observation.
+The existing setup below applies to the legacy 2.1 workbook. For a 3.0 candidate,
+use its [canonical schema](google-sheets-schema.json), successful per-table
+membership and the production reference consumer before interpretation.
+
 ## Recommended setup
 
 Use a private ChatGPT **Project** as the portfolio-analysis workspace. In the

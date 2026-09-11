@@ -100,7 +100,9 @@ def _substitute_io(workflow, schema, snapshot, workbook, *, fail_at=None):
     return exported
 
 
-def _execute(tmp_path, image, exported, *, allow_crypto=True, allow_file_io=False):
+def _execute(
+    tmp_path, image, exported, *, allow_crypto=True, allow_file_io=False, environment=None,
+):
     fixture = tmp_path / "workflow.json"
     fixture.write_text(json.dumps(exported))
     # n8n persists a genuine execution ID in an ephemeral SQLite database.
@@ -137,6 +139,8 @@ def _execute(tmp_path, image, exported, *, allow_crypto=True, allow_file_io=Fals
         "n8n import:workflow --input=/tmp/workflow.json >/tmp/import.log 2>&1 "
         f"&& n8n execute --id={exported['id']} --rawOutput",
     ]
+    for name, value in (environment or {}).items():
+        command[2:2] = ["-e", f"{name}={value}"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=150)
     finally:

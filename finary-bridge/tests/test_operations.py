@@ -13,7 +13,7 @@ from test_n8n_workflow import _run_code_node, _run_context, _run_id
 ROOT = Path(__file__).parents[2]
 DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
 ERROR_PATH = ROOT / "n8n" / "workflows" / "finary-error-handler.json"
-SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema.json"
+SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema-v2.json"
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -339,6 +339,6 @@ def test_compose_defines_persistent_local_operational_services() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert "n8n_data:/home/node/.n8n" in compose
     assert "schema-server:" in compose
-    assert "http://schema-server/google-sheets-schema.json" in compose
+    assert "http://schema-server/google-sheets-schema-v2.json" in compose
     assert "127.0.0.1:${N8N_PORT:-5678}:5678" in compose
     assert "EXECUTIONS_TIMEOUT_MAX" in compose

@@ -1,5 +1,10 @@
 # Operations
 
+For the official MCP candidate, use the separate [operator runbook](mcp-operations.md).
+It covers independent OAuth, 3.0 migration, writer draining, shadow acceptance,
+cutover and preservation-based rollback. The procedures below remain the legacy
+private-provider/2.1 path unless explicitly stated otherwise.
+
 ## Operating model
 
 One Docker Compose project owns the local runtime:
@@ -259,7 +264,7 @@ Migrate an existing schema `2.0` workbook offline as follows:
 2. append the `run_id` header after `cost_basis_eur` in `positions_history`;
 3. leave every existing value in that new column blank;
 4. update the `history_rule` and `last_success_rule` rows in the workbook
-   `README` tab from `docs/google-sheets-schema.json`;
+   `README` tab from `docs/google-sheets-schema-v2.json`;
 5. import the schema `2.1` workflow exports and restore their Google credential
    bindings;
 6. run one manual synchronization and verify that its history row count equals
@@ -289,7 +294,7 @@ files alone does not update an existing workbook or ChatGPT Project.
 Operators must:
 
 1. Copy the current `value` and `description` from `readme_entries` in
-   `docs/google-sheets-schema.json` for these existing workbook README keys:
+   `docs/google-sheets-schema-v2.json` for these existing workbook README keys:
    `current_state_rule`, `history_rule`, `gross_assets_rule`,
    `failed_snapshot_rule`, `liability_rule`, `last_known_liability_rule`, and
    `last_success_rule`. Preserve other entries and all portfolio/manual rows.
@@ -590,7 +595,7 @@ manual retry.
 
 The workflow fails before portfolio writes when a tab name, header, order, or
 schema version drifts. Compare the workbook against
-`docs/google-sheets-schema.json`, repair headers exactly, and rerun manually.
+`docs/google-sheets-schema-v2.json`, repair headers exactly, and rerun manually.
 Never rename a key or replace blank numeric cells with text to bypass the gate.
 
 ### Partial write

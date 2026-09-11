@@ -208,3 +208,48 @@ def test_private_store_rejects_unsafe_state(tmp_path, mode):
         store.path.write_text('{"unexpected":"synthetic"}')
     with pytest.raises((McpFailure, OSError)):
         store.read()
+
+
+def test_expired_memory_token_renews_without_consent(tmp_path):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    asyncio.run(consent(store, peer))
+
+    async def expire():
+        async with authorized_http(
+            store=store, transport=httpx2.MockTransport(peer.respond)
+        ) as http:
+            await http.post(MCP_URL, json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+            http.auth.context.token_expiry_time = 1
+            await http.post(MCP_URL, json={"jsonrpc": "2.0", "id": 2, "method": "initialize"})
+
+    asyncio.run(expire())
+    assert peer.token_requests == ["authorization_code", "refresh_token", "refresh_token"]
+    assert peer.registrations == 1
+
+
+def test_explicit_revoke_tombstone_and_generation_guard(tmp_path, capsys):
+    from app.mcp_auth import revoke_command
+
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    asyncio.run(consent(store, peer))
+    state = store.read()
+    calls = []
+
+    def respond(request):
+        if str(request.url) == ISSUER + "/oauth/token/revoke":
+            calls.append(parse_qs(request.content.decode()))
+            return httpx2.Response(200)
+        return peer.respond(request)
+
+    with pytest.raises(McpFailure):
+        asyncio.run(
+            revoke_command(store, "not-this-generation", transport=httpx2.MockTransport(respond))
+        )
+    assert not calls
+    asyncio.run(revoke_command(store, state.generation, transport=httpx2.MockTransport(respond)))
+    assert len(calls) == 1 and calls[0]["token_type_hint"] == ["refresh_token"]
+    assert store.read().refresh_token is None
+    assert store.read().generation != state.generation
+    assert "synthetic-renewable" not in capsys.readouterr().out

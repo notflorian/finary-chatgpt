@@ -2,10 +2,12 @@
 
 ## Purpose
 
-Finary Portfolio Data is a local integration boundary between Finary's private
-API and downstream analysis tools. This is the implemented provider. The
-[official MCP contract](finary-mcp-contract.md) defines a separate planned
-provider, API 3.0 and workbook 3.0; no MCP runtime is implemented yet.
+Finary Portfolio Data supports the existing private provider and an official
+MCP candidate through isolated adapters. The [MCP contract](finary-mcp-contract.md)
+is the semantic foundation for implemented API/workbook 3.0. Its fixture oracle
+is test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
+production validators, adapter, service and protected routes. Independent
+live acceptance is tracked in [the matrix](mcp-acceptance.md).
 The bridge converts unstable upstream responses into
 a stable versioned API, then synchronizes validated data into a Google workbook
 that ChatGPT can read.
@@ -35,6 +37,24 @@ The Compose project runs three services:
 
 The bridge and n8n bind to localhost. The schema server has no host port.
 
+## Official MCP implementation
+
+`mcp_client.py` owns initialization, capability/schema discovery, pagination of
+the catalog, bounded native results and fixed errors. `mcp_auth.py` owns explicit
+operator consent and separate renewable state. `mcp_adapter.py` owns resource
+relationships, account/holding pagination, currency evidence and ownership.
+`mcp_snapshot_service.py` binds the official overview and detail into one UUID
+and collection window. `mcp_optional.py` isolates budget/search/goals from the
+portfolio critical path. No scheduled call carries an analytics prompt.
+
+The generated inactive MCP workflow validates all rows before portfolio writes,
+checks the writer generation, preserves exact decimal text and publishes terminal
+membership after required writes. Loan detail remains unavailable. Migration is
+append-only against a distinct candidate workbook; the legacy writer explicitly
+fetches the frozen 2.1 contract. See [operations](mcp-operations.md) and
+[consumer interpretation](mcp-consumer.md). The detailed legacy design below
+continues to describe `/v1`, `/v2` and the retained 2.1 writer.
+
 ## Trust boundaries
 
 ### Finary boundary
@@ -49,7 +69,7 @@ verified fields through category-specific handlers and constructs strict
 Pydantic models. Raw dictionaries and private nested objects are not exposed in
 API metadata.
 
-The planned MCP provider owns its own transport/authentication and resource
+The MCP provider owns its own transport/authentication and resource
 relationships. One provider is frozen per observation/run and one active
 writer/provider owns a workbook. No fallback, mixed-provider snapshot or field
 supplementation is allowed. MCP selection must not initialize the private
@@ -253,7 +273,7 @@ Position allocation totals and weights use only active positions with known EUR
 values. They describe the known-EUR position subset and may not reconcile to
 gross assets. The workflow records a partial-coverage warning when appropriate.
 
-The planned MCP provider instead preserves authoritative overview totals and
+The MCP provider preserves authoritative overview totals and
 official allocation, native currencies and direct-owner account values at their
 respective grains. Its independent retrieval, debt-detail, valuation, semantic
 and freshness states do not broaden legacy COMPLETE evidence. See the
@@ -439,7 +459,7 @@ consumer documentation.
 
 ## Deliberate limitations
 
-- The implemented provider relies on a private API. Official MCP connector
+- The legacy provider relies on a private API. Official MCP connector
   access exists; independent bridge authorization and several source semantics
   remain verification gates in the planned contract.
 - Liability coverage is not guaranteed complete by the verified upstream

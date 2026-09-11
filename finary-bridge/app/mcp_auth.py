@@ -28,7 +28,13 @@ from mcp.shared.auth import (
 )
 from pydantic import AnyUrl
 
-from app.mcp_client import MCP_URL, BoundedTransport, McpFailure, suppress_sdk_diagnostics
+from app.mcp_client import (
+    MCP_URL,
+    BoundedTransport,
+    McpFailure,
+    sanitized_failure,
+    suppress_sdk_diagnostics,
+)
 
 ISSUER = "https://clerk.finary.com"
 RESOURCE_METADATA = "https://public-api.finary.com/.well-known/oauth-protected-resource/mcp"
@@ -205,7 +211,11 @@ class RenewableStorage:
         )
 
     async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
-        if not self.bootstrap or client_info.issuer != ISSUER:
+        if (
+            not self.bootstrap
+            or client_info.issuer != ISSUER
+            or client_info.token_endpoint_auth_method != "none"
+        ):
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
         self.state = self.store.replace(
             self.state.generation,
@@ -297,6 +307,7 @@ async def authorized_http(
                         client_name="Finary local bridge",
                         redirect_uris=[AnyUrl(CALLBACK)],
                         token_endpoint_auth_method="none",
+                        scope="openid profile email offline_access",
                     ),
                     storage,
                     redirect_handler=redirect,
@@ -310,8 +321,8 @@ async def authorized_http(
                 yield http
     except McpFailure:
         raise
-    except Exception:
-        raise McpFailure("MCP_AUTH_UNAVAILABLE") from None
+    except Exception as error:
+        raise sanitized_failure(error, "MCP_AUTH_UNAVAILABLE") from None
 
 
 async def bootstrap_command(store: OAuthStore) -> None:
@@ -374,18 +385,27 @@ async def bootstrap_command(store: OAuthStore) -> None:
             )
 
 
-async def revoke_command(store: OAuthStore, expected_generation: str) -> None:
+async def revoke_command(
+    store: OAuthStore,
+    expected_generation: str,
+    *,
+    transport: httpx2.AsyncBaseTransport | None = None,
+) -> None:
     """Only an explicit operator invocation revokes this store's connection."""
     async with store.lease():
         state = store.read()
         if state.generation != expected_generation or not state.refresh_token or not state.client:
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
         async with httpx2.AsyncClient(
-            transport=BoundedTransport(), timeout=30, trust_env=False
+            transport=BoundedTransport(transport), timeout=30, trust_env=False
         ) as http:
             metadata = await public_metadata(http)
             endpoint = getattr(metadata, "revocation_endpoint", None)
-            if endpoint is None or urlsplit(str(endpoint)).netloc != "clerk.finary.com":
+            if (
+                endpoint is None
+                or urlsplit(str(endpoint)).netloc != "clerk.finary.com"
+                or urlsplit(str(endpoint)).scheme != "https"
+            ):
                 raise McpFailure("MCP_AUTH_UNAVAILABLE")
             client = OAuthClientInformationFull.model_validate(state.client)
             if client.token_endpoint_auth_method != "none":

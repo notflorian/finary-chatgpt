@@ -37,7 +37,7 @@ app = ["mcp-contract.json"]
 [tool.pytest.ini_options]
 addopts = "-ra"
 markers = [
-  "live: opt-in tests that contact the private Finary API",
+  "live: opt-in tests that contact Finary using explicitly authorized isolated state",
 ]
 testpaths = ["tests"]
 

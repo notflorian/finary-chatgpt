@@ -6,6 +6,8 @@ from threading import Lock
 from typing import Annotated, Final, Literal, NamedTuple
 
 from fastapi import Depends, FastAPI, Header, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -21,6 +23,7 @@ from app.finary_client import (
     FinaryUpstreamTimeoutError,
 )
 from app.mcp_client import McpFailure, NativeMcpClient
+from app.mcp_logging import protect_access_logs
 from app.mcp_models import McpSnapshotV3
 from app.mcp_optional import (
     BudgetResponse,
@@ -45,6 +48,8 @@ class HealthResponse(BaseModel):
     service: str = SERVICE_NAME
     version: str = SERVICE_VERSION
 
+
+protect_access_logs()
 
 app = FastAPI(
     title="Finary Bridge",
@@ -279,7 +284,9 @@ def get_authenticated_mcp_client(
 async def handle_mcp_error(request: Request, exception: McpFailure) -> JSONResponse:
     del request
     code = (
-        503
+        400
+        if exception.code == "MCP_INVALID_ARGUMENT"
+        else 503
         if exception.code in {"MCP_AUTH_UNAVAILABLE", "MCP_CAPABILITY_UNAVAILABLE"}
         else 504
         if exception.code == "MCP_TIMEOUT"
@@ -288,6 +295,13 @@ async def handle_mcp_error(request: Request, exception: McpFailure) -> JSONRespo
     return _error_response(
         _ApiErrorSpec(code, exception.code, exception.message, exception.retryable)
     )
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_request_error(request: Request, exception: RequestValidationError) -> JSONResponse:
+    if request.url.path.startswith("/v3/"):
+        return await handle_mcp_error(request, McpFailure("MCP_INVALID_ARGUMENT"))
+    return await request_validation_exception_handler(request, exception)
 
 
 @app.get("/v3/snapshot", response_model=McpSnapshotV3)

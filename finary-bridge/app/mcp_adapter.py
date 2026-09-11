@@ -352,23 +352,23 @@ class McpAdapter:
                     if now - at > timedelta(hours=48)
                     else "FRESH"
                 )
-            detail.connections.append(
-                McpConnection.model_validate(
-                    {
-                        "connection_key": connection_key,
-                        "institution_key": key("institution_key", **institution_link)
-                        if institution_link and institution
-                        else None,
-                        "institution_label": institution.get("attributes", {}).get("name")
-                        if institution
-                        else None,
-                        "source_status": values.get("sync_status"),
-                        "last_sync_at": values.get("last_sync_at"),
-                        "last_successful_sync_at": last_success,
-                        "freshness": freshness,
-                    }
-                )
+            normalized_connection = McpConnection.model_validate(
+                {
+                    "connection_key": connection_key,
+                    "institution_key": key("institution_key", **institution_link)
+                    if institution_link and institution
+                    else None,
+                    "institution_label": institution.get("attributes", {}).get("name")
+                    if institution
+                    else None,
+                    "source_status": values.get("sync_status"),
+                    "last_sync_at": values.get("last_sync_at"),
+                    "last_successful_sync_at": last_success,
+                    "freshness": freshness,
+                }
             )
+            if normalized_connection not in detail.connections:
+                detail.connections.append(normalized_connection)
             if freshness != "FRESH":
                 detail.warn(
                     {
@@ -439,6 +439,11 @@ class McpAdapter:
             "scpi-holdings": "scpi",
         }.get(kind)
         link = relation(raw, product_relation) if product_relation else None
+        expected_type = {"security": "securities", "currency": "currencies", "scpi": "scpis"}.get(
+            product_relation or ""
+        )
+        if link is not None and link["type"] != expected_type:
+            raise McpFailure("MCP_INCOMPLETE_COLLECTION")
         product = index.resolve(link)
         product_attributes = product.get("attributes", {}) if product else {}
         quantity_field = "shares" if kind == "scpi-holdings" else "quantity"

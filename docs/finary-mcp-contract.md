@@ -1,5 +1,12 @@
 # Official Finary MCP integration contract
 
+Implementation note (2026-09-11): this reviewed foundation now drives an
+executable candidate. Its declaration/observation/acceptance/evidence distinctions
+remain unchanged. See the [implementation matrix](mcp-acceptance.md) and
+[operator runbook](mcp-operations.md) for current status; implemented code does
+not turn unresolved live semantics into verified evidence.
+
+
 **Decision status: planned, contract version 1.0.0, inspected 2026-09-11.**
 This document and the [machine-readable contract](finary-mcp-contract.json)
 prepare API schema **3.0** at **`GET /v3/snapshot`** and workbook schema **3.0**.

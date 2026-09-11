@@ -11,9 +11,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs/finary-mcp-contract.json"
 MODEL_NAMES = (
-    "money", "provenance", "coverage", "overview", "account", "ownership",
-    "connection", "position", "position_rate", "allocation_category",
-    "allocation_type", "member", "warning", "unsupported_detail", "snapshot_v3",
+    "money",
+    "provenance",
+    "coverage",
+    "overview",
+    "account",
+    "ownership",
+    "connection",
+    "position",
+    "position_rate",
+    "allocation_category",
+    "allocation_type",
+    "member",
+    "warning",
+    "unsupported_detail",
+    "snapshot_v3",
 )
 
 
@@ -43,18 +55,38 @@ def generate(contract):
 
     lines = [
         '"""Generated from the reviewed MCP contract; run scripts/build-mcp-models.py."""',
-        "", "from __future__ import annotations", "",
-        "from typing import ClassVar, Literal", "",
-        "from app.mcp_validation import ContractModel", "",
+        "",
+        "from __future__ import annotations",
+        "",
+        "from typing import ClassVar, Literal",
+        "",
+        "from app.mcp_validation import ContractModel",
+        "",
     ]
     for name in MODEL_NAMES:
-        lines += ["", f"class {class_name(name)}(ContractModel):", f"    contract_name: ClassVar[str] = {name!r}"]
+        lines += [
+            "",
+            f"class {class_name(name)}(ContractModel):",
+            f"    contract_name: ClassVar[str] = {name!r}",
+        ]
         for field, schema in definitions[name]["properties"].items():
             lines.append(f"    {field}: {annotation(schema)}")
         lines.append("")
     return subprocess.run(
-        [sys.executable, "-m", "ruff", "format", "--line-length", "100", "--stdin-filename", "mcp_models.py"],
-        input="\n".join(lines), capture_output=True, text=True, check=True,
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "format",
+            "--line-length",
+            "100",
+            "--stdin-filename",
+            "mcp_models.py",
+        ],
+        input="\n".join(lines),
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
 
 

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
-V2_SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema.json"
+V2_SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema-v2.json"
 V2_DOCUMENTATION_PATH = ROOT / "docs" / "data-model.md"
 
 
