@@ -110,6 +110,8 @@ def money_error(money, overview_currency=None):
     amount, eur, currency = money["amount"], money["amount_eur"], money["currency"]
     if amount is None or currency is None:
         return None if eur is None and money["eur_basis"] == "UNAVAILABLE" else "CURRENCY_EVIDENCE"
+    if money["eur_basis"] == "SOURCE_EUR" and currency != "EUR":
+        return "CURRENCY_EVIDENCE"
     if overview_currency is not None and currency != overview_currency:
         return "CURRENCY_EVIDENCE"
     if currency == "EUR":
@@ -239,6 +241,14 @@ def migration_error(value):
         value["legacy_daily_key"] == value["mcp_daily_key"]
         or value["mcp_daily_key"] != expected_daily
     ):
+        return "MIGRATION_BOUNDARY"
+    expected_history = identity(
+        "history_key",
+        snapshot_date=value["snapshot_date"],
+        observation_id=value["observation_id"],
+        position_key=value["mcp_position_key"],
+    )
+    if value["mcp_history_key"] != expected_history:
         return "MIGRATION_BOUNDARY"
     if value["legacy_history_key"] == value["mcp_history_key"]:
         return "MIGRATION_BOUNDARY"
@@ -386,6 +396,8 @@ def test_identity_encoding_is_injective_and_preserves_opaque_ids():
     assert all(not key.startswith("finary:") for key in keys)
     assert not validator("#/$defs/id").is_valid(" a ")
     assert not validator("#/$defs/id").is_valid(42)
+    for control in ("\x00", "\x1f", "\x7f", "\u0080", "\u009f"):
+        assert not validator("#/$defs/id").is_valid("synthetic" + control)
     assert identity(
         "source_asset_id", holding_type="security-holdings", holding_id="7"
     ) != identity("source_asset_id", holding_type="crypto-holdings", holding_id="7")
@@ -400,6 +412,9 @@ def test_overview_authority_is_not_a_detail_sum_constraint():
     assert snapshot["coverage"]["debt_detail"] == "UNAVAILABLE"
     assert snapshot["overview"]["reported_liabilities"]["amount"] == "200.00"
     assert snapshot["debt_details"] == []
+    assert snapshot["coverage"]["detail_semantics"] in CONTRACT["write_gates"][
+        "allowed_position_semantics"
+    ]
 
 
 def test_workbook_delta_and_legacy_versions_remain_separate():

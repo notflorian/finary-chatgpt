@@ -1752,6 +1752,114 @@
       ],
       "expected": {"schema_valid": false, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": []
+    },
+    {
+      "id": "partial-accounts-cannot-publish-connections",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "partial-accounts-cannot-publish-connections",
+      "changes": [
+        {"op": "set", "path": "/coverage/accounts", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holdings", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/accounts", "value": []},
+        {"op": "set", "path": "/ownership", "value": []},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/connections",
+          "value": [
+            {
+              "connection_key": "mcp:connection:institution-connections:synthetic-c",
+              "institution_key": null,
+              "institution_label": null,
+              "source_status": "synthetic-broken",
+              "last_sync_at": "2026-09-11T07:00:00+02:00",
+              "last_successful_sync_at": "2026-09-01T07:00:00+02:00",
+              "freshness": "BROKEN"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "c1-controls-rejected-in-source-id",
+      "base": "c1_source_id",
+      "schema": "#/$defs/id",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "c1-controls-rejected-in-source-id",
+      "changes": [],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "non-eur-account-cannot-claim-source-eur",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "non-eur-account-cannot-claim-source-eur",
+      "changes": [{"op": "set", "path": "/accounts/0/native_balance/currency", "value": "USD"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-account-native-to-eur-conversion",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-account-native-to-eur-conversion",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "malformed-observation-history-key",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "malformed-observation-history-key",
+      "changes": [{"op": "set", "path": "/mcp_history_key", "value": "mcp:history:synthetic"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "inconsistent-detail-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "inconsistent-detail-cannot-be-complete",
+      "changes": [{"op": "set", "path": "/coverage/detail_semantics", "value": "INCONSISTENT"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
     }
   ]
 }

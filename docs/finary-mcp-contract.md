@@ -192,7 +192,11 @@ identify a member across observations.
 Explicitly unavailable detail can permit a valid overview with warnings and an
 empty corresponding write set. A failed page, malformed envelope, protocol
 failure or invalid snapshot instead aborts before any portfolio writes. Complete
-retrieval alone is not complete valuation. Only complete compatible retrieval
+retrieval alone is not complete valuation. Supported holding resources may be
+written with explicit `UNVERIFIED` per-field units/ownership qualifiers; this
+permits no derived cost, yield or ownership claims. Unknown resource shapes
+remain incomplete, and inconsistent detail blocks the position write set.
+Incomplete account retrieval also blocks connection rows derived from it. Only complete compatible retrieval
 can inactivate absent accounts/positions; debt detail has its independent gate.
 Consumers retain and date previous compatible detail separately, never attach
 it to a new run as if freshly observed.

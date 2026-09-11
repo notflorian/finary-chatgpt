@@ -353,11 +353,17 @@
   "write_gates": {
     "overview": ["valid_snapshot", "supported_explicit_view", "matching_provider_workbook", "all_prepared_rows_valid"],
     "accounts": ["accounts=COMPLETE"],
-    "positions": ["accounts=COMPLETE", "holdings=COMPLETE", "detail_semantics=SUPPORTED"],
+    "positions": [
+      "accounts=COMPLETE",
+      "holdings=COMPLETE",
+      "detail_semantics in allowed_position_semantics; preserve explicit per-field qualifiers"
+    ],
     "debt_details": ["debt_detail=COMPLETE", "independently_verified_detail_enumeration"],
     "no_partial_rows": "PARTIAL/UNAVAILABLE dimension has empty corresponding API write arrays; completeness field distinguishes unknown from known empty; keep last compatible detail separately dated",
     "overview_only": "Explicitly unavailable/unsupported detail can yield SUCCESS_WITH_WARNINGS and overview/allocation/member rows only. Malformed/protocol/pagination failures abort the run before any portfolio write; no conversion of failures into overview-only success. Successful unsupported detail reads retain only typed unsupported_details counts/reasons; these diagnostics cannot authorize any missing-row inactivation.",
-    "terminal": "one active writer/provider; validate every permitted batch before any write; terminal success last, binds observation/run and per-table expected counts; failed/latest partial writes are not accepted evidence; inactivation only within complete same-provider collection"
+    "terminal": "one active writer/provider; validate every permitted batch before any write; terminal success last, binds observation/run and per-table expected counts; failed/latest partial writes are not accepted evidence; inactivation only within complete same-provider collection",
+    "qualified_fields": "UNVERIFIED field units/ownership permit preservation of supported-type source values with explicit qualifiers, never derivation of cost, yield or ownership. Unknown nonempty resource shapes remain PARTIAL with no position write set. INCONSISTENT detail requires PARTIAL holdings and no position writes.",
+    "allowed_position_semantics": ["SUPPORTED", "UNVERIFIED"]
   },
   "provider_interfaces": {
     "private_api": {
@@ -1010,7 +1016,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
-      "pattern": "^[^\\s\\x00-\\x1f\\x7f]+$",
+      "pattern": "^[^\\s\\x00-\\x1f\\x7f-\\x9f]+$",
       "description": "Project acceptance policy for opaque source IDs; no trimming or numeric conversion."
     },
     "decimal": {
@@ -2135,6 +2141,10 @@
         {
           "if": {"properties": {"eur_basis": {"enum": ["SOURCE_EUR", "SOURCE_CONVERSION"]}}},
           "then": {"properties": {"amount_eur": {"$ref": "#/$defs/decimal"}}}
+        },
+        {
+          "if": {"properties": {"eur_basis": {"const": "SOURCE_EUR"}}},
+          "then": {"properties": {"currency": {"const": "EUR"}}}
         }
       ]
     },
@@ -3641,6 +3651,14 @@
               }
             }
           }
+        },
+        {
+          "if": {"not": {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}}},
+          "then": {"properties": {"connections": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"detail_semantics": {"const": "INCONSISTENT"}}}}},
+          "then": {"properties": {"coverage": {"properties": {"holdings": {"const": "PARTIAL"}}}}}
         }
       ]
     },
@@ -3796,7 +3814,8 @@
         "series_comparable": {"type": "boolean"},
         "rollback_schema": {"type": "string"},
         "preserve_new_observations": {"type": "boolean"},
-        "preserve_manual_edits": {"type": "boolean"}
+        "preserve_manual_edits": {"type": "boolean"},
+        "mcp_position_key": {"$ref": "#/$defs/key"}
       },
       "required": [
         "legacy_account_id",
@@ -3816,7 +3835,8 @@
         "series_comparable",
         "rollback_schema",
         "preserve_new_observations",
-        "preserve_manual_edits"
+        "preserve_manual_edits",
+        "mcp_position_key"
       ],
       "additionalProperties": false
     },
@@ -3896,7 +3916,7 @@
     "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.0.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
     "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
     "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
-    "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag.",
+    "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag. Resource support is distinct from field-unit/ownership confidence: supported resources may retain explicitly qualified UNVERIFIED fields without derived accounting claims.",
     "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts."
   },
   "version_policy": {

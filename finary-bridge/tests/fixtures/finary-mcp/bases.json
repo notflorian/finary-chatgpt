@@ -680,7 +680,8 @@
     "series_comparable": false,
     "rollback_schema": "2.1",
     "preserve_new_observations": true,
-    "preserve_manual_edits": true
+    "preserve_manual_edits": true,
+    "mcp_position_key": "mcp:account:assets:42:holding:security-holdings:7"
   },
   "sanitized-mcp_auth_unavailable": {
     "error": {
@@ -731,5 +732,6 @@
       "message": "Normalized snapshot validation failed",
       "retryable": false
     }
-  }
+  },
+  "c1_source_id": "syntheticid"
 }
