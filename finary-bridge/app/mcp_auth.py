@@ -42,6 +42,44 @@ ISSUER_METADATA = ISSUER + "/.well-known/oauth-authorization-server"
 CALLBACK = "http://127.0.0.1:8765/callback"
 
 
+class BootstrapDiagnostics:
+    """Opt-in operator events contain fixed stages and HTTP status codes only."""
+
+    def __init__(self) -> None:
+        self.stage = "LOCAL_STATE"
+        self.endpoints = {
+            RESOURCE_METADATA: "RESOURCE_METADATA",
+            ISSUER_METADATA: "ISSUER_METADATA",
+        }
+
+    def emit(self, stage: str, http_status: int | None = None) -> None:
+        self.stage = stage
+        event: dict[str, str | int] = {"stage": stage}
+        if http_status is not None:
+            event["http_status"] = http_status
+        print(json.dumps({"diagnostic": event}), flush=True)
+
+    def request_stage(self, request: httpx2.Request) -> str:
+        url = str(request.url)
+        if url == MCP_URL:
+            try:
+                method = json.loads(request.content).get("method")
+            except (ValueError, AttributeError, httpx2.RequestNotRead):
+                method = None
+            return {
+                "server/discover": "MCP_INITIALIZATION",
+                "initialize": "MCP_INITIALIZATION",
+                "tools/list": "TOOL_DISCOVERY",
+            }.get(method, "MCP_CONNECTION")
+        return self.endpoints.get(url, "HTTP_REQUEST")
+
+    async def request(self, request: httpx2.Request) -> None:
+        self.emit(self.request_stage(request))
+
+    async def response(self, response: httpx2.Response) -> None:
+        self.emit(self.request_stage(response.request), response.status_code)
+
+
 def private_stat(info: os.stat_result, mode: int) -> None:
     if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != mode:
         raise McpFailure("MCP_AUTH_UNAVAILABLE")
@@ -274,6 +312,7 @@ async def authorized_http(
     redirect: Any = deny_redirect,
     callback: Any = deny_callback,
     transport: httpx2.AsyncBaseTransport | None = None,
+    diagnostics: BootstrapDiagnostics | None = None,
 ) -> AsyncIterator[httpx2.AsyncClient]:
     suppress_sdk_diagnostics()
     if store is None:
@@ -282,6 +321,8 @@ async def authorized_http(
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
         store = OAuthStore(Path(path))
     try:
+        if diagnostics is not None:
+            diagnostics.emit("LOCAL_STATE")
         async with store.lease():
             storage = RenewableStorage(store, bootstrap=bootstrap)
             if not bootstrap and (not storage.state.refresh_token or not storage.state.client):
@@ -291,8 +332,20 @@ async def authorized_http(
                 timeout=30,
                 trust_env=False,
                 follow_redirects=False,
+                event_hooks={
+                    "request": [diagnostics.request] if diagnostics is not None else [],
+                    "response": [diagnostics.response] if diagnostics is not None else [],
+                },
             ) as http:
                 metadata = await public_metadata(http)
+                if diagnostics is not None:
+                    diagnostics.emit("METADATA_VALIDATION")
+                    for endpoint, stage in (
+                        (metadata.registration_endpoint, "CLIENT_REGISTRATION"),
+                        (metadata.token_endpoint, "TOKEN_EXCHANGE"),
+                    ):
+                        if endpoint is not None:
+                            diagnostics.endpoints[str(endpoint)] = stage
                 if not metadata.token_endpoint:
                     raise McpFailure("MCP_AUTH_UNAVAILABLE")
 
@@ -307,9 +360,13 @@ async def authorized_http(
                     if bootstrap and metadata.registration_endpoint:
                         allowed.add(str(metadata.registration_endpoint))
                     if url not in allowed:
+                        if diagnostics is not None:
+                            diagnostics.emit("REQUEST_REJECTED")
                         raise McpFailure("MCP_AUTH_UNAVAILABLE")
 
-                http.event_hooks["request"] = [guard]
+                http.event_hooks["request"] = [guard] + (
+                    [diagnostics.request] if diagnostics is not None else []
+                )
                 auth = OAuthClientProvider(
                     MCP_URL,
                     OAuthClientMetadata(
@@ -334,7 +391,9 @@ async def authorized_http(
         raise sanitized_failure(error, "MCP_AUTH_UNAVAILABLE") from None
 
 
-async def bootstrap_command(store: OAuthStore) -> None:
+async def bootstrap_command(
+    store: OAuthStore, diagnostics: BootstrapDiagnostics | None = None
+) -> None:
     loop = asyncio.get_running_loop()
     callback_result: asyncio.Future[AuthorizationCodeResult] = loop.create_future()
 
@@ -351,6 +410,8 @@ async def bootstrap_command(store: OAuthStore) -> None:
             result = AuthorizationCodeResult(
                 code=values["code"][0], state=values["state"][0], iss=values.get("iss", [None])[0]
             )
+            if diagnostics is not None:
+                diagnostics.emit("CALLBACK_RECEIVED")
             if not callback_result.done():
                 callback_result.set_result(result)
             writer.write(
@@ -359,7 +420,8 @@ async def bootstrap_command(store: OAuthStore) -> None:
             )
             await writer.drain()
         except Exception:
-            pass
+            if diagnostics is not None:
+                diagnostics.emit("CALLBACK_REJECTED")
         finally:
             writer.close()
 
@@ -367,6 +429,8 @@ async def bootstrap_command(store: OAuthStore) -> None:
         parsed = urlsplit(url)
         if parsed.scheme != "https" or parsed.netloc != "clerk.finary.com":
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
+        if diagnostics is not None:
+            diagnostics.emit("BROWSER_CONSENT")
         if not webbrowser.open(url):
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
 
@@ -375,11 +439,17 @@ async def bootstrap_command(store: OAuthStore) -> None:
 
     from app.mcp_client import NativeMcpClient
 
+    if diagnostics is not None:
+        diagnostics.emit("CALLBACK_LISTENER")
     server = await asyncio.start_server(receive, "127.0.0.1", 8765, limit=8192)
     async with server:
         client = NativeMcpClient(
             lambda: authorized_http(
-                store=store, bootstrap=True, redirect=redirect, callback=callback
+                store=store,
+                bootstrap=True,
+                redirect=redirect,
+                callback=callback,
+                diagnostics=diagnostics,
             )
         )
         async with client.session(("accounts", "holdings", "get_portfolio_overview")) as session:
@@ -437,8 +507,16 @@ def main() -> None:
     parser.add_argument("command", choices=("bootstrap", "status", "revoke"))
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--expected-generation")
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Print fixed bootstrap stages and HTTP status codes without OAuth payloads",
+    )
     args = parser.parse_args()
+    if args.diagnose and args.command != "bootstrap":
+        parser.error("--diagnose requires bootstrap")
     suppress_sdk_diagnostics()
+    diagnostics = BootstrapDiagnostics() if args.diagnose else None
     try:
         store = OAuthStore(args.state)
         if args.command == "status":
@@ -455,16 +533,20 @@ def main() -> None:
                 )
             )
         elif args.command == "bootstrap":
-            asyncio.run(bootstrap_command(store))
+            asyncio.run(bootstrap_command(store, diagnostics))
         elif args.expected_generation:
             asyncio.run(revoke_command(store, args.expected_generation))
         else:
             raise McpFailure("MCP_INVALID_ARGUMENT")
-    except Exception:
-        print(
-            '{"status":"MCP_AUTH_UNAVAILABLE",'
-            '"action":"Review the independent OAuth operator runbook"}'
-        )
+    except Exception as error:
+        failure = sanitized_failure(error, "MCP_AUTH_UNAVAILABLE")
+        outcome = {
+            "status": failure.code,
+            "action": "Review the independent OAuth operator runbook",
+        }
+        if diagnostics is not None:
+            outcome["stage"] = diagnostics.stage
+        print(json.dumps(outcome))
         raise SystemExit(1) from None
 
 

@@ -16,6 +16,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 
+from app.config import SERVICE_NAME, SERVICE_VERSION
 from app.mcp_validation import CONTRACT, validate
 
 MCP_URL = "https://public-api.finary.com/mcp"
@@ -192,6 +193,8 @@ class BoundedTransport(httpx2.AsyncBaseTransport):
         self.transport = transport or httpx2.AsyncHTTPTransport(retries=0)
 
     async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        # SDK-generated OAuth requests bypass the HTTP client's default headers.
+        request.headers.setdefault("User-Agent", f"{SERVICE_NAME}/{SERVICE_VERSION}")
         request.headers["Accept-Encoding"] = "identity"
         retry_read = False
         if str(request.url) == MCP_URL and request.method == "POST":

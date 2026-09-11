@@ -90,7 +90,7 @@ class AuthPeer(SyntheticWire):
         return super().respond(request)
 
 
-async def consent(store, peer):
+async def consent(store, peer, diagnostics=None):
     result = None
 
     async def redirect(url):
@@ -112,6 +112,7 @@ async def consent(store, peer):
             redirect=redirect,
             callback=callback,
             transport=httpx2.MockTransport(peer.respond),
+            diagnostics=diagnostics,
         )
 
     async with NativeMcpClient(factory).session(("accounts",)) as session:
@@ -259,3 +260,108 @@ def test_explicit_revoke_tombstone_and_generation_guard(tmp_path, capsys):
     assert store.read().refresh_token is None
     assert store.read().generation != state.generation
     assert "synthetic-renewable" not in capsys.readouterr().out
+
+
+def test_bootstrap_diagnostics_report_only_fixed_stages_and_statuses(tmp_path, capsys):
+    from app.mcp_auth import BootstrapDiagnostics
+
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer(), BootstrapDiagnostics()))
+    output = capsys.readouterr().out
+    events = [json.loads(line)["diagnostic"] for line in output.splitlines()]
+    assert {event["stage"] for event in events} >= {
+        "LOCAL_STATE",
+        "RESOURCE_METADATA",
+        "ISSUER_METADATA",
+        "METADATA_VALIDATION",
+        "MCP_INITIALIZATION",
+        "CLIENT_REGISTRATION",
+        "TOKEN_EXCHANGE",
+        "TOOL_DISCOVERY",
+    }
+    assert any(event == {"stage": "CLIENT_REGISTRATION", "http_status": 201} for event in events)
+    assert all(set(event) <= {"stage", "http_status"} for event in events)
+    for private in ("synthetic-", "http://", "https://", "state.json", "Bearer"):
+        assert private not in output
+
+
+@pytest.mark.parametrize("diagnose", [False, True])
+def test_operator_failure_retains_safe_code_without_exception_text(
+    tmp_path, monkeypatch, capsys, diagnose
+):
+    import app.mcp_auth as auth
+
+    async def fail(store, diagnostics):
+        if diagnostics is not None:
+            diagnostics.emit("TOOL_DISCOVERY")
+        try:
+            raise ValueError("synthetic-secret-upstream-response")
+        except ValueError:
+            raise McpFailure("MCP_CAPABILITY_UNAVAILABLE") from None
+
+    arguments = ["mcp_auth", "bootstrap", "--state", str(tmp_path / "oauth/state.json")]
+    if diagnose:
+        arguments.append("--diagnose")
+    monkeypatch.setattr("sys.argv", arguments)
+    monkeypatch.setattr(auth, "bootstrap_command", fail)
+    with pytest.raises(SystemExit) as stopped:
+        auth.main()
+    assert stopped.value.code == 1
+    output = capsys.readouterr().out
+    outcome = json.loads(output.splitlines()[-1])
+    assert outcome["status"] == "MCP_CAPABILITY_UNAVAILABLE"
+    if diagnose:
+        assert outcome["stage"] == "TOOL_DISCOVERY"
+    else:
+        assert "stage" not in outcome
+    assert "synthetic-secret" not in output
+
+
+def test_diagnostic_failure_never_prints_registration_error_body(tmp_path, capsys):
+    from app.mcp_auth import BootstrapDiagnostics
+
+    class RejectedRegistration(AuthPeer):
+        def respond(self, request):
+            if str(request.url) == ISSUER + "/oauth/register":
+                return httpx2.Response(
+                    400,
+                    json={
+                        "error": "invalid_client_metadata",
+                        "error_description": "synthetic-secret-registration-response",
+                    },
+                )
+            return super().respond(request)
+
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    diagnostics = BootstrapDiagnostics()
+    with pytest.raises(McpFailure):
+        asyncio.run(consent(store, RejectedRegistration(), diagnostics))
+    output = capsys.readouterr().out
+    assert json.loads(output.splitlines()[-1])["diagnostic"] == {
+        "stage": "CLIENT_REGISTRATION",
+        "http_status": 400,
+    }
+    assert "synthetic-secret" not in output
+    assert store.read().generation == ""
+
+
+def test_sdk_oauth_requests_supply_http_client_identification(tmp_path):
+    class IdentificationRequired(AuthPeer):
+        def __init__(self):
+            super().__init__()
+            self.identification = []
+
+        def respond(self, request):
+            agent = request.headers.get("user-agent")
+            if not agent:
+                return httpx2.Response(403, text="Synthetic unidentified HTTP client")
+            self.identification.append(agent)
+            return super().respond(request)
+
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = IdentificationRequired()
+    asyncio.run(consent(store, peer))
+    asyncio.run(unattended(store, peer))
+    assert peer.token_requests == ["authorization_code", "refresh_token"]
+    assert "finary-bridge/1.1.0" in peer.identification
+    assert any(agent.startswith("python-httpx") for agent in peer.identification)

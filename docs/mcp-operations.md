@@ -63,6 +63,25 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
    needs real evidence. If unsupported, the command returns
    `MCP_AUTH_UNAVAILABLE`; do not invent endpoints or borrow assistant tokens.
    Routes and schedules never initiate consent or dynamic registration.
+
+   If bootstrap fails before opening the browser, first run `status` against
+   the same test state. An empty `generation` with `live_validity: UNVERIFIED`
+   means the local store is readable but no client registration is persisted.
+   Retry bootstrap with `--diagnose` to print fixed stage names and HTTP status
+   codes only. This remains an explicit bootstrap attempt and can open consent;
+   it never prints URLs, callback values, tokens, OAuth bodies or raw exceptions.
+   Preserve the final allowlisted error code and stage for troubleshooting:
+
+   ```bash
+   python -m app.mcp_auth bootstrap --diagnose \
+     --state "$HOME/.local/state/finary-mcp-candidate/oauth.json"
+   ```
+
+   The transport supplies an honest bridge `User-Agent` when an SDK-generated
+   OAuth request has none. Public metadata checks on 2026-09-11 returned HTTP
+   403 for SDK requests without this header and HTTP 200 with it, independently
+   of the MCP revision header. This checks public discovery only; registration,
+   consent and authenticated collection still need the operator's live evidence.
 5. Status reports local restart-state presence and `live_validity: UNVERIFIED`;
    it is not a connectivity or consent assertion. Repeat a structural collection
    in a new process to prove cold restart, then separately exercise token expiry

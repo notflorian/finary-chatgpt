@@ -41,6 +41,17 @@ with a challenge identifying the public protected-resource metadata. No consent,
 registration or tool call was performed. Initialization did not complete, so the
 negotiated revision and authenticated transport remain unverified.
 
+During the first operator bootstrap attempt, the browser did not open and no
+client registration was persisted. A public-only reproduction found that SDK
+OAuth metadata requests omitted the HTTP client's default `User-Agent`: the
+same metadata endpoint returned HTTP 403 without identification and HTTP 200
+with `finary-bridge/1.1.0`. The transport now supplies that header only when
+absent. The real SDK subsequently completed public discovery and reached the
+registration boundary, where the probe deliberately blocked transmission.
+No registration, token exchange or portfolio read occurred in that probe.
+The opt-in `bootstrap --diagnose` output now reports fixed stages/status codes,
+and the CLI preserves allowlisted failure codes without raw exception text.
+
 Public resource metadata identifies `https://public-api.finary.com/mcp` and
 issuer `https://clerk.finary.com`, with header bearer authentication and resource
 scopes `openid profile email`. Issuer metadata advertises authorization-code and
