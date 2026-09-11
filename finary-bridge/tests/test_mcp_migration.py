@@ -184,3 +184,131 @@ def test_override_exact_pair_and_rollback_preserve_manual_edits():
     ):
         with pytest.raises(ValueError):
             migration.verified_override(override, {**pair, **changes}, pair["mcp_key"])
+
+
+def source_with_auxiliary():
+    original = source_grid()
+    original["sheets"].append(
+        {
+            "properties": {
+                "sheetId": 100,
+                "title": "graphs",
+                "index": len(original["sheets"]),
+                "sheetType": "GRID",
+                "gridProperties": {"rowCount": 100, "columnCount": 26},
+            },
+            "charts": [{"chartId": 5, "spec": {"title": "Synthetic history"}}],
+            "data": [
+                {
+                    "rowData": [
+                        {
+                            "values": [
+                                {
+                                    "userEnteredValue": {
+                                        "formulaValue": "=COUNTA(portfolio_daily!A:A)"
+                                    },
+                                    "effectiveValue": {"numberValue": 2},
+                                    "formattedValue": "2",
+                                    "note": "Preserve this auxiliary formula",
+                                    "userEnteredFormat": {"textFormat": {"bold": True}},
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+    )
+    return original
+
+
+def auxiliary_plan(original):
+    source = native.native_inventory(original)
+    return source, migration.plan(
+        source,
+        deepcopy(source),
+        "synthetic-candidate",
+        "migration-synthetic",
+        "synthetic-writer",
+        "2026-09-11T10:00:00+02:00",
+    )
+
+
+@pytest.mark.parametrize("response_lost", [False, True])
+def test_auxiliary_chart_sheet_survives_native_migration_and_replay(response_lost):
+    original = source_with_auxiliary()
+    source, plan = auxiliary_plan(original)
+    peer = FakeGoogle(original, response_lost)
+    # Calculated cell output is not a user edit or a source accounting value.
+    peer.value["sheets"][-1]["data"][0]["rowData"][0]["values"][0]["effectiveValue"] = {
+        "numberValue": 3
+    }
+    client = native.GoogleCandidate("synthetic", httpx2.MockTransport(peer.respond))
+    target = client.apply(original, source, plan)
+    assert target["auxiliary_sheets"] == source["auxiliary_sheets"]
+    assert client.apply(original, source, plan) == target
+    assert len(peer.posts) == 1
+    assert not any(
+        item.get("updateCells", {}).get("start", {}).get("sheetId") == 100
+        or item.get("appendDimension", {}).get("sheetId") == 100
+        for item in peer.posts[0]["requests"]
+    )
+    assert [s["properties"]["title"] for s in peer.value["sheets"]][:11] == [
+        s["properties"]["title"] for s in original["sheets"]
+    ]
+
+
+@pytest.mark.parametrize("change", ["formula", "note", "chart", "missing", "extra", "index"])
+def test_auxiliary_conflicts_abort_before_writes(change):
+    original = source_with_auxiliary()
+    source, plan = auxiliary_plan(original)
+    peer = FakeGoogle(original)
+    graph = peer.value["sheets"][-1]
+    value = graph["data"][0]["rowData"][0]["values"][0]
+    if change == "formula":
+        value["userEnteredValue"]["formulaValue"] = "=42"
+    elif change == "note":
+        value["note"] = "Changed"
+    elif change == "chart":
+        graph["charts"][0]["spec"]["title"] = "Changed"
+    elif change == "index":
+        graph["properties"]["index"] += 1
+    elif change == "missing":
+        peer.value["sheets"].pop()
+    else:
+        extra = deepcopy(graph)
+        extra["properties"].update(title="Other", sheetId=101, index=11)
+        peer.value["sheets"].append(extra)
+    with pytest.raises(ValueError):
+        native.GoogleCandidate("synthetic", httpx2.MockTransport(peer.respond)).apply(
+            original, source, plan
+        )
+    assert not peer.posts
+
+
+@pytest.mark.parametrize("change", ["reserved", "duplicate_id", "duplicate_title"])
+def test_auxiliary_inventory_rejects_reserved_names_and_duplicate_identity(change):
+    original = source_with_auxiliary()
+    graph = original["sheets"][-1]["properties"]
+    if change == "reserved":
+        graph["title"] = "writer_control"
+    elif change == "duplicate_id":
+        graph["sheetId"] = original["sheets"][0]["properties"]["sheetId"]
+    else:
+        graph["title"] = original["sheets"][0]["properties"]["title"]
+    with pytest.raises(ValueError):
+        native.native_inventory(original)
+
+
+def test_auxiliary_edit_after_migration_is_retained_and_requires_reconciliation():
+    original = source_with_auxiliary()
+    source, plan = auxiliary_plan(original)
+    peer = FakeGoogle(original)
+    client = native.GoogleCandidate("synthetic", httpx2.MockTransport(peer.respond))
+    client.apply(original, source, plan)
+    graph = next(s for s in peer.value["sheets"] if s["properties"]["title"] == "graphs")
+    graph["charts"][0]["spec"]["title"] = "Later manual change"
+    with pytest.raises(ValueError):
+        client.apply(original, source, plan)
+    assert len(peer.posts) == 1
+    assert graph["charts"][0]["spec"]["title"] == "Later manual change"

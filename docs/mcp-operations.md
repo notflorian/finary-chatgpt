@@ -169,7 +169,13 @@ repository for every inventory and plan.
    ledger re-reading, never blind re-addition of columns or sheets. Repeating
    the same validated plan is a no-op that preserves later manual changes;
    conflicting/interrupted ledgers require explicit reconciliation. Partial
-   copies, extra tabs, unsupported layouts or oversized plans fail closed.
+   copies, conflicting reserved tab names, unsupported layouts or oversized plans
+   fail closed. Additional user-owned grid tabs (for example charts) are bound
+   into the source inventory and preserved in their original positions. No
+   migration request writes those tabs. Their formulas, notes, formats and chart
+   definitions must match the backup; calculated cell results are excluded from
+   that comparison. A later edit is retained and requires reconciliation before
+   migration replay.
 5. Validate the detached result:
 
    ```bash

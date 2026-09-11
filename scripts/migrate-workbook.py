@@ -165,6 +165,7 @@ def apply(source, target, migration, *, writers_drained):
 def verify(source, target, migration):
     inventory(target, CURRENT)
     check(target["workbook_reference"] == migration["destination_workbook_reference"])
+    check(target.get("auxiliary_sheets", []) == source.get("auxiliary_sheets", []))
     for table, old in source["sheets"].items():
         if table in MANUAL:
             continue

@@ -8,6 +8,7 @@ import argparse
 import getpass
 import importlib.util
 import json
+from copy import deepcopy
 from pathlib import Path
 from urllib.parse import quote
 
@@ -26,13 +27,33 @@ def entered(cell):
     return next(iter(value.values()), "")
 
 
+def auxiliary_snapshot(sheet):
+    """Bind user-owned auxiliary content without volatile calculated cell values."""
+    result = deepcopy(sheet)
+    migration.check(result["properties"].get("sheetType", "GRID") == "GRID")
+    for grid in result.get("data", []):
+        for row in grid.get("rowData", []):
+            for value in row.get("values", []):
+                for computed in ("effectiveValue", "formattedValue", "effectiveFormat", "hyperlink"):
+                    value.pop(computed, None)
+    return result
+
+
 def native_inventory(native, schema_version="2.1", reference=None):
     schema = migration.LEGACY if schema_version == "2.1" else migration.CURRENT
     sheets = {}
+    auxiliary = []
     ordered = sorted(native["sheets"], key=lambda s: s["properties"]["index"])
+    for field in ("title", "sheetId", "index"):
+        identifiers = [sheet["properties"][field] for sheet in ordered]
+        migration.check(len(set(identifiers)) == len(identifiers))
     for sheet in ordered:
         name = sheet["properties"]["title"]
-        migration.check(name in schema["sheets"])
+        if name not in schema["sheets"]:
+            # Future canonical names indicate an interrupted or conflicting migration.
+            migration.check(name not in migration.CURRENT["sheets"])
+            auxiliary.append(auxiliary_snapshot(sheet))
+            continue
         grid = sheet.get("data", [])
         migration.check(len(grid) <= 1 and (not grid or not grid[0].get("startRow", 0)))
         rows = grid[0].get("rowData", []) if grid else []
@@ -57,6 +78,8 @@ def native_inventory(native, schema_version="2.1", reference=None):
         "workbook_reference": reference or native["spreadsheetId"],
         "sheets": sheets,
     }
+    if auxiliary:
+        inventory["auxiliary_sheets"] = auxiliary
     migration.inventory(inventory, schema)
     return inventory
 
@@ -69,6 +92,9 @@ def native_preserved(source, candidate):
         migration.check(
             new is not None and old["properties"]["index"] == new["properties"]["index"]
         )
+        if old["properties"]["title"] not in migration.LEGACY["sheets"]:
+            migration.check(auxiliary_snapshot(old) == auxiliary_snapshot(new))
+            continue
         for key in (
             "merges",
             "conditionalFormats",
