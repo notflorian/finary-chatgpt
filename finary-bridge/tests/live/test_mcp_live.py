@@ -55,6 +55,7 @@ def test_isolated_native_collection_structure(capsys, monkeypatch):
 def test_isolated_natural_expiry_renewal(capsys):
     """Retain one OAuth session across natural expiry without extending a collection."""
     from contextlib import asynccontextmanager
+    from math import ceil, isfinite
     from time import time
 
     from mcp_live_expiry import wait_for_expiry
@@ -95,6 +96,13 @@ def test_isolated_natural_expiry_renewal(capsys):
             generation = context.storage.state.generation
             assert context.is_token_valid()
             emit("INITIAL_COLLECTION_VALIDATED")
+            known_expiry = isinstance(expiry, (int, float)) and isfinite(expiry)
+            emit(
+                "EXPIRY_WAIT_CONFIGURATION",
+                expiry_available=known_expiry,
+                remaining_seconds=ceil(expiry + 2 - time()) if known_expiry else None,
+                max_wait_seconds=max_wait,
+            )
             await wait_for_expiry(
                 expiry,
                 max_wait,
