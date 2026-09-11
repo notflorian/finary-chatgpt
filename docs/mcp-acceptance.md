@@ -118,15 +118,20 @@ failed as expected in 0.01s at `SESSION_INITIALIZATION` with
 blocking after state removal, not a passing portfolio-collection test. The
 operator has not separately reported browser behavior for this invocation.
 
-Next: replay the approved migration plan against the migrated test candidate
-to verify idempotence, then prepare separately authorized portfolio synchronization.
-Natural in-session expiry remains separate missing evidence;
-repeated fresh-process collections do not establish an access-token lifetime.
-Revocation-request acceptance and local state removal alone do not prove
-server-side invalidation.
-A shadow write additionally requires an explicitly authorized test workbook.
-The PR remains draft and references the roadmap without claiming parent closure.
-No child issue is automatically closed while integrated acceptance is outstanding.
+Current acceptance status: native migration replay, authorized portfolio shadow
+synchronization, fresh consumer readback and real Sheets interruption/recovery
+and null transitions have passed. Dedicated live revocation proves server-side
+refresh rejection, while the retained access token remains accepted. Natural
+in-session expiry/renewal is still awaiting the operator's running test; the
+issuer-advertised lifetime observed during setup was approximately 24 hours.
+Long-term consent validity, granted-scope review and concurrent live refresh
+remain unverified. Production cutover and the first scheduled run have not been
+performed and remain separate operator actions.
+
+PR #97 is ready for review, not a draft, as verified on 2026-09-11. It references
+the roadmap without claiming parent closure. No child issue is automatically
+closed while integrated acceptance remains outstanding. CI results must be
+checked on the latest pushed commit, independently of historical results below.
 
 Read-only inspection of an operator-designated test workbook found an auxiliary
 chart tab alongside the legacy headers. The native migration now preserves
@@ -142,15 +147,17 @@ validated native inventory, detached plan/apply/verify and live request prefligh
 After explicit approval restricted to the test candidate, native apply returned
 VALIDATED. Independent connector readback confirmed 24 tabs, original tab order
 including the auxiliary chart tab, one PAUSED 3.0 MCP writer control and one
-VALIDATED migration ledger. No Finary portfolio synchronization or production
-activation occurred. Live migration replay remains to be tested.
+VALIDATED migration ledger. Portfolio synchronization had not yet run at that
+migration stage. Subsequent migration replay and authorized synchronization
+passed, as recorded below; no production activation occurred.
 
 The operator reported successful native migration replay, then bootstrapped a
 new isolated MCP connection with AUTHORIZED / protocol 2025-11-25 / required
 tools. A standalone candidate Compose file now prepares separate ports, network
 and n8n storage with no private-provider settings or production environment
-file. Synthetic configuration validation passed and is included in CI; live
-container startup and manual shadow synchronization remain pending.
+file. Synthetic configuration validation passed and is included in CI. The
+operator subsequently started all three isolated services, connected the test
+Google credential and completed the authorized manual shadow synchronization.
 
 The first isolated n8n partial execution stopped at snapshot validation before
 Sheets reads. Both real HTTP requests returned 200, but text-mode full responses
@@ -165,8 +172,9 @@ was patched in place, preserving all 66 Google credential associations.
 
 After refreshing the patched inactive workflow, the operator reported the
 expected Read writer_control row: schema 3.0, official MCP provider, generation
-1, the configured test writer and migration, and PAUSED state. The live partial
-path now reaches the Sheets control read; no portfolio write is claimed.
+1, the configured test writer and migration, and PAUSED state. That partial
+execution established the Sheets control read; the subsequent authorized write
+and independent readback are recorded below.
 
 HTTP-boundary follow-up validation: full credential-free suite 3,615 passed and
 49 Docker skips (110.50s); mandatory isolated engine/connector gate 49 passed
@@ -198,10 +206,11 @@ unavailable rather than zero. No write node executed during this readback.
 
 This is live installed-connector write/read and production-consumer evidence,
 not a simulation or an additional synchronization. No schedule was published
-and no production workbook was changed. It does not establish live natural
-OAuth expiry, server-side token invalidation, all null transitions, production
-cutover or the first scheduled execution. The previously recorded synthetic
-regressions remain separate evidence for failure and transition cases.
+and no production workbook was changed. This observation alone did not establish
+OAuth expiry, revocation or null transitions; the later dedicated revocation and
+Sheets tests below provide their own evidence. Production cutover and the first
+scheduled execution remain unperformed. Synthetic failure regressions remain a
+separate evidence category.
 
 
 ## Dedicated live server-side revocation evidence (2026-09-11)

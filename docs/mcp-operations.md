@@ -1,9 +1,11 @@
 # Independent MCP candidate acceptance and cutover
 
 This runbook is executable preparation for an operator. It does not authorize
-production activation. The integration remains a candidate until independent
-Finary consent, renewal, cold restart and isolated revocation, plus a separately
-authorized shadow workbook, have been accepted. See the dated
+production activation. Independent consent, cold-start renewal, server-side refresh
+revocation, authorized shadow synchronization and real Sheets recovery/clearing
+have live evidence. Natural-expiry renewal and production acceptance remain open.
+The retained access token remained accepted after revocation; do not promise
+immediate access invalidation. See the dated
 [acceptance matrix](mcp-acceptance.md). Assistant/plugin authorization is unrelated
 and must never be inspected, copied, revoked or used by these commands.
 

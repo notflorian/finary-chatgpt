@@ -460,8 +460,9 @@ consumer documentation.
 ## Deliberate limitations
 
 - The legacy provider relies on a private API. Official MCP connector
-  access exists; independent bridge authorization and several source semantics
-  remain verification gates in the planned contract.
+  access and independent bridge authorization have live evidence. Natural-expiry
+  renewal and production acceptance remain open; unverified source semantics
+  retain explicit qualifiers in the implemented contract.
 - Liability coverage is not guaranteed complete by the verified upstream
   surface.
 - No speculative FX conversion is performed.

@@ -13,8 +13,10 @@ The bridge owns two isolated providers. The default private provider retains
 authoritative overview/allocation and explicit coverage. Neither Google Sheets
 nor ChatGPT receives Finary credentials or raw upstream payloads.
 
-The MCP path is executable and tested offline; independent live authorization
-and shadow-workbook acceptance remain operator gates. Start with the
+The MCP path has passed independent live authorization, an authorized shadow
+synchronization and workbook readback, plus real Sheets recovery and null-transition
+tests. Natural-expiry renewal and production acceptance remain open; revocation
+blocks refresh but did not immediately invalidate the retained access token. See the
 [MCP operator runbook](docs/mcp-operations.md),
 [acceptance evidence](docs/mcp-acceptance.md) and
 [nine-action consumer matrix](docs/mcp-consumer.md). The
