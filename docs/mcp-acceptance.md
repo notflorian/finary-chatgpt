@@ -14,7 +14,7 @@ migration, release publication and revoking existing connections are excluded.
 | #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes, natural expiry and server-side invalidation remain unverified |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
-| #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Offline implementation; no Google workbook was migrated; live candidate acceptance pending |
+| #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; live replay and portfolio sync pending |
 | #91 | Generated inactive MCP workflow, complete prewrite gate, RAW serialization, in-graph fixed failure telemetry and success-last terminal | Exported Code nodes; actual pinned graph/connector, restored execution IDs, response-loss and null/zero/blank transitions | Offline implementation; final required runtime gate recorded below; operational draining still required |
 | #92 | Protected independent budget and explicit-label search | Periods/leap dates, returned filters, legitimate zero, unpriced/history contradictions and unknown target currency | Implemented with explicit history/rate/target limitations; no scheduled budget or cashflow writes |
 | #93 | Protected complete-response goals with typed plans and explicit account references | Empty/reordered/duplicate-name plans, null fields, currencies, unknown cadence, unresolved references and no progress | Implemented as on-demand plans; no stable goal IDs or inferred progress |
@@ -118,8 +118,8 @@ failed as expected in 0.01s at `SESSION_INITIALIZATION` with
 blocking after state removal, not a passing portfolio-collection test. The
 operator has not separately reported browser behavior for this invocation.
 
-Next: identify an isolated candidate workbook and prepare its read-only
-inventory and migration plan before any separately authorized shadow write.
+Next: replay the approved migration plan against the migrated test candidate
+to verify idempotence, then prepare separately authorized portfolio synchronization.
 Natural in-session expiry remains separate missing evidence;
 repeated fresh-process collections do not establish an access-token lifetime.
 Revocation-request acceptance and local state removal alone do not prove
@@ -137,5 +137,10 @@ response loss and retained later edits. The full credential-free suite passed
 with 3,615 tests and 48 Docker skips in 92.12s from finary-bridge; the earlier
 root-directory invocation failed test collection and is not counted as passing.
 Ruff, mypy, JSON/generated parity and diff checks passed. A native candidate
-copy was created and its tab metadata verified; no schema migration or portfolio
-write was performed. The existing source remains unchanged.
+copy was created and its tab metadata verified. The operator then reported
+validated native inventory, detached plan/apply/verify and live request preflight.
+After explicit approval restricted to the test candidate, native apply returned
+VALIDATED. Independent connector readback confirmed 24 tabs, original tab order
+including the auxiliary chart tab, one PAUSED 3.0 MCP writer control and one
+VALIDATED migration ledger. No Finary portfolio synchronization or production
+activation occurred. Live migration replay remains to be tested.
