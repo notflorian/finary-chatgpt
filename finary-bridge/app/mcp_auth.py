@@ -135,6 +135,7 @@ class OAuthStore:
                 value = json.load(handle)
                 if (
                     set(value) != {"format", "generation", "client", "refresh_token", "scope"}
+                    or type(value["format"]) is not int
                     or value["format"] != 1
                 ):
                     raise ValueError

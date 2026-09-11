@@ -365,3 +365,23 @@ def test_sdk_oauth_requests_supply_http_client_identification(tmp_path):
     assert peer.token_requests == ["authorization_code", "refresh_token"]
     assert "finary-bridge/1.1.0" in peer.identification
     assert any(agent.startswith("python-httpx") for agent in peer.identification)
+
+
+@pytest.mark.parametrize("format_value", [True, 1.0, False, "1", None, 2])
+def test_store_rejects_wrong_format_type_without_modifying_file(tmp_path, format_value):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    store.replace("", OAuthState(""))
+    payload = json.loads(store.path.read_text())
+    payload["format"] = format_value
+    original = json.dumps(payload).encode()
+    store.path.write_bytes(original)
+    before = store.path.stat()
+    with pytest.raises(McpFailure):
+        store.read()
+    assert store.path.read_bytes() == original
+    after = store.path.stat()
+    assert (after.st_ino, after.st_mtime_ns, after.st_mode) == (
+        before.st_ino,
+        before.st_mtime_ns,
+        before.st_mode,
+    )
