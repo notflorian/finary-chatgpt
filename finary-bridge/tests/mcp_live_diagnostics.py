@@ -1,6 +1,8 @@
 """Observe production validation without exposing instances or remote schemas."""
 
 import json
+import re
+from decimal import Decimal, InvalidOperation
 from itertools import islice
 
 from mcp.client.session import ClientSession
@@ -8,6 +10,46 @@ from mcp.types import TextContent
 
 import app.mcp_client as client
 import app.mcp_validation as validation
+
+
+def decimal_shape(value):
+    """Report lexical categories and contract bounds, never digits or magnitude."""
+    if not isinstance(value, str):
+        return {"syntax": "NOT_TEXT"}
+    if len(value) > 256:
+        return {"syntax": "TEXT_TOO_LONG"}
+    stripped = value.strip()
+    result = {"surrounding_whitespace": value != stripped}
+    plain = r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)"
+    if re.fullmatch(plain + r"[eE][+-]?[0-9]+", stripped):
+        result["syntax"] = "SCIENTIFIC_NOTATION"
+    elif re.fullmatch(plain, stripped):
+        result["syntax"] = "PLAIN_DECIMAL"
+    elif stripped.lower().lstrip("+-") in {"nan", "snan", "inf", "infinity"}:
+        result["syntax"] = "NON_FINITE"
+    else:
+        result["syntax"] = "OTHER_TEXT"
+    if result["syntax"] in {"PLAIN_DECIMAL", "SCIENTIFIC_NOTATION"}:
+        try:
+            _, digits, exponent = Decimal(stripped).as_tuple()
+            result["integer_limit_exceeded"] = max(len(digits) + exponent, 1) > 24
+            result["fraction_limit_exceeded"] = max(-exponent, 0) > 18
+            significant = list(digits)
+            exact_exponent = exponent
+            while significant and significant[-1] == 0:
+                significant.pop()
+                exact_exponent += 1
+            if not significant:
+                exact_exponent = 0
+            result["exact_value_fits_bounds"] = (
+                max(len(significant) + exact_exponent, 1) <= 24
+                and max(-exact_exponent, 0) <= 18
+            )
+            result["leading_plus"] = stripped.startswith("+")
+            result["leading_zero_padding"] = bool(re.match(r"[+-]?0[0-9]", stripped))
+        except (InvalidOperation, ValueError, TypeError):
+            result["syntax"] = "UNSUPPORTED_DECIMAL"
+    return result
 
 
 def install_diagnostics(monkeypatch):
@@ -84,6 +126,12 @@ def install_diagnostics(monkeypatch):
                             continue
                         # These paths belong to the checked-in schema, never the instance.
                         rule = {"schema_path": list(error.absolute_schema_path)}
+                        if (
+                            error.validator == "pattern"
+                            and error.validator_value
+                            == validation.CONTRACT["$defs"]["decimal"]["pattern"]
+                        ):
+                            rule["decimal_shape"] = decimal_shape(error.instance)
                         if error.validator == "required" and isinstance(error.instance, dict):
                             rule["missing_fields"] = [
                                 key for key in error.validator_value if key not in error.instance
