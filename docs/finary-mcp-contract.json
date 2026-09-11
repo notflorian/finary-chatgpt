@@ -2148,6 +2148,10 @@
         {
           "if": {"properties": {"eur_basis": {"const": "SOURCE_EUR"}}},
           "then": {"properties": {"currency": {"const": "EUR"}}}
+        },
+        {
+          "if": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}},
+          "then": {"properties": {"currency": {"$ref": "#/$defs/currency"}}}
         }
       ]
     },
@@ -2163,7 +2167,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "financial_assets": {
           "$ref": "#/$defs/money",
@@ -2174,7 +2179,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "reported_liabilities": {
           "$ref": "#/$defs/money",
@@ -2186,7 +2192,8 @@
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
           },
-          "description": "Nonnegative when present; never convert net-worth negativity into negative debt."
+          "description": "Nonnegative when present; never convert net-worth negativity into negative debt.",
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "reported_net_worth": {
           "$ref": "#/$defs/money",
@@ -2197,7 +2204,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "unvalued_liability_count": {
           "type": "integer",
@@ -2890,7 +2898,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         }
       },
       "required": ["category", "value"],
@@ -2930,7 +2939,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         }
       },
       "required": ["category", "holding_type", "value"],
@@ -2971,7 +2981,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "reported_liabilities": {
           "$ref": "#/$defs/money",
@@ -2983,7 +2994,8 @@
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
           },
-          "description": "Nonnegative when present; never convert net-worth negativity into negative debt."
+          "description": "Nonnegative when present; never convert net-worth negativity into negative debt.",
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "reported_net_worth": {
           "$ref": "#/$defs/money",
@@ -2994,7 +3006,8 @@
             "currency": "provenance.currency",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
         },
         "unvalued_liability_count": {
           "type": "integer",
@@ -3259,7 +3272,10 @@
             "currency": "not_applicable",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "uniqueItems": true,
+          "x-unique-by": ["code", "entity_key"],
+          "description": "One row per declared key within the observation; reject duplicates before counting table membership."
         },
         "unsupported_details": {
           "type": "array",
@@ -3271,7 +3287,11 @@
             "currency": "not_applicable",
             "absence": "required, empty only when no unsupported details observed",
             "evidence": "project_decision"
-          }
+          },
+          "uniqueItems": true,
+          "x-unique-by": ["account_key", "holding_type", "reason"],
+          "description": "One row per declared key within the observation; reject duplicates before counting table membership.",
+          "x-reference": {"field": "account_key", "collection": "accounts", "target": "account_key"}
         }
       },
       "required": [
@@ -4015,7 +4035,7 @@
     }
   },
   "semantic_rules": {
-    "currency": "all overview/allocation/member money.currency equals provenance.currency; amount_eur equals amount only if EUR; no overview SOURCE_CONVERSION until independently verified upstream support is added. account native_balance may have SOURCE_CONVERSION using supplied full_value_eur only, never direct owners value.",
+    "currency": "all overview/allocation/member money.currency equals provenance.currency; amount_eur equals amount only if EUR; no overview SOURCE_CONVERSION until independently verified upstream support is added. account native_balance may have SOURCE_CONVERSION using supplied full_value_eur only, never direct owners value. Check view denomination even for null amounts: every overview/allocation/member currency must be nonnull and equal provenance.currency. Any normalized nonnull amount requires an explicit currency; a bare upstream number cannot become validated money.",
     "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.0.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
     "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
     "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
@@ -4023,7 +4043,8 @@
     "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts.",
     "native_valuation": "Apply valuation_contracts independently per collection. COMPLETE requires every accepted row to have both the covered native amount and its currency, including known zero; an independently complete empty collection is vacuously COMPLETE. EUR projection, cost/rate/quantity and ownership confidence remain separately qualified. Incomplete retrieval has no accepted current rows and cannot certify valuation.",
     "member_identity": "member_ordinal must be unique within one observation, regardless of labels; portfolio_members is keyed by observation_id + member_ordinal. Reuse across different observations is allowed and implies no persistent person identity. The x-unique-by annotation requires the cross-record identity check; JSON Schema alone cannot enforce projected uniqueness.",
-    "legacy_override_application": "apply_legacy_override requires an enabled override and state VERIFIED with nonnull MCP key, nonblank sanitized evidence_reference and timezone-aware reviewed_at. Cross-record equality must bind crosswalk.legacy_key to legacy_override.source_asset_id and crosswalk.mcp_key to mcp_source_asset_id. UNRESOLVED and REJECTED stay unapplied. Evidence records audited source evidence or explicit operator verification of this exact pair; no inferred cross-provider match."
+    "legacy_override_application": "apply_legacy_override requires an enabled override and state VERIFIED with nonnull MCP key, nonblank sanitized evidence_reference and timezone-aware reviewed_at. Cross-record equality must bind crosswalk.legacy_key to legacy_override.source_asset_id and crosswalk.mcp_key to mcp_source_asset_id. UNRESOLVED and REJECTED stay unapplied. Evidence records audited source evidence or explicit operator verification of this exact pair; no inferred cross-provider match.",
+    "diagnostic_identity": "Reject repeated warning (code, entity_key) pairs, including a null entity_key. The adapter must deduplicate identical warnings before publishing the snapshot and table membership counts. Unsupported detail (account_key, holding_type, reason) must be unique regardless of count, and every diagnostic account_key must reference an account in the same observation. Conflicting counts are rejected, never silently summed or selected. If no accepted accounts are available, per-account diagnostics cannot be published as orphan rows. These diagnostics never authorize portfolio inactivation."
   },
   "version_policy": {
     "source_contract_version": "Project-owned version of the evidence-backed source interpretation; not an upstream Finary release or negotiated MCP protocol revision. Native revision remains unverified.",
@@ -4057,5 +4078,32 @@
         "UNAVAILABLE": "Collection is not COMPLETE, or its nonempty accepted rows contain no known amount/currency pair."
       }
     }
+  },
+  "fixture_quality_policy": "Every fixture compares the full schema_valid/contract_error/quality outcome. Rules are keyed by schema; no implicit default for new schemas. Schema rejection yields NOT_APPLICABLE. Contract rejection yields NOT_APPLICABLE except failed holdings pagination yields PARTIAL collection evidence. Successful normalized snapshots report overview_quality; other coverage dimensions remain independently schema/semantically validated. Declared-shape examples report their action registry support_status; defensive output examples remain UNVERIFIED (goals: NO_STABLE_ID), and DECLARED_ONLY actions never acquire observed support. Account shapes remain UNVERIFIED_OWNERSHIP; accepted cross-provider migration cases imply SERIES_BREAK. Field rules assert the named quality/freshness field; constant NOT_APPLICABLE means that schema defines no quality dimension. These are fixture assessment rules, never upstream runtime proof.",
+  "fixture_quality_rules": {
+    "#/$defs/account_observed": {"kind": "constant", "value": "UNVERIFIED_OWNERSHIP"},
+    "#/$defs/accounts_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/analytics_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/budget_assessment": {"kind": "field", "path": "/quality"},
+    "#/$defs/budget_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/connection": {"kind": "field", "path": "/freshness"},
+    "#/$defs/connector_result": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/decimal": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/failure": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/get_me_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/goals_output": {"kind": "capability", "defensive_quality": "NO_STABLE_ID"},
+    "#/$defs/holdings_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/holdings_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/holdings_session": {"kind": "pagination", "required_check": "pagination"},
+    "#/$defs/id": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/migration_case": {"kind": "constant", "value": "SERIES_BREAK", "required_check": "migration"},
+    "#/$defs/overview_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/period_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/profiles_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/search_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/search_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/simulation_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/simulation_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/snapshot_v3": {"kind": "field", "path": "/coverage/overview_quality", "required_check": "snapshot"}
   }
 }

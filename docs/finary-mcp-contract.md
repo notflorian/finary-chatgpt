@@ -41,6 +41,17 @@ The [offline tests](../finary-bridge/tests/test_finary_mcp_contract.py) validate
 schemas and examples, then check relationships and migration invariants. They
 are an executable contract oracle, not proof of future runtime behavior.
 
+Every manifest case compares its full schema validity, contract error and
+quality outcome. `fixture_quality_rules` names the quality dimension for each
+schema: pagination completeness, overview quality, connection freshness,
+budget assessment, ownership uncertainty or migration series break. Declared
+examples use the action registry's evidence status, including historical and
+declaration-only support; defensive shapes do not upgrade that evidence.
+Rejected examples have `NOT_APPLICABLE` quality, except failed holdings
+pagination retains `PARTIAL` collection evidence. Inputs and schemas with no
+quality dimension explicitly use `NOT_APPLICABLE`. These rules do not replace
+the independent coverage checks or certify upstream semantics.
+
 ## Evidence and limits
 
 The [product page](https://finary.com/fr/mcp) describes a read-only connector and
@@ -147,6 +158,11 @@ foreign overview. A native account balance may carry its explicitly supplied
 full EUR conversion; its direct-owner EUR value is a different grain. Holding
 current value and buying price retain independent denomination evidence. Do not
 infer cost basis from buying price or infer ownership from quantity.
+Every normalized nonnull amount requires an explicit currency. A number with
+unknown denomination fails normalized validation; never guess its currency.
+Overview, allocation and member monetary groups always retain the view currency,
+even when their amount is null. Nullable currency remains valid only for unknown
+detail amounts outside those view-denominated groups.
 
 Ingestion uses bounded decimal strings parsed directly to decimal arithmetic,
 with no binary float intermediate. Project bounds are 24 integer and 18
@@ -248,6 +264,15 @@ parent is `relationships.asset.data`. Missing optional enrichment leaves null;
 account connection state distinguishes no connection from unresolved enrichment,
 and ownership evidence distinguishes absent owners from explicit entries.
 A conflicting parent or ambiguous included resource fails validation.
+
+Diagnostics also have unique observation-local keys. Deduplicate identical
+warnings by `(code, entity_key)`, including null entity keys, before publishing
+the snapshot and its expected table counts; validation rejects any duplicates
+that remain. Unsupported detail uses `(account_key, holding_type, reason)`,
+regardless of count, and must reference an account in the same observation.
+Repeated diagnostic keys or conflicting counts fail validation rather than
+being silently collapsed or summed. No accepted account collection means no
+per-account diagnostic rows; diagnostics never authorize inactivation.
 
 Holdings requires an account ID returned by accounts, defaults to limit 100 and
 offset 0, and advertises max limit 1000. Fetch every account including empty ones.

@@ -16,7 +16,7 @@
       "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
       "scenario": "get_me-declared-payload",
       "changes": [],
-      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
       "checks": []
     },
     {
@@ -42,7 +42,7 @@
       "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
       "scenario": "profiles-declared-payload",
       "changes": [],
-      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
       "checks": []
     },
     {
@@ -172,7 +172,7 @@
       "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
       "scenario": "goals-declared-payload",
       "changes": [],
-      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
       "checks": []
     },
     {
@@ -250,7 +250,7 @@
       "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
       "scenario": "unknown-identity-shape-not-invented",
       "changes": [{"op": "set", "path": "/data", "value": {}}],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
       "checks": []
     },
     {
@@ -293,7 +293,7 @@
         {"op": "remove", "path": "/attributes/full_value_eur"},
         {"op": "set", "path": "/attributes/total_owned_value_eur", "value": "0"}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
       "checks": []
     },
     {
@@ -325,7 +325,7 @@
           ]
         }
       ],
-      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
       "checks": []
     },
     {
@@ -338,7 +338,7 @@
       "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
       "scenario": "manual-account-no-connection",
       "changes": [],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
       "checks": []
     },
     {
@@ -802,7 +802,7 @@
         {"op": "set", "path": "/positions", "value": []},
         {"op": "set", "path": "/position_rates", "value": []}
       ],
-      "expected": {"schema_valid": true, "quality": "COMPLETE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -1113,7 +1113,7 @@
       "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
       "scenario": "budget-target-floor",
       "changes": [{"op": "set", "path": "/by_category/0/target/should_reach", "value": true}],
-      "expected": {"schema_valid": true, "quality": "UNVERIFIED_TARGET_CURRENCY", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
       "checks": []
     },
     {
@@ -1550,7 +1550,7 @@
       "evidence_references": ["project_decision"],
       "scenario": "unknown normalized type cannot establish complete coverage",
       "changes": [{"op": "set", "path": "/positions/0/holding_type", "value": "synthetic-unverified-holdings"}],
-      "expected": {"schema_valid": false, "quality": "PARTIAL", "contract_error": null},
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
       "checks": []
     },
     {
@@ -1750,7 +1750,7 @@
         },
         {"op": "set", "path": "/coverage/holdings", "value": "COMPLETE"}
       ],
-      "expected": {"schema_valid": false, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
       "checks": []
     },
     {
@@ -1832,7 +1832,7 @@
           "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
         }
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -1897,7 +1897,7 @@
         },
         {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -1936,7 +1936,7 @@
         },
         {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -1991,7 +1991,7 @@
         {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
         {"op": "set", "path": "/apply_legacy_override", "value": true}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "SERIES_BREAK", "contract_error": null},
       "checks": ["migration"]
     },
     {
@@ -2069,7 +2069,7 @@
         {"op": "set", "path": "/position_rates", "value": []},
         {"op": "set", "path": "/overview/reported_liabilities/amount", "value": "0.00"}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -2089,7 +2089,7 @@
         },
         {"op": "set", "path": "/accounts/0/full_value_eur", "value": "250.0"}
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
     },
     {
@@ -2217,8 +2217,325 @@
           ]
         }
       ],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
       "checks": ["snapshot"]
+    },
+    {
+      "id": "duplicate-observation-warning-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "duplicate-observation-warning-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null},
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "same-warning-code-distinct-entity-keys",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-warning-code-distinct-entity-keys",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null},
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": "mcp:account:assets:synthetic-a"}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-entity-distinct-warning-codes",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-entity-distinct-warning-codes",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": "mcp:account:assets:synthetic-a"},
+            {"code": "MISSING_ENRICHMENT", "entity_key": "mcp:account:assets:synthetic-a"}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "duplicate-unsupported-diagnostic-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "duplicate-unsupported-diagnostic-rejected",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "conflicting-counts-for-one-diagnostic-key",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "conflicting-counts-for-one-diagnostic-key",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 2,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "orphan-unsupported-diagnostic-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "orphan-unsupported-diagnostic-rejected",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-orphan",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-unsupported-type-distinct-reasons",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-unsupported-type-distinct-reasons",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNVERIFIED_FIELDS"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-account-distinct-unsupported-types",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-account-distinct-unsupported-types",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-other-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "missing-overview-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-overview-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/gross_assets",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-allocation-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-allocation-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/allocation_categories/0/value",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-member-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-member-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members/0/reported_liabilities",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unknown-member-amount-still-requires-view-currency",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unknown-member-amount-still-requires-view-currency",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members/0/reported_liabilities",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
     }
-  ]
+  ],
+  "quality_contract": "../../../../docs/finary-mcp-contract.json#/fixture_quality_rules"
 }
