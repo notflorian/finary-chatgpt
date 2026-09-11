@@ -11,7 +11,7 @@ migration, release publication and revoking existing connections are excluded.
 
 | Child | Implementation stage | Required evidence | Status / blockers |
 | --- | --- | --- | --- |
-| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; granted scopes, natural expiry and isolated revocation still need acceptance |
+| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes, natural expiry and server-side invalidation remain unverified |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
 | #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual preservation; writer compatibility and same-day histories | Offline implementation; no Google workbook was migrated; live candidate acceptance pending |
@@ -111,8 +111,16 @@ No production workflow, volume or workbook was used.
 Nonempty loan semantics and unverified rate/ownership interpretations remain
 qualified in the API rather than being invented.
 
-Next: obtain explicit operator approval before revoking the disposable test
-connection. Natural in-session expiry remains separate missing evidence;
+After explicitly authorizing revocation of the disposable connection, the
+operator reported `REVOCATION_REQUEST_ACCEPTED`. A subsequent structural test
+failed as expected in 0.01s at `SESSION_INITIALIZATION` with
+`MCP_AUTH_UNAVAILABLE`. This is expected negative acceptance evidence for local
+blocking after state removal, not a passing portfolio-collection test. The
+operator has not separately reported browser behavior for this invocation.
+
+Next: identify an isolated candidate workbook and prepare its read-only
+inventory and migration plan before any separately authorized shadow write.
+Natural in-session expiry remains separate missing evidence;
 repeated fresh-process collections do not establish an access-token lifetime.
 Revocation-request acceptance and local state removal alone do not prove
 server-side invalidation.
