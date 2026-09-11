@@ -64,7 +64,8 @@
             "response": {
               "fullResponse": true,
               "neverError": true,
-              "responseFormat": "text"
+              "responseFormat": "text",
+              "outputPropertyName": "body"
             }
           }
         }
@@ -98,7 +99,8 @@
             "response": {
               "fullResponse": true,
               "neverError": true,
-              "responseFormat": "text"
+              "responseFormat": "text",
+              "outputPropertyName": "body"
             }
           }
         }

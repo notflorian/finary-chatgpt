@@ -151,7 +151,12 @@ def generate(check=False):
             "options": {
                 "timeout": 20000,
                 "response": {
-                    "response": {"fullResponse": True, "neverError": True, "responseFormat": "text"}
+                    "response": {
+                        "fullResponse": True,
+                        "neverError": True,
+                        "responseFormat": "text",
+                        "outputPropertyName": "body",
+                    }
                 },
             },
         },
@@ -171,7 +176,12 @@ def generate(check=False):
             "options": {
                 "timeout": 185000,
                 "response": {
-                    "response": {"fullResponse": True, "neverError": True, "responseFormat": "text"}
+                    "response": {
+                        "fullResponse": True,
+                        "neverError": True,
+                        "responseFormat": "text",
+                        "outputPropertyName": "body",
+                    }
                 },
             },
         },

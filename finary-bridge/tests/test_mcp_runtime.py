@@ -227,3 +227,36 @@ def test_native_restored_execution_number_gets_new_uuid(runtime_image, tmp_path)
     assert identifiers[0].split(":")[1] == identifiers[1].split(":")[1] == "1"
     assert identifiers[0] != identifiers[1]
     assert len(book["positions_history"]) == len(book["portfolio_daily"]) == 2
+
+
+def test_native_http_nodes_deliver_text_body_to_exported_validator(runtime_image, tmp_path):
+    value = snapshot()
+    workflow = substitute(value, empty_book())
+    native_nodes = {n["name"]: n for n in WORKFLOW["nodes"]}
+    for index, node in enumerate(workflow["nodes"]):
+        if node["name"] not in {"Fetch MCP Schema", "Fetch MCP Snapshot"}:
+            continue
+        node = deepcopy(native_nodes[node["name"]])
+        path = "/schema" if node["name"] == "Fetch MCP Schema" else "/snapshot"
+        node["parameters"]["url"] = "http://127.0.0.1:8766" + path
+        workflow["nodes"][index] = node
+    execution = _execute(
+        tmp_path, runtime_image, workflow,
+        http_payloads={"/schema": SCHEMA, "/snapshot": value},
+        environment={
+            "FINARY_MCP_WRITER_ID": "synthetic-writer",
+            "FINARY_MCP_WRITER_GENERATION": "1",
+            "FINARY_MCP_GOOGLE_SHEET_ID": "synthetic-book",
+            "N8N_BLOCK_ENV_ACCESS_IN_NODE": "false",
+        },
+    )
+    data = execution["data"]["resultData"]["runData"]
+    for name in ("Fetch MCP Schema", "Fetch MCP Snapshot"):
+        response = _output(data, name)[0]
+        assert response["statusCode"] == 200
+        assert isinstance(response["body"], str)
+        assert "data" not in response
+    assert _output(data, "Validate MCP Snapshot")[0]["snapshot"] == value
+    assert _output(data, "Record MCP Success")[0]["status"] in {
+        "SUCCESS", "SUCCESS_WITH_WARNINGS"
+    }

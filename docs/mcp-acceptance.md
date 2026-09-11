@@ -151,3 +151,24 @@ tools. A standalone candidate Compose file now prepares separate ports, network
 and n8n storage with no private-provider settings or production environment
 file. Synthetic configuration validation passed and is included in CI; live
 container startup and manual shadow synchronization remain pending.
+
+The first isolated n8n partial execution stopped at snapshot validation before
+Sheets reads. Both real HTTP requests returned 200, but text-mode full responses
+used the installed node's default `data` property while the validator required
+`body`. The generator now explicitly selects `outputPropertyName: body` for
+both fetch nodes. Earlier graph tests substituted HTTP nodes and did not cover
+this transport shape. A new required runtime regression executes both installed
+HTTP nodes against a loopback-only synthetic server in a network-disabled
+container, then continues through the exported validator and graph. It passes
+without changing the production validation rules. The inactive test workflow
+was patched in place, preserving all 66 Google credential associations.
+
+After refreshing the patched inactive workflow, the operator reported the
+expected Read writer_control row: schema 3.0, official MCP provider, generation
+1, the configured test writer and migration, and PAUSED state. The live partial
+path now reaches the Sheets control read; no portfolio write is claimed.
+
+HTTP-boundary follow-up validation: full credential-free suite 3,615 passed and
+49 Docker skips (110.50s); mandatory isolated engine/connector gate 49 passed
+(220.75s), including actual HTTP nodes. All three portable imports, Ruff, mypy,
+Compose, JSON/generated parity, documentation links and diff checks passed.
