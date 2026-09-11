@@ -358,3 +358,19 @@ def test_sse_multiline_event_is_bounded_before_sdk_decoding(duplicate):
             asyncio.run(read())
     else:
         assert asyncio.run(read()) == body
+
+
+@pytest.mark.parametrize("field", ["inputSchema", "outputSchema"])
+def test_discovery_rejects_external_schema_fetches(field, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Unexpected schema network retrieval")
+
+    monkeypatch.setattr("urllib.request.urlopen", forbidden)
+    wire = SyntheticWire()
+    tools = wire.catalog()
+    tools[0][field] = {"type": "object", "$ref": "https://untrusted.invalid/schema"}
+    wire.catalog_pages = {None: {"tools": tools}}
+    with pytest.raises(McpFailure) as failure:
+        snapshot(wire)
+    assert failure.value.code == "MCP_CAPABILITY_UNAVAILABLE"
+    assert not wire.calls

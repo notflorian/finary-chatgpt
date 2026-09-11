@@ -68,6 +68,20 @@ def checked(name: str, value: Any) -> Any:
         raise McpFailure() from None
 
 
+def local_schema(schema: Any) -> None:
+    """Tool schemas may not cause JSON Schema to retrieve arbitrary URLs."""
+    if isinstance(schema, dict):
+        for name, value in schema.items():
+            if name in {"$ref", "$dynamicRef", "$id"} and (
+                not isinstance(value, str) or not value.startswith("#")
+            ):
+                raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
+            local_schema(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            local_schema(value)
+
+
 def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for name, value in pairs:
@@ -249,10 +263,12 @@ class McpSession:
                 if tool.name in catalog or len(catalog) >= 1000:
                     raise McpFailure("MCP_PROTOCOL_ERROR")
                 if tool.name in CONTRACT["capabilities"]:
+                    local_schema(tool.input_schema)
                     Draft202012Validator.check_schema(tool.input_schema)
                     if tool.input_schema.get("type") != "object":
                         raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
                     if tool.output_schema is not None:
+                        local_schema(tool.output_schema)
                         Draft202012Validator.check_schema(tool.output_schema)
                 catalog[tool.name] = tool
             cursor = page.next_cursor
