@@ -1,0 +1,2541 @@
+{
+  "contract_version": "1.0.0",
+  "construction": "All values invented directly; bases plus explicit mutations are synthetic fixtures, not recorded live payloads.",
+  "base_file": "bases.json",
+  "mutation_semantics": "JSON Pointer path; set replaces/adds object property or existing array element; remove deletes property/array element; no network or runtime transformations.",
+  "inspection_date": "2026-09-11",
+  "schema_layer_note": "Declared-shape validity is distinct from acceptance validity and semantic check outcome. Evidence class describes construction, not a claim of live verification.",
+  "cases": [
+    {
+      "id": "get_me-declared-payload",
+      "base": "get_me",
+      "schema": "#/$defs/get_me_output",
+      "action": "get_me",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "get_me-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "get_me-input",
+      "base": "no_args",
+      "schema": "#/$defs/analytics_input",
+      "action": "get_me",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "get_me-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "profiles-declared-payload",
+      "base": "profiles",
+      "schema": "#/$defs/profiles_output",
+      "action": "profiles",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "profiles-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "profiles-input",
+      "base": "no_args",
+      "schema": "#/$defs/analytics_input",
+      "action": "profiles",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "profiles-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "accounts-declared-payload",
+      "base": "accounts",
+      "schema": "#/$defs/accounts_output",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "accounts-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "accounts-input",
+      "base": "no_args",
+      "schema": "#/$defs/analytics_input",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "accounts-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "holdings-declared-payload",
+      "base": "holdings",
+      "schema": "#/$defs/holdings_output",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "holdings-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "holdings-input",
+      "base": "holdings_input",
+      "schema": "#/$defs/holdings_input",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "holdings-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "get_portfolio_overview-declared-payload",
+      "base": "overview",
+      "schema": "#/$defs/overview_output",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "get_portfolio_overview-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "get_portfolio_overview-input",
+      "base": "no_args",
+      "schema": "#/$defs/analytics_input",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "get_portfolio_overview-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "get_budget_overview-declared-payload",
+      "base": "budget",
+      "schema": "#/$defs/budget_output",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "get_budget_overview-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "OBSERVED_SUBSET", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "get_budget_overview-input",
+      "base": "period_input",
+      "schema": "#/$defs/period_input",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "get_budget_overview-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["period"]
+    },
+    {
+      "id": "goals-declared-payload",
+      "base": "goals",
+      "schema": "#/$defs/goals_output",
+      "action": "goals",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "goals-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "HISTORICALLY_OBSERVED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "goals-input",
+      "base": "no_args",
+      "schema": "#/$defs/analytics_input",
+      "action": "goals",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "goals-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "search_spending-declared-payload",
+      "base": "search",
+      "schema": "#/$defs/search_output",
+      "action": "search_spending",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "search_spending-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "DECLARED_ONLY", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "search_spending-input",
+      "base": "search_input",
+      "schema": "#/$defs/search_input",
+      "action": "search_spending",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "search_spending-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["period"]
+    },
+    {
+      "id": "simulate_compound_interest-declared-payload",
+      "base": "simulation",
+      "schema": "#/$defs/simulation_output",
+      "action": "simulate_compound_interest",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_declared_shape",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "simulate_compound_interest-declared-payload",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "DECLARED_ONLY", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "simulate_compound_interest-input",
+      "base": "simulation_input",
+      "schema": "#/$defs/simulation_input",
+      "action": "simulate_compound_interest",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "simulate_compound_interest-input",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unknown-identity-shape-not-invented",
+      "base": "get_me",
+      "schema": "#/$defs/get_me_output",
+      "action": "get_me",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "unknown-identity-shape-not-invented",
+      "changes": [{"op": "set", "path": "/data", "value": {}}],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-result-envelope",
+      "base": "overview",
+      "schema": "#/$defs/overview_output",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-result-envelope",
+      "changes": [{"op": "remove", "path": "/view"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "account-shares-above-one",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "account-shares-above-one",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "account-null-optional-values",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "account-null-optional-values",
+      "changes": [
+        {"op": "set", "path": "/attributes/balance", "value": null},
+        {"op": "remove", "path": "/attributes/full_value_eur"},
+        {"op": "set", "path": "/attributes/total_owned_value_eur", "value": "0"}
+      ],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "synthetic-company-joint-owners",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "synthetic-company-joint-owners",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/attributes/owners",
+          "value": [
+            {
+              "id": "synthetic-company",
+              "type": "companies",
+              "ownership_share": "0.7",
+              "owner_value_eur": "175"
+            },
+            {
+              "id": "synthetic-joint-owner",
+              "type": "profiles",
+              "ownership_share": "0.8",
+              "owner_value_eur": "200"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "manual-account-no-connection",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "manual-account-no-connection",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED_OWNERSHIP", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-nan",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-nan",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": "NaN"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-infinity",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-infinity",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": "Infinity"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-exponent",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-exponent",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": "1e12"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-whitespace",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-whitespace",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": " 1"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-oversized",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-oversized",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": "1000000000000000000000000"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-scale",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-scale",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": "0.1111111111111111111"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-numeric",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-numeric",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": 1.5}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-boolean",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-boolean",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": true}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "malformed-decimal-blank",
+      "base": "account",
+      "schema": "#/$defs/account_observed",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "malformed-decimal-blank",
+      "changes": [{"op": "set", "path": "/attributes/balance", "value": ""}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "decimal-zero",
+      "base": "decimal-zero",
+      "schema": "#/$defs/decimal",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "decimal-zero",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["decimal"]
+    },
+    {
+      "id": "decimal-negative",
+      "base": "decimal-negative",
+      "schema": "#/$defs/decimal",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "decimal-negative",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["decimal"]
+    },
+    {
+      "id": "decimal-exact",
+      "base": "decimal-exact",
+      "schema": "#/$defs/decimal",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "decimal-exact",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["decimal"]
+    },
+    {
+      "id": "empty-holdings",
+      "base": "empty_holdings",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "empty-holdings",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "COMPLETE", "contract_error": null},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "multipage-distinct-holdings-one-product",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "multipage-distinct-holdings-one-product",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "COMPLETE", "contract_error": null},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "duplicate-identities",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "duplicate-identities",
+      "changes": [{"op": "set", "path": "/pages/1/data/0/id", "value": "synthetic-h1"}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "repeated-offset",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "repeated-offset",
+      "changes": [{"op": "set", "path": "/pages/1/meta/offset", "value": 0}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "changed-total",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "changed-total",
+      "changes": [{"op": "set", "path": "/pages/1/meta/total", "value": 3}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "missing-page",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "missing-page",
+      "changes": [{"op": "remove", "path": "/pages/1"}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "conflicting-parent",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "conflicting-parent",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/pages/1/data/0/relationships/asset/data/id",
+          "value": "synthetic-other-account"
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "unknown-nonempty-type",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "unknown-nonempty-type",
+      "changes": [{"op": "set", "path": "/pages/1/data/0/type", "value": "synthetic-unverified-holdings"}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_UNSUPPORTED_DETAIL"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "hypothetical-loan-type-no-field-support",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "hypothetical-loan-type-no-field-support",
+      "changes": [
+        {"op": "set", "path": "/pages/1/data/0/type", "value": "synthetic-unverified-loan"},
+        {"op": "set", "path": "/pages/1/data/0/attributes", "value": {}}
+      ],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_UNSUPPORTED_DETAIL"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "missing-optional-enrichment",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "missing-optional-enrichment",
+      "changes": [{"op": "set", "path": "/pages/1/included", "value": []}],
+      "expected": {"schema_valid": true, "quality": "COMPLETE", "contract_error": null},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "empty-nonterminal-page",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "empty-nonterminal-page",
+      "changes": [{"op": "set", "path": "/pages/0/data", "value": []}],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "conflicting-included-resource",
+      "base": "holding_session",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "conflicting-included-resource",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/pages/0/included",
+          "value": [
+            {"type": "securities", "id": "synthetic-product", "attributes": {"name": "Synthetic A"}},
+            {"type": "securities", "id": "synthetic-product", "attributes": {"name": "Synthetic B"}}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "unknown-holding-still-open-declaration",
+      "base": "holdings",
+      "schema": "#/$defs/holdings_output",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "unknown-holding-still-open-declaration",
+      "changes": [{"op": "set", "path": "/data/0/type", "value": "synthetic-unverified-holdings"}],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "official-totals-differ-from-details",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "official-totals-differ-from-details",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "valid-overview-unavailable-debt-detail",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "valid-overview-unavailable-debt-detail",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "complete-unvalued-debt",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "complete-unvalued-debt",
+      "changes": [
+        {"op": "set", "path": "/overview/unvalued_liability_count", "value": 1},
+        {"op": "set", "path": "/coverage/debt_valuation", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/overview_quality", "value": "REPORTED_UNVALUED_DEBT"}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_UNVALUED_DEBT", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "genuine-zero-debt-no-fabricated-loan",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "genuine-zero-debt-no-fabricated-loan",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "zero-overview-cannot-prove-debt-detail",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "zero-overview-cannot-prove-debt-detail",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+        },
+        {"op": "set", "path": "/coverage/debt_detail", "value": "COMPLETE"}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "independent-empty-debt-enumeration-design-only",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "independent-empty-debt-enumeration-design-only",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+        },
+        {"op": "set", "path": "/coverage/detail_semantics", "value": "SUPPORTED"},
+        {"op": "set", "path": "/coverage/debt_detail", "value": "COMPLETE"},
+        {"op": "set", "path": "/coverage/debt_detail_basis", "value": "INDEPENDENT_EMPTY_ENUMERATION"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "assets-only-zero-count-not-zero-debt",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "assets-only-zero-count-not-zero-debt",
+      "changes": [
+        {"op": "set", "path": "/overview/source_completeness", "value": "assets_only"},
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": null, "currency": "EUR", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": null, "currency": "EUR", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/overview_quality", "value": "ASSETS_ONLY"},
+        {"op": "set", "path": "/coverage/debt_valuation", "value": "UNAVAILABLE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "ASSETS_ONLY", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "assets-only-fabricated-zero-debt-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "assets-only-fabricated-zero-debt-rejected",
+      "changes": [
+        {"op": "set", "path": "/overview/source_completeness", "value": "assets_only"},
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": null, "currency": "EUR", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": null, "currency": "EUR", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/overview_quality", "value": "ASSETS_ONLY"},
+        {"op": "set", "path": "/coverage/debt_valuation", "value": "UNAVAILABLE"},
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "complete-unvalued-debt-cannot-be-verified",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "complete-unvalued-debt-cannot-be-verified",
+      "changes": [{"op": "set", "path": "/overview/unvalued_liability_count", "value": 1}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "native-non-eur-overview-with-eur-accounts",
+      "base": "non_eur_snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "native-non-eur-overview-with-eur-accounts",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "foreign-overview-cannot-use-account-fx",
+      "base": "non_eur_snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "foreign-overview-cannot-use-account-fx",
+      "changes": [
+        {"op": "set", "path": "/overview/gross_assets/amount_eur", "value": "900"},
+        {"op": "set", "path": "/overview/gross_assets/eur_basis", "value": "SOURCE_CONVERSION"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "CURRENCY_EVIDENCE"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "missing-view",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "missing-view",
+      "changes": [{"op": "remove", "path": "/provenance/scope"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unsupported-view",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "unsupported-view",
+      "changes": [{"op": "set", "path": "/provenance/ownership_basis", "value": "recursive"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "mixed-provider",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "mixed-provider",
+      "changes": [{"op": "set", "path": "/provenance/provider", "value": "finary_private_api"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-provenance",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "missing-provenance",
+      "changes": [{"op": "remove", "path": "/provenance/source_contract_version"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-coverage",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "missing-coverage",
+      "changes": [{"op": "remove", "path": "/coverage/debt_detail"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "fabricated-nonempty-loan",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "fabricated-nonempty-loan",
+      "changes": [{"op": "set", "path": "/debt_details", "value": [{"synthetic_unverified": true}]}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "wrong-collection-window",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "wrong-collection-window",
+      "changes": [{"op": "set", "path": "/provenance/collection_ended_at", "value": "2026-09-11T07:30:21+02:00"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "COLLECTION_WINDOW"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "mixed-parent-position",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "mixed-parent-position",
+      "changes": [{"op": "set", "path": "/positions/0/account_key", "value": "mcp:account:assets:synthetic-other"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "qualified-overview-only",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "qualified-overview-only",
+      "changes": [
+        {"op": "set", "path": "/coverage/accounts", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holdings", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/accounts", "value": []},
+        {"op": "set", "path": "/ownership", "value": []},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "recent-attempt-broken-old-success",
+      "base": "connection",
+      "schema": "#/$defs/connection",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "recent-attempt-broken-old-success",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "BROKEN", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "stale-successful-bank-sync",
+      "base": "connection",
+      "schema": "#/$defs/connection",
+      "action": "accounts",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "stale-successful-bank-sync",
+      "changes": [
+        {"op": "set", "path": "/source_status", "value": "synthetic-connected"},
+        {"op": "set", "path": "/freshness", "value": "STALE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "STALE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "budget-history-contradiction",
+      "base": "budget_assessment",
+      "schema": "#/$defs/budget_assessment",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "budget-history-contradiction",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "INCONSISTENT", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "budget-unknown-history",
+      "base": "budget_assessment",
+      "schema": "#/$defs/budget_assessment",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "budget-unknown-history",
+      "changes": [
+        {"op": "set", "path": "/history_evidence", "value": "UNKNOWN"},
+        {"op": "set", "path": "/quality", "value": "UNVERIFIED"}
+      ],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "budget-cannot-certify-contradictory-trend",
+      "base": "budget_assessment",
+      "schema": "#/$defs/budget_assessment",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "budget-cannot-certify-contradictory-trend",
+      "changes": [{"op": "set", "path": "/trend_certified", "value": true}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "budget-target-floor",
+      "base": "budget",
+      "schema": "#/$defs/budget_output",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "budget-target-floor",
+      "changes": [{"op": "set", "path": "/by_category/0/target/should_reach", "value": true}],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "budget-legitimate-zero-transactions-value",
+      "base": "budget",
+      "schema": "#/$defs/budget_output",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "budget-legitimate-zero-transactions-value",
+      "changes": [
+        {"op": "set", "path": "/family_expense_total", "value": "0"},
+        {"op": "set", "path": "/family_income_total", "value": "0"},
+        {"op": "set", "path": "/family_net_cashflow", "value": "0"},
+        {"op": "set", "path": "/transactions_count", "value": 1}
+      ],
+      "expected": {"schema_valid": true, "quality": "UNVERIFIED", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "goals-duplicate-labels-shared-funding",
+      "base": "goals",
+      "schema": "#/$defs/goals_output",
+      "action": "goals",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation"],
+      "scenario": "goals-duplicate-labels-shared-funding",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NO_STABLE_ID", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "goals-null-versus-absent",
+      "base": "goals",
+      "schema": "#/$defs/goals_output",
+      "action": "goals",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "goal_month_precision"],
+      "scenario": "goals-null-versus-absent",
+      "changes": [
+        {"op": "remove", "path": "/goals/0/target_date"},
+        {"op": "set", "path": "/goals/0/plan/monthly_expenses_amount", "value": null}
+      ],
+      "expected": {"schema_valid": true, "quality": "NO_STABLE_ID", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "search-no-label-rejected",
+      "base": "search_input",
+      "schema": "#/$defs/search_input",
+      "action": "search_spending",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "search-no-label-rejected",
+      "changes": [{"op": "remove", "path": "/query"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "search-blank-label-rejected",
+      "base": "search_input",
+      "schema": "#/$defs/search_input",
+      "action": "search_spending",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "search-blank-label-rejected",
+      "changes": [{"op": "set", "path": "/query", "value": " "}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "simulation-missing-explicit-rate",
+      "base": "simulation_input",
+      "schema": "#/$defs/simulation_input",
+      "action": "simulate_compound_interest",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11"],
+      "scenario": "simulation-missing-explicit-rate",
+      "changes": [{"op": "remove", "path": "/annual_rate_percent"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unpaired-dates",
+      "base": "period_input",
+      "schema": "#/$defs/period_input",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "unpaired-dates",
+      "changes": [{"op": "remove", "path": "/end_date"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "invalid-leap-day",
+      "base": "period_input",
+      "schema": "#/$defs/period_input",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "invalid-leap-day",
+      "changes": [{"op": "set", "path": "/start_date", "value": "2026-02-29"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "future-explicit-end",
+      "base": "period_input",
+      "schema": "#/$defs/period_input",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "future-explicit-end",
+      "changes": [{"op": "set", "path": "/end_date", "value": "2026-09-12"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MCP_INVALID_ARGUMENT"},
+      "checks": ["period"]
+    },
+    {
+      "id": "reverse-date-range",
+      "base": "period_input",
+      "schema": "#/$defs/period_input",
+      "action": "get_budget_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "scenario": "reverse-date-range",
+      "changes": [{"op": "set", "path": "/start_date", "value": "2026-09-01"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MCP_INVALID_ARGUMENT"},
+      "checks": ["period"]
+    },
+    {
+      "id": "successful-connector-wrapper",
+      "base": "wrapper",
+      "schema": "#/$defs/connector_result",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "successful-connector-wrapper",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["wrapper"]
+    },
+    {
+      "id": "http-success-tool-error",
+      "base": "wrapper",
+      "schema": "#/$defs/connector_result",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "http-success-tool-error",
+      "changes": [{"op": "set", "path": "/isError", "value": true}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MCP_TOOL_ERROR"},
+      "checks": ["wrapper"]
+    },
+    {
+      "id": "http-success-missing-payload",
+      "base": "wrapper",
+      "schema": "#/$defs/connector_result",
+      "action": "get_portfolio_overview",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "scenario": "http-success-missing-payload",
+      "changes": [{"op": "remove", "path": "/structuredContent"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MCP_MALFORMED_RESPONSE"},
+      "checks": ["wrapper"]
+    },
+    {
+      "id": "cross-provider-collision-same-day-cutover",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "cross-provider-collision-same-day-cutover",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "SERIES_BREAK", "contract_error": null},
+      "checks": ["migration"]
+    },
+    {
+      "id": "unresolved-override-must-not-apply",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unresolved-override-must-not-apply",
+      "changes": [{"op": "set", "path": "/apply_legacy_override", "value": true}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "provider-change-not-comparable",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "provider-change-not-comparable",
+      "changes": [{"op": "set", "path": "/series_comparable", "value": true}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "legacy-writer-incompatible-workbook",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "legacy-writer-incompatible-workbook",
+      "changes": [{"op": "set", "path": "/rollback_schema", "value": "3.0"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "rollback-must-retain-new-observations",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "rollback-must-retain-new-observations",
+      "changes": [{"op": "set", "path": "/preserve_new_observations", "value": false}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "rollback-must-retain-manual-edits",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "rollback-must-retain-manual-edits",
+      "changes": [{"op": "set", "path": "/preserve_manual_edits", "value": false}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "same-day-key-collision",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "migration",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-day-key-collision",
+      "changes": [{"op": "set", "path": "/mcp_daily_key", "value": "2026-09-11"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "sanitized-mcp_auth_unavailable",
+      "base": "sanitized-mcp_auth_unavailable",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_auth_unavailable",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_capability_unavailable",
+      "base": "sanitized-mcp_capability_unavailable",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_capability_unavailable",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_protocol_error",
+      "base": "sanitized-mcp_protocol_error",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_protocol_error",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_tool_error",
+      "base": "sanitized-mcp_tool_error",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_tool_error",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_malformed_response",
+      "base": "sanitized-mcp_malformed_response",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_malformed_response",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_unsupported_view",
+      "base": "sanitized-mcp_unsupported_view",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_unsupported_view",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_incomplete_collection",
+      "base": "sanitized-mcp_incomplete_collection",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_incomplete_collection",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_unsupported_detail",
+      "base": "sanitized-mcp_unsupported_detail",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_unsupported_detail",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_timeout",
+      "base": "sanitized-mcp_timeout",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_timeout",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_rate_limited",
+      "base": "sanitized-mcp_rate_limited",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_rate_limited",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-mcp_invalid_argument",
+      "base": "sanitized-mcp_invalid_argument",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-mcp_invalid_argument",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-snapshot_validation_failed",
+      "base": "sanitized-snapshot_validation_failed",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "sanitized-snapshot_validation_failed",
+      "changes": [],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "normalized-unknown-holding-not-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unknown normalized type cannot establish complete coverage",
+      "changes": [{"op": "set", "path": "/positions/0/holding_type", "value": "synthetic-unverified-holdings"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "sanitized-errors-reject-raw-messages",
+      "base": "sanitized-snapshot_validation_failed",
+      "schema": "#/$defs/failure",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "raw messages cannot satisfy sanitized failure contract",
+      "changes": [{"op": "set", "path": "/error/message", "value": "Synthetic raw upstream error detail"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "orphan-ownership-row",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "orphan-ownership-row",
+      "changes": [{"op": "set", "path": "/ownership/0/account_key", "value": "mcp:account:assets:synthetic-missing"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "unresolved-connection-is-not-manual",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unresolved-connection-is-not-manual",
+      "changes": [{"op": "set", "path": "/accounts/0/connection_state", "value": "UNRESOLVED"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "orphan-rate-row",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "orphan-rate-row",
+      "changes": [{"op": "set", "path": "/position_rates/0/position_key", "value": "mcp:synthetic-missing"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "unknown-allocation-parent",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unknown-allocation-parent",
+      "changes": [{"op": "set", "path": "/allocation_types/0/category", "value": "synthetic-other"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "negative-debt-not-negative-net-worth",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "negative-debt-not-negative-net-worth",
+      "changes": [
+        {"op": "set", "path": "/overview/reported_liabilities/amount", "value": "-20"},
+        {"op": "set", "path": "/overview/reported_liabilities/amount_eur", "value": "-20"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "NEGATIVE_DEBT"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "repeated-empty-terminal-page",
+      "base": "empty_holdings",
+      "schema": "#/$defs/holdings_session",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "repeated empty pages do not establish completeness",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/pages",
+          "value": [
+            {
+              "data": [],
+              "included": [],
+              "meta": {"total": 0, "offset": 0, "limit": 1, "has_more": false},
+              "links": {"self": "/synthetic/relative-evidence-only"}
+            },
+            {
+              "data": [],
+              "included": [],
+              "meta": {"total": 0, "offset": 0, "limit": 1, "has_more": false},
+              "links": {"self": "/synthetic/relative-evidence-only"}
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "PARTIAL", "contract_error": "MCP_INCOMPLETE_COLLECTION"},
+      "checks": ["pagination"]
+    },
+    {
+      "id": "invalid-calendar-timestamp",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "invalid-calendar-timestamp",
+      "changes": [{"op": "set", "path": "/generated_at", "value": "2026-02-30T07:30:20+02:00"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-offset-timestamp",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-offset-timestamp",
+      "changes": [{"op": "set", "path": "/generated_at", "value": "2026-09-11T07:30:20"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unknown-detail-retained-with-qualified-overview",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unsupported nonempty detail stays visible with incomplete coverage",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "unsupported-detail-cannot-claim-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "holdings",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unsupported nonempty detail stays visible with incomplete coverage",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        },
+        {"op": "set", "path": "/coverage/holdings", "value": "COMPLETE"}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "partial-accounts-cannot-publish-connections",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "partial-accounts-cannot-publish-connections",
+      "changes": [
+        {"op": "set", "path": "/coverage/accounts", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holdings", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/accounts", "value": []},
+        {"op": "set", "path": "/ownership", "value": []},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/connections",
+          "value": [
+            {
+              "connection_key": "mcp:connection:institution-connections:synthetic-c",
+              "institution_key": null,
+              "institution_label": null,
+              "source_status": "synthetic-broken",
+              "last_sync_at": "2026-09-11T07:00:00+02:00",
+              "last_successful_sync_at": "2026-09-01T07:00:00+02:00",
+              "freshness": "BROKEN"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "c1-controls-rejected-in-source-id",
+      "base": "c1_source_id",
+      "schema": "#/$defs/id",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "c1-controls-rejected-in-source-id",
+      "changes": [],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "non-eur-account-cannot-claim-source-eur",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "non-eur-account-cannot-claim-source-eur",
+      "changes": [{"op": "set", "path": "/accounts/0/native_balance/currency", "value": "USD"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-account-native-to-eur-conversion",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-account-native-to-eur-conversion",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "malformed-observation-history-key",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "malformed-observation-history-key",
+      "changes": [{"op": "set", "path": "/mcp_history_key", "value": "mcp:history:synthetic"}],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "inconsistent-detail-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "inconsistent-detail-cannot-be-complete",
+      "changes": [{"op": "set", "path": "/coverage/detail_semantics", "value": "INCONSISTENT"}],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "account_valuation-unknown-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "account_valuation-unknown-cannot-be-complete",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "account_valuation-unknown-is-unavailable",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "account_valuation-unknown-is-unavailable",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "holding_valuation-unknown-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "holding_valuation-unknown-cannot-be-complete",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/positions/0/current_value",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "holding_valuation-unknown-is-unavailable",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "holding_valuation-unknown-is-unavailable",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/positions/0/current_value",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "rejected-crosswalk-cannot-apply-override",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "rejected-crosswalk-cannot-apply-override",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "REJECTED"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-crosswalk-requires-proof-and-target",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-requires-proof-and-target",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-exact-crosswalk-allows-enabled-override",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-exact-crosswalk-allows-enabled-override",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": true, "quality": "SERIES_BREAK", "contract_error": null},
+      "checks": ["migration"]
+    },
+    {
+      "id": "verified-crosswalk-wrong-source-cannot-apply",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-wrong-source-cannot-apply",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true},
+        {"op": "set", "path": "/crosswalk/legacy_key", "value": "security:8"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "verified-crosswalk-wrong-target-cannot-apply",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-wrong-target-cannot-apply",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:8"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "independent-empty-debt-enumeration-scaled-zero",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "independent-empty-debt-enumeration-scaled-zero",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+        },
+        {"op": "set", "path": "/coverage/detail_semantics", "value": "SUPPORTED"},
+        {"op": "set", "path": "/coverage/debt_detail", "value": "COMPLETE"},
+        {"op": "set", "path": "/coverage/debt_detail_basis", "value": "INDEPENDENT_EMPTY_ENUMERATION"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {"op": "set", "path": "/overview/reported_liabilities/amount", "value": "0.00"}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "eur-conversion-equal-values-different-scales",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "eur-conversion-equal-values-different-scales",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        },
+        {"op": "set", "path": "/accounts/0/full_value_eur", "value": "250.0"}
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "eur-conversion-unequal-values-still-fail",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "eur-conversion-unequal-values-still-fail",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        },
+        {"op": "set", "path": "/accounts/0/full_value_eur", "value": "250.01"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "CURRENCY_EVIDENCE"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "member-ordinal-collision-despite-distinct-labels",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "member-ordinal-collision-despite-distinct-labels",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 0,
+              "label": "Synthetic member label",
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "identical-member-rows-still-collide",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "identical-member-rows-still-collide",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "distinct-member-ordinals-may-share-label",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "distinct-member-ordinals-may-share-label",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 1,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "duplicate-observation-warning-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "duplicate-observation-warning-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null},
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "same-warning-code-distinct-entity-keys",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-warning-code-distinct-entity-keys",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null},
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": "mcp:account:assets:synthetic-a"}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-entity-distinct-warning-codes",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-entity-distinct-warning-codes",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/warnings",
+          "value": [
+            {"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": "mcp:account:assets:synthetic-a"},
+            {"code": "MISSING_ENRICHMENT", "entity_key": "mcp:account:assets:synthetic-a"}
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "duplicate-unsupported-diagnostic-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "duplicate-unsupported-diagnostic-rejected",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "conflicting-counts-for-one-diagnostic-key",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "conflicting-counts-for-one-diagnostic-key",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 2,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "orphan-unsupported-diagnostic-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "orphan-unsupported-diagnostic-rejected",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-orphan",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-unsupported-type-distinct-reasons",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-unsupported-type-distinct-reasons",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNVERIFIED_FIELDS"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "same-account-distinct-unsupported-types",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "same-account-distinct-unsupported-types",
+      "changes": [
+        {"op": "set", "path": "/coverage/holdings", "value": "PARTIAL"},
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {
+          "op": "set",
+          "path": "/unsupported_details",
+          "value": [
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-unverified-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            },
+            {
+              "account_key": "mcp:account:assets:synthetic-a",
+              "holding_type": "synthetic-other-holdings",
+              "count": 1,
+              "reason": "UNSUPPORTED_TYPE"
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "REPORTED_COMPLETE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "missing-overview-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-overview-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/gross_assets",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-allocation-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-allocation-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/allocation_categories/0/value",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "missing-member-currency-rejected",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "missing-member-currency-rejected",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members/0/reported_liabilities",
+          "value": {"amount": "1000", "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "unknown-member-amount-still-requires-view-currency",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "unknown-member-amount-still-requires-view-currency",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members/0/reported_liabilities",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    }
+  ],
+  "quality_contract": "../../../../docs/finary-mcp-contract.json#/fixture_quality_rules"
+}

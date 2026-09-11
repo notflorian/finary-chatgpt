@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 JSON_CONTRACTS = (
     ROOT / "docs" / "google-sheets-schema.json",
+    ROOT / "docs" / "finary-mcp-contract.json",
+    *sorted((ROOT / "finary-bridge" / "tests" / "fixtures" / "finary-mcp").glob("*.json")),
     ROOT / "n8n" / "workflows" / "finary-daily-sync.json",
     ROOT / "n8n" / "workflows" / "finary-error-handler.json",
 )

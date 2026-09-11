@@ -8,7 +8,8 @@ Maintain a reliable local integration pipeline:
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-The bridge isolates Finary's private API and exposes stable normalized data.
+The bridge isolates provider-specific Finary behavior and exposes stable
+normalized data.
 n8n validates and synchronizes that data into a deterministic analytical
 workbook. ChatGPT reads the workbook without receiving Finary credentials or raw
 upstream payloads.
@@ -103,7 +104,17 @@ behavior, constraint, or rationale directly; issue references become obsolete.
 
 ## Architectural boundaries
 
-### Finary adapter
+### Provider boundaries
+
+The implemented provider is the private API. The planned official MCP contract
+is defined in [docs/finary-mcp-contract.md](docs/finary-mcp-contract.md) and its
+linked machine-readable artifact. API/workbook 3.0 are planned, not active.
+Select one explicit provider per observation/run and one active writer/provider
+per workbook. Never mix providers, supplement fields or silently fall back.
+Transport, authentication, upstream relationships and error translation stay
+inside each adapter; n8n receives normalized bridge data only.
+
+### Legacy private Finary adapter
 
 All private Finary authentication, endpoints, response shapes, and exception
 translation belong in `finary_client.py`, `finary_session_store.py`, or a closely
@@ -120,12 +131,13 @@ source, anonymized fixtures, or an explicitly authorized live check.
 service orchestrates adapter calls, cross-reference validation, totals, and
 stable model construction. FastAPI route functions remain HTTP boundaries only.
 
-Use dedicated adapter position collections as the canonical position source.
+For the legacy private provider, use dedicated adapter position collections as
+the canonical position source.
 Never also normalize nested account asset arrays. Associate positions only with
 the verified `holdings_account_id`; do not silently fall back to nested account
 objects.
 
-Canonical keys are:
+Legacy private-provider canonical keys are:
 
 ```text
 account_key     = finary:account:{account_id}
@@ -134,8 +146,9 @@ position_key    = finary:{account_id}:asset:{position_kind}:{asset_id}
 history_key     = {snapshot_date}:{position_key}
 ```
 
-Canonicalize upstream identifiers to strings. Position kind is mandatory
-because numeric IDs can collide across Finary collections.
+For these legacy keys, canonicalize upstream identifiers to strings. Position
+kind is mandatory because numeric IDs can collide across private collections.
+MCP IDs use the separate opaque-string encoding in the planned contract.
 
 ### Currency and totals
 
@@ -144,18 +157,25 @@ conversion exists. Never treat `display_*` fields as proof of EUR. Preserve
 unknown numeric values as null/blank, not zero or text placeholders. Reject
 non-finite values.
 
-Non-collection account balances are authoritative for `gross_assets_eur`.
+For the legacy private provider, non-collection account balances are
+authoritative for `gross_assets_eur`.
 Positions are analytical components. Never add position totals to account
 balances.
 
-Liability coverage is explicit: `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`. Only
+Legacy liability coverage is explicit: `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`. Only
 `COMPLETE` can establish liability totals or update liability current state.
 Empty embedded loan arrays do not prove zero liabilities. With incomplete
 coverage, liabilities and net worth remain null.
 
+Planned MCP overview totals and official allocation have separate authority;
+account/holding detail never replaces them. Retrieval, debt detail, valuation,
+semantic confidence and source freshness have independent coverage. Follow the
+focused MCP contract for native currency, ownership and provider-isolated IDs.
+
 Classify assets conservatively. Do not guess from names or tickers. The stable
-top-level classes are defined by `AssetClass`; enabled `asset_overrides` rows are
-authoritative after normalization.
+top-level classes are defined by `AssetClass`; enabled exact provider-specific
+`asset_overrides` rows are authoritative for that custom classification after
+normalization. They never rewrite official MCP allocation.
 
 ### Stable API
 
@@ -206,7 +226,8 @@ API key protects snapshot routes from other local-network clients. The bridge is
 bound to localhost by default and must not be made public without an explicit
 security design.
 
-The session store may persist only the verified minimum Clerk restart state:
+The legacy private-provider session store may persist only the verified minimum
+Clerk restart state:
 the session identifier and production `__client` cookie. Bearer JWTs remain
 memory-only. The session volume is bridge-only, mode-restricted, excluded from
 backups, and cleared when rejected. HTTP routes must never prompt interactively.
@@ -214,8 +235,8 @@ backups, and cleared when rejected. HTTP routes must never prompt interactively.
 Finary authentication material must not enter n8n. Google OAuth material must
 not enter the bridge, workflow exports, or repository files.
 
-Fixtures and examples must be synthetic and anonymized. Never capture real data
-into the repository before sanitizing it.
+Fixtures and examples must be constructed from synthetic, anonymized values.
+Never save live responses to repository files and then attempt to redact them.
 
 ## Operational invariants
 
@@ -246,9 +267,13 @@ ruff check app tests
 mypy app
 cd ..
 python scripts/validate-json.py
-docker compose config --quiet
-bash scripts/validate-n8n-imports.sh
+python scripts/build-workflow-validation.py --check
+COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
+COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 ```
+
+Also run the required isolated pinned-n8n runtime command in
+[docs/development.md](docs/development.md#required-local-checks).
 
 Live tests remain opt-in. They must print structural results only, never values
 or secrets, and must be skipped by default in CI. See `docs/development.md`.
