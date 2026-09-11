@@ -127,3 +127,20 @@ def test_current_and_history_compare_by_holding_identity_not_sheet_order():
         book[table] += write["rows"]
     book["positions_current"].reverse()
     assert select(book, now=NOW + timedelta(minutes=1))["current_complete"]
+
+
+@pytest.mark.parametrize("mutation", ["eur_value", "holding_id", "source_asset_id", "account_key"])
+def test_historical_fallback_rejects_standalone_position_semantic_corruption(mutation):
+    book = book_for_consumer()
+    book["accounts_current"][0]["observation_id"] = "later-observation"
+    row = book["positions_history"][0]
+    if mutation == "eur_value":
+        row["mcp_current_value_amount_eur"] = "999999"
+    elif mutation == "holding_id":
+        row["mcp_holding_id"] = "different-holding"
+    elif mutation == "source_asset_id":
+        row["source_asset_id"] = "mcp:holding:securities:different-holding"
+    else:
+        row["account_key"] = "mcp:account:assets:different-account"
+    with pytest.raises(ValueError):
+        select(book, now=NOW + timedelta(minutes=1))

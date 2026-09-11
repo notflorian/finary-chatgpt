@@ -282,3 +282,20 @@ by the separately executed mandatory pinned-engine/connector gate with all
 49 passed (216.72s). Ruff, mypy, JSON validation, generated parity, Compose,
 three inactive workflow imports, local documentation links and diff checks
 passed. No live OAuth or Google acceptance run was repeated for this correction.
+
+## Historical fallback and OAuth format review corrections
+
+Historical holdings now reuse standalone production position semantics even
+when current account rows belong to another observation. Native/EUR monetary
+consistency and holding/account/position key relationships cannot be bypassed
+by selecting a dated fallback. No current account metadata is borrowed. Four
+corruption regressions reproduced the former acceptance of inconsistent history.
+OAuth restart files now require format to be exactly an integer with value 1;
+JSON true and 1.0 are rejected. Six format regressions also verify unchanged
+file bytes, inode, modification time and permissions after rejection.
+
+Executed checks: 45 focused consumer/auth tests passed; full offline suite
+3,663 passed with 49 Docker skips (178.82s), followed by the separate mandatory
+engine/connector gate with all 49 passed (202.68s). Ruff, mypy, JSON/generated
+parity, Compose, three inactive imports and diff checks passed. These fixes did
+not read or modify live OAuth state or rerun live acceptance.

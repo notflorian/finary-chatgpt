@@ -76,6 +76,23 @@ def validate_money(value: dict[str, Any], view_currency: str | None = None) -> N
         require(eur is None and basis == "UNAVAILABLE")
 
 
+def validate_position(position: dict[str, Any]) -> None:
+    """Validate retained position semantics without borrowing current account data."""
+    components = {name: position[name] for name in ("holding_type", "holding_id")}
+    require(position["source_asset_id"] == key("source_asset_id", **components))
+    template = CONTRACT["identity"]["position_key"].replace(
+        CONTRACT["identity"]["account_key"], "{account_key}", 1
+    )
+    expected = template.format(
+        account_key=position["account_key"],
+        **{f"E({name})": quote(value, safe="-._~") for name, value in components.items()},
+    )
+    require(position["position_key"] == expected)
+    for field in ("current_value", "buying_price"):
+        validate_money(position[field])
+        require(position[field]["eur_basis"] != "SOURCE_CONVERSION")
+
+
 def validate_collection_context(value: dict[str, Any]) -> None:
     """Validate the collection window independently of retained detail availability."""
     p = value["provenance"]
@@ -140,20 +157,8 @@ def validate_snapshot(value: dict[str, Any]) -> None:
     positions = set()
     for position in value["positions"]:
         require(position["account_key"] in accounts)
-        components = {name: position[name] for name in ("holding_type", "holding_id")}
-        require(position["source_asset_id"] == key("source_asset_id", **components))
-        require(
-            position["position_key"]
-            == key(
-                "position_key",
-                account_id=accounts[position["account_key"]]["source_account_id"],
-                **components,
-            )
-        )
+        validate_position(position)
         positions.add(position["position_key"])
-        for field in ("current_value", "buying_price"):
-            validate_money(position[field])
-            require(position[field]["eur_basis"] != "SOURCE_CONVERSION")
     for rate in value["position_rates"]:
         require(rate["position_key"] in positions)
     for diagnostic in value["unsupported_details"]:

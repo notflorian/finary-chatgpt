@@ -45,7 +45,10 @@ including a source cutover, cannot overwrite each other. Historical fallback
 never borrows later current account balances or metadata. Account balances are
 not a retained account time series in this schema; fallback can retain official
 figures and validated holding history without claiming complete historical
-account detail.
+account detail. Retained positions still pass the same standalone monetary and
+identity checks as current positions, including exact EUR equality and consistency
+between holding identifiers, account keys and position keys. Missing historical
+account metadata never disables those checks or authorizes borrowing later data.
 
 Compare only compatible provider, API/workbook major versions, source contract,
 view/scope, ownership basis, metric and currency. A missing or incompatible

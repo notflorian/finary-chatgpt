@@ -11,7 +11,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from app.mcp_validation import CONTRACT, validate, validate_collection_context, validate_money
+from app.mcp_validation import (
+    CONTRACT,
+    validate,
+    validate_collection_context,
+    validate_money,
+    validate_position,
+)
 
 TABLES = CONTRACT["workbook_migration"]["tables"]
 COUNTS = TABLES["sync_runs"]["count_columns"]
@@ -241,6 +247,8 @@ def observation(
     positions = (
         [normalized("positions_history", row) for row in history] if history is not None else None
     )
+    for position in positions or []:
+        validate_position(position)
     for row in history or []:
         require(
             row["history_key"]
