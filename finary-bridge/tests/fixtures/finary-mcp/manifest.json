@@ -1316,8 +1316,8 @@
       "evidence_references": ["project_decision"],
       "scenario": "unresolved-override-must-not-apply",
       "changes": [{"op": "set", "path": "/apply_legacy_override", "value": true}],
-      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
-      "checks": ["migration"]
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
     },
     {
       "id": "provider-change-not-comparable",
@@ -1860,6 +1860,365 @@
       "changes": [{"op": "set", "path": "/coverage/detail_semantics", "value": "INCONSISTENT"}],
       "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
       "checks": []
+    },
+    {
+      "id": "account_valuation-unknown-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "account_valuation-unknown-cannot-be-complete",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "account_valuation-unknown-is-unavailable",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "account_valuation-unknown-is-unavailable",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/account_valuation", "value": "UNAVAILABLE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "holding_valuation-unknown-cannot-be-complete",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "holding_valuation-unknown-cannot-be-complete",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/positions/0/current_value",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        }
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "holding_valuation-unknown-is-unavailable",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "holding_valuation-unknown-is-unavailable",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/positions/0/current_value",
+          "value": {"amount": null, "currency": null, "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+        },
+        {"op": "set", "path": "/coverage/holding_valuation", "value": "UNAVAILABLE"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "rejected-crosswalk-cannot-apply-override",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "rejected-crosswalk-cannot-apply-override",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "REJECTED"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-crosswalk-requires-proof-and-target",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-requires-proof-and-target",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": false, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": []
+    },
+    {
+      "id": "verified-exact-crosswalk-allows-enabled-override",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-exact-crosswalk-allows-enabled-override",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["migration"]
+    },
+    {
+      "id": "verified-crosswalk-wrong-source-cannot-apply",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-wrong-source-cannot-apply",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true},
+        {"op": "set", "path": "/crosswalk/legacy_key", "value": "security:8"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "verified-crosswalk-wrong-target-cannot-apply",
+      "base": "migration",
+      "schema": "#/$defs/migration_case",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "verified-crosswalk-wrong-target-cannot-apply",
+      "changes": [
+        {"op": "set", "path": "/crosswalk/state", "value": "VERIFIED"},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:7"},
+        {
+          "op": "set",
+          "path": "/crosswalk/evidence_reference",
+          "value": "synthetic:operator-verification:security-7"
+        },
+        {"op": "set", "path": "/crosswalk/reviewed_at", "value": "2026-09-11T09:00:00+02:00"},
+        {"op": "set", "path": "/apply_legacy_override", "value": true},
+        {"op": "set", "path": "/crosswalk/mcp_key", "value": "mcp:holding:security-holdings:8"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "MIGRATION_BOUNDARY"},
+      "checks": ["migration"]
+    },
+    {
+      "id": "independent-empty-debt-enumeration-scaled-zero",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "independent-empty-debt-enumeration-scaled-zero",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/overview/reported_liabilities",
+          "value": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"}
+        },
+        {
+          "op": "set",
+          "path": "/overview/reported_net_worth",
+          "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+        },
+        {"op": "set", "path": "/coverage/detail_semantics", "value": "SUPPORTED"},
+        {"op": "set", "path": "/coverage/debt_detail", "value": "COMPLETE"},
+        {"op": "set", "path": "/coverage/debt_detail_basis", "value": "INDEPENDENT_EMPTY_ENUMERATION"},
+        {"op": "set", "path": "/positions", "value": []},
+        {"op": "set", "path": "/position_rates", "value": []},
+        {"op": "set", "path": "/overview/reported_liabilities/amount", "value": "0.00"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "eur-conversion-equal-values-different-scales",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "eur-conversion-equal-values-different-scales",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        },
+        {"op": "set", "path": "/accounts/0/full_value_eur", "value": "250.0"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "eur-conversion-unequal-values-still-fail",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "eur-conversion-unequal-values-still-fail",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/accounts/0/native_balance",
+          "value": {"amount": "300", "currency": "USD", "amount_eur": "250.00", "eur_basis": "SOURCE_CONVERSION"}
+        },
+        {"op": "set", "path": "/accounts/0/full_value_eur", "value": "250.01"}
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "CURRENCY_EVIDENCE"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "member-ordinal-collision-despite-distinct-labels",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "member-ordinal-collision-despite-distinct-labels",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 0,
+              "label": "Synthetic member label",
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "identical-member-rows-still-collide",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "identical-member-rows-still-collide",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": "IDENTITY"},
+      "checks": ["snapshot"]
+    },
+    {
+      "id": "distinct-member-ordinals-may-share-label",
+      "base": "snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "action": "project",
+      "contract_version": "1.0.0",
+      "evidence_class": "synthetic_defensive",
+      "evidence_references": ["project_decision"],
+      "scenario": "distinct-member-ordinals-may-share-label",
+      "changes": [
+        {
+          "op": "set",
+          "path": "/members",
+          "value": [
+            {
+              "member_ordinal": 0,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            },
+            {
+              "member_ordinal": 1,
+              "label": null,
+              "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+              "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+              "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+              "unvalued_liability_count": 0
+            }
+          ]
+        }
+      ],
+      "expected": {"schema_valid": true, "quality": "NOT_APPLICABLE", "contract_error": null},
+      "checks": ["snapshot"]
     }
   ]
 }

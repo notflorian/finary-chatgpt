@@ -254,7 +254,8 @@
       "subscription_fees_ratio": "UNVERIFIED until scale independently confirmed",
       "ownership_share": "FRACTION; nonnegative, can exceed 1",
       "target_coverage_months": "MONTHS, not money"
-    }
+    },
+    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds."
   },
   "transport_policy": {
     "native_protocol_revision": null,
@@ -2000,7 +2001,8 @@
             "currency": "not_applicable",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "description": "Native accounts.native_balance amount/currency coverage; exact criteria in valuation_contracts.account_valuation. Zero is valued. Nullable EUR projections and other excluded fields cannot establish or invalidate this state."
         },
         "holding_valuation": {
           "$ref": "#/$defs/valuation_state",
@@ -2011,7 +2013,8 @@
             "currency": "not_applicable",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "description": "Native positions.current_value amount/currency coverage; exact criteria in valuation_contracts.holding_valuation. Zero is valued. Nullable EUR projections and other excluded fields cannot establish or invalidate this state."
         },
         "debt_valuation": {
           "$ref": "#/$defs/valuation_state",
@@ -3230,7 +3233,8 @@
             "currency": "not_applicable",
             "absence": "required; null only if schema permits",
             "evidence": "project_decision"
-          }
+          },
+          "x-unique-by": ["member_ordinal"]
         },
         "debt_details": {
           "type": "array",
@@ -3327,7 +3331,11 @@
             "required": ["coverage"]
           },
           "then": {
-            "properties": {"overview": {"properties": {"reported_liabilities": {"properties": {"amount": {"const": "0"}}}}}}
+            "properties": {
+              "overview": {
+                "properties": {"reported_liabilities": {"properties": {"amount": {"$ref": "#/$defs/zero_decimal"}}}}
+              }
+            }
           }
         },
         {
@@ -3659,6 +3667,68 @@
         {
           "if": {"properties": {"coverage": {"properties": {"detail_semantics": {"const": "INCONSISTENT"}}}}},
           "then": {"properties": {"coverage": {"properties": {"holdings": {"const": "PARTIAL"}}}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}},
+          "then": {
+            "if": {
+              "properties": {
+                "accounts": {
+                  "items": {
+                    "properties": {"native_balance": {"$ref": "#/$defs/valued_money_fields"}},
+                    "required": ["native_balance"]
+                  }
+                }
+              }
+            },
+            "then": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "COMPLETE"}}}}},
+            "else": {
+              "if": {
+                "properties": {
+                  "accounts": {
+                    "contains": {
+                      "properties": {"native_balance": {"$ref": "#/$defs/valued_money_fields"}},
+                      "required": ["native_balance"]
+                    }
+                  }
+                }
+              },
+              "then": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "PARTIAL"}}}}},
+              "else": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "UNAVAILABLE"}}}}}
+            }
+          },
+          "else": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "UNAVAILABLE"}}}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}}}},
+          "then": {
+            "if": {
+              "properties": {
+                "positions": {
+                  "items": {
+                    "properties": {"current_value": {"$ref": "#/$defs/valued_money_fields"}},
+                    "required": ["current_value"]
+                  }
+                }
+              }
+            },
+            "then": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "COMPLETE"}}}}},
+            "else": {
+              "if": {
+                "properties": {
+                  "positions": {
+                    "contains": {
+                      "properties": {"current_value": {"$ref": "#/$defs/valued_money_fields"}},
+                      "required": ["current_value"]
+                    }
+                  }
+                }
+              },
+              "then": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "PARTIAL"}}}}},
+              "else": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "UNAVAILABLE"}}}}}
+            }
+          },
+          "else": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "UNAVAILABLE"}}}}}
         }
       ]
     },
@@ -3712,7 +3782,19 @@
         "reviewed_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
       },
       "required": ["legacy_key", "mcp_key", "state", "evidence_reference", "reviewed_at"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "VERIFIED"}}},
+          "then": {
+            "properties": {
+              "mcp_key": {"$ref": "#/$defs/key"},
+              "evidence_reference": {"type": "string", "pattern": "\\S"},
+              "reviewed_at": {"$ref": "#/$defs/timestamp"}
+            }
+          }
+        }
+      ]
     },
     "writer_control": {
       "type": "object",
@@ -3838,7 +3920,18 @@
         "preserve_manual_edits",
         "mcp_position_key"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"apply_legacy_override": {"const": true}}},
+          "then": {
+            "properties": {
+              "crosswalk": {"properties": {"state": {"const": "VERIFIED"}}},
+              "legacy_override": {"properties": {"enabled": {"const": true}}}
+            }
+          }
+        }
+      ]
     },
     "unsupported_detail": {
       "type": "object",
@@ -3850,6 +3943,16 @@
       },
       "required": ["account_key", "holding_type", "count", "reason"],
       "additionalProperties": false
+    },
+    "zero_decimal": {
+      "allOf": [{"$ref": "#/$defs/decimal"}, {"pattern": "^-?0(\\.0+)?$"}],
+      "description": "Exact numeric zero at any permitted scale, including signed zero."
+    },
+    "valued_money_fields": {
+      "type": "object",
+      "properties": {"amount": {"$ref": "#/$defs/decimal"}, "currency": {"$ref": "#/$defs/currency"}},
+      "required": ["amount", "currency"],
+      "description": "Known native amount and explicit denomination; applied alongside money, not an EUR or ownership guarantee."
     }
   },
   "inspected_fields": {
@@ -3917,11 +4020,42 @@
     "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
     "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
     "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag. Resource support is distinct from field-unit/ownership confidence: supported resources may retain explicitly qualified UNVERIFIED fields without derived accounting claims.",
-    "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts."
+    "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts.",
+    "native_valuation": "Apply valuation_contracts independently per collection. COMPLETE requires every accepted row to have both the covered native amount and its currency, including known zero; an independently complete empty collection is vacuously COMPLETE. EUR projection, cost/rate/quantity and ownership confidence remain separately qualified. Incomplete retrieval has no accepted current rows and cannot certify valuation.",
+    "member_identity": "member_ordinal must be unique within one observation, regardless of labels; portfolio_members is keyed by observation_id + member_ordinal. Reuse across different observations is allowed and implies no persistent person identity. The x-unique-by annotation requires the cross-record identity check; JSON Schema alone cannot enforce projected uniqueness.",
+    "legacy_override_application": "apply_legacy_override requires an enabled override and state VERIFIED with nonnull MCP key, nonblank sanitized evidence_reference and timezone-aware reviewed_at. Cross-record equality must bind crosswalk.legacy_key to legacy_override.source_asset_id and crosswalk.mcp_key to mcp_source_asset_id. UNRESOLVED and REJECTED stay unapplied. Evidence records audited source evidence or explicit operator verification of this exact pair; no inferred cross-provider match."
   },
   "version_policy": {
     "source_contract_version": "Project-owned version of the evidence-backed source interpretation; not an upstream Finary release or negotiated MCP protocol revision. Native revision remains unverified.",
     "change_control": "Version changes record new evidence and compatibility impact; no unsupported observation silently becomes supported. Breaking normalized or workbook changes require coordinated major revisions.",
     "registry_support": "OBSERVED_SUBSET and HISTORICALLY_OBSERVED describe evidence, never standalone bridge runtime availability."
+  },
+  "valuation_contracts": {
+    "account_valuation": {
+      "collection": "accounts",
+      "rows": "accounts",
+      "money_field": "native_balance",
+      "grain": "full native account value",
+      "required_value_fields": ["amount", "currency"],
+      "excluded": ["full_value_eur", "direct_owners_value_eur", "ownership"],
+      "states": {
+        "COMPLETE": "Collection COMPLETE and every row has a valid amount and currency; independently complete empty collection qualifies.",
+        "PARTIAL": "Collection COMPLETE, at least one row has both amount and currency and at least one does not.",
+        "UNAVAILABLE": "Collection is not COMPLETE, or its nonempty accepted rows contain no known amount/currency pair."
+      }
+    },
+    "holding_valuation": {
+      "collection": "holdings",
+      "rows": "positions",
+      "money_field": "current_value",
+      "grain": "reported holding current value; source ownership qualification retained",
+      "required_value_fields": ["amount", "currency"],
+      "excluded": ["amount_eur", "buying_price", "quantity", "position_rates", "ownership"],
+      "states": {
+        "COMPLETE": "Collection COMPLETE and every row has a valid amount and currency; independently complete empty collection qualifies.",
+        "PARTIAL": "Collection COMPLETE, at least one row has both amount and currency and at least one does not.",
+        "UNAVAILABLE": "Collection is not COMPLETE, or its nonempty accepted rows contain no known amount/currency pair."
+      }
+    }
   }
 }

@@ -152,7 +152,10 @@ Ingestion uses bounded decimal strings parsed directly to decimal arithmetic,
 with no binary float intermediate. Project bounds are 24 integer and 18
 fractional digits; malformed strings, booleans, blanks, exponents, non-finite or
 oversized values fail without rounding/coercion. Missing and null remain
-unknown; zero remains known. New workbook decimal columns are exact **TEXT**,
+unknown; zero remains known. Compare decimals by exact numeric value without
+requiring a canonical scale: `0`, `0.00` and `-0.00` are equal, as are `250.0`
+and `250.00`. Preserve their source spelling; numeric equality permits neither
+rounding nor relaxed lexical bounds. New workbook decimal columns are exact **TEXT**,
 written RAW, with explicit clearing for null. Legacy numeric columns retain
 legacy values and are not reused for MCP numbers. Simulation's declared numeric
 inputs/outputs are a separate approximate utility, never ingestion evidence.
@@ -173,6 +176,20 @@ view/currency, collection start/end, generated time and nullable upstream as-of.
 Each observation has a fresh UUID; a successful writer run binds that observation
 and each table's expected membership/counts.
 
+`account_valuation` covers each account's full `native_balance.amount` and
+`native_balance.currency`; `holding_valuation` covers each position's
+`current_value.amount` and `current_value.currency`. With complete retrieval,
+`COMPLETE` requires both fields to be valid and nonnull on **every** row;
+known zero qualifies, as does an independently complete empty collection.
+`PARTIAL` means at least one row has both fields and at least one does not.
+A nonempty collection with no valued row is `UNAVAILABLE`. Incomplete retrieval
+also requires `UNAVAILABLE`, because it supplies no accepted current write set.
+These states do not certify EUR projections, ownership, quantity, buying price
+or rate fields. A fully valued native non-EUR collection may therefore be
+`COMPLETE` with null EUR projections. The machine-readable `valuation_contracts`
+defines the covered fields; schema conditions and cross-record checks enforce
+the same criteria.
+
 | Overview source | Reported debt/net worth | Overview quality | Debt valuation |
 | --- | --- | --- | --- |
 | `complete`, unvalued count 0 | Preserve, including genuine zero debt | `REPORTED_COMPLETE` | `COMPLETE` for the reported view |
@@ -187,7 +204,11 @@ no overview authorizes clearing an unknown loan collection. Contract 1.0.0 has
 semantics and compatible complete account/holding retrieval; the overview alone
 is insufficient. Until that evidence exists, debt detail remains unavailable.
 Member debt can be null and member net worth negative; names/ordinals cannot
-identify a member across observations.
+identify a member across observations. Within one observation, `member_ordinal`
+must be unique regardless of labels, because `portfolio_members` uses
+`observation_id + member_ordinal` as its key. This projected uniqueness requires
+the cross-record check documented by `x-unique-by`; JSON Schema alone does not
+enforce it. The same ordinal may occur in different observations.
 
 Explicitly unavailable detail can permit a valid overview with warnings and an
 empty corresponding write set. A failed page, malformed envelope, protocol
@@ -309,10 +330,15 @@ partially written later run is never accepted as successful history.
 Legacy provenance backfill uses a side table and only established evidence.
 Unknown historical scope/ownership remains unknown; age does not establish an
 MCP view. Preserve manual allocation targets, overrides and cashflows exactly.
-Legacy overrides never apply to MCP IDs automatically. An unresolved crosswalk
-stays unapplied; a deliberate mapping requires audited source evidence or
-explicit operator verification. Even verified crosswalks do not rewrite old
-keys or prove financial comparability.
+Legacy overrides never apply to MCP IDs automatically. `UNRESOLVED` and
+`REJECTED` crosswalks stay unapplied. Application requires an enabled override
+and a `VERIFIED` crosswalk with a nonnull MCP key, a nonblank sanitized evidence
+reference and a timezone-aware review timestamp. Audited source evidence or
+explicit operator verification must document the exact pair: `legacy_key`
+equals the override's `source_asset_id`, and `mcp_key` equals the target
+`mcp_source_asset_id`. These equalities require a cross-record check in addition
+to schema validation. Even verified crosswalks do not rewrite old keys or prove
+financial comparability.
 
 The ordered migration plan in JSON requires inventory, backups, a separate
 shadow workbook, dry-run validation, draining/disabling the old writer and its

@@ -122,6 +122,28 @@ def money_error(money, overview_currency=None):
     return None
 
 
+def valuation_error(value):
+    """Check native valuation coverage independently of EUR or ownership quality."""
+    for dimension, rule in CONTRACT["valuation_contracts"].items():
+        rows = value[rule["rows"]]
+        known = sum(
+            row[rule["money_field"]]["amount"] is not None
+            and row[rule["money_field"]]["currency"] is not None
+            for row in rows
+        )
+        if value["coverage"][rule["collection"]] != "COMPLETE":
+            expected = "UNAVAILABLE"
+        elif known == len(rows):
+            expected = "COMPLETE"
+        elif known:
+            expected = "PARTIAL"
+        else:
+            expected = "UNAVAILABLE"
+        if value["coverage"][dimension] != expected:
+            return "VALUATION_COVERAGE"
+    return None
+
+
 def snapshot_error(value):
     provenance = value["provenance"]
     start = datetime.fromisoformat(provenance["collection_started_at"])
@@ -131,6 +153,8 @@ def snapshot_error(value):
         return "COLLECTION_WINDOW"
     if generated.astimezone(ZoneInfo("Europe/Paris")).date().isoformat() != value["snapshot_date"]:
         return "COLLECTION_WINDOW"
+    if error := valuation_error(value):
+        return error
     groups = [
         value["overview"][name]
         for name in (
@@ -159,7 +183,11 @@ def snapshot_error(value):
             return error
         if (
             row["native_balance"]["eur_basis"] == "SOURCE_CONVERSION"
-            and row["native_balance"]["amount_eur"] != row["full_value_eur"]
+            and (
+                row["native_balance"]["amount_eur"] is None
+                or row["full_value_eur"] is None
+                or Decimal(row["native_balance"]["amount_eur"]) != Decimal(row["full_value_eur"])
+            )
         ):
             return "CURRENCY_EVIDENCE"
     connections = {row["connection_key"] for row in value["connections"]}
@@ -222,6 +250,9 @@ def snapshot_error(value):
         if row["category"] not in categories or key in types:
             return "IDENTITY"
         types.add(key)
+    ordinals = {row["member_ordinal"] for row in value["members"]}
+    if len(ordinals) != len(value["members"]):
+        return "IDENTITY"
     for row in [value["overview"], *value["members"]]:
         amount = row["reported_liabilities"]["amount"]
         if amount is not None and Decimal(amount) < 0:
@@ -252,7 +283,21 @@ def migration_error(value):
         return "MIGRATION_BOUNDARY"
     if value["legacy_history_key"] == value["mcp_history_key"]:
         return "MIGRATION_BOUNDARY"
-    if value["crosswalk"]["state"] == "UNRESOLVED" and value["apply_legacy_override"]:
+    crosswalk = value["crosswalk"]
+    documented = (
+        crosswalk["mcp_key"] is not None
+        and bool((crosswalk["evidence_reference"] or "").strip())
+        and crosswalk["reviewed_at"] is not None
+    )
+    if crosswalk["state"] == "VERIFIED" and not documented:
+        return "MIGRATION_BOUNDARY"
+    if value["apply_legacy_override"] and (
+        crosswalk["state"] != "VERIFIED"
+        or not documented
+        or crosswalk["legacy_key"] != value["legacy_override"]["source_asset_id"]
+        or crosswalk["mcp_key"] != value["mcp_source_asset_id"]
+        or not value["legacy_override"]["enabled"]
+    ):
         return "MIGRATION_BOUNDARY"
     if (
         value["series_comparable"]
@@ -307,6 +352,161 @@ def test_synthetic_contract_case(case):
         assert value["quality"] == quality
     if case["schema"] == "#/$defs/connection":
         assert value["freshness"] == quality
+
+
+@pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
+@pytest.mark.parametrize("missing", [("amount",), ("currency",), ("amount", "currency")])
+def test_unknown_native_valuation_fails_schema_and_semantic_checks(dimension, missing):
+    value = deepcopy(BASES["snapshot"])
+    rule = CONTRACT["valuation_contracts"][dimension]
+    money = value[rule["rows"]][0][rule["money_field"]]
+    money.update(amount_eur=None, eur_basis="UNAVAILABLE")
+    for field in missing:
+        money[field] = None
+    for state in ("COMPLETE", "PARTIAL"):
+        value["coverage"][dimension] = state
+        assert not validator("#/$defs/snapshot_v3").is_valid(value)
+        assert snapshot_error(value) == "VALUATION_COVERAGE"
+    value["coverage"][dimension] = "UNAVAILABLE"
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) is None
+
+
+@pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
+@pytest.mark.parametrize("amount,currency,eur", [("0.00", "EUR", "0"), ("90.00", "USD", None)])
+def test_complete_native_valuation_accepts_zero_and_nullable_eur(dimension, amount, currency, eur):
+    value = deepcopy(BASES["snapshot"])
+    rule = CONTRACT["valuation_contracts"][dimension]
+    value[rule["rows"]][0][rule["money_field"]] = {
+        "amount": amount,
+        "currency": currency,
+        "amount_eur": eur,
+        "eur_basis": "SOURCE_EUR" if currency == "EUR" else "UNAVAILABLE",
+    }
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) is None
+
+
+@pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
+def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension):
+    value = deepcopy(BASES["snapshot"])
+    rule = CONTRACT["valuation_contracts"][dimension]
+    second = deepcopy(value[rule["rows"]][0])
+    if dimension == "account_valuation":
+        second["source_account_id"] = "synthetic-b"
+        second["account_key"] = identity("account_key", account_id="synthetic-b")
+    else:
+        second["holding_id"] = "synthetic-h2"
+        args = {"holding_id": second["holding_id"], "holding_type": second["holding_type"]}
+        second["source_asset_id"] = identity("source_asset_id", **args)
+        second["position_key"] = identity("position_key", account_id="synthetic-a", **args)
+    second[rule["money_field"]] = {
+        "amount": None, "currency": None, "amount_eur": None, "eur_basis": "UNAVAILABLE"
+    }
+    value[rule["rows"]].append(second)
+    for state in ("COMPLETE", "UNAVAILABLE", "PARTIAL"):
+        value["coverage"][dimension] = state
+        assert validator("#/$defs/snapshot_v3").is_valid(value) == (state == "PARTIAL")
+        assert snapshot_error(value) == (None if state == "PARTIAL" else "VALUATION_COVERAGE")
+
+    value[rule["rows"]] = []
+    value["positions"] = []
+    value["position_rates"] = []
+    if dimension == "account_valuation":
+        value["ownership"] = []
+    value["coverage"][dimension] = "COMPLETE"
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) is None
+    value["coverage"][rule["collection"]] = "PARTIAL"
+    if dimension == "account_valuation":
+        value["coverage"].update(holdings="UNAVAILABLE", holding_valuation="UNAVAILABLE")
+    assert not validator("#/$defs/snapshot_v3").is_valid(value)
+    assert snapshot_error(value) == "VALUATION_COVERAGE"
+    value["coverage"][dimension] = "UNAVAILABLE"
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) is None
+
+
+@pytest.mark.parametrize(
+    "field,replacement,schema_valid",
+    [
+        ("state", "UNRESOLVED", False),
+        ("state", "REJECTED", False),
+        ("mcp_key", None, False),
+        ("evidence_reference", None, False),
+        ("evidence_reference", " \t ", False),
+        ("reviewed_at", None, False),
+        ("legacy_key", "security:8", True),
+        ("mcp_key", "mcp:holding:security-holdings:8", True),
+    ],
+)
+def test_override_application_requires_documented_exact_pair(field, replacement, schema_valid):
+    case = next(
+        case for case in MANIFEST["cases"]
+        if case["id"] == "verified-exact-crosswalk-allows-enabled-override"
+    )
+    value = materialize(case)
+    value["crosswalk"][field] = replacement
+    assert validator("#/$defs/migration_case").is_valid(value) == schema_valid
+    assert migration_error(value) == "MIGRATION_BOUNDARY"
+
+
+def test_disabled_override_cannot_apply_even_with_verified_crosswalk():
+    case = next(
+        case for case in MANIFEST["cases"]
+        if case["id"] == "verified-exact-crosswalk-allows-enabled-override"
+    )
+    value = materialize(case)
+    value["legacy_override"]["enabled"] = False
+    assert not validator("#/$defs/migration_case").is_valid(value)
+    assert migration_error(value) == "MIGRATION_BOUNDARY"
+
+
+@pytest.mark.parametrize("zero", ["0", "0.0", "0.00", "-0.00", "0.000000000000000000"])
+def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
+    case = next(
+        case for case in MANIFEST["cases"]
+        if case["id"] == "independent-empty-debt-enumeration-design-only"
+    )
+    value = materialize(case)
+    value["overview"]["reported_liabilities"]["amount"] = zero
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) is None
+
+
+@pytest.mark.parametrize("amount", ["0.01", "-0.01", "0.0000000000000000000", "00", "0e0"])
+def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
+    case = next(
+        case for case in MANIFEST["cases"]
+        if case["id"] == "independent-empty-debt-enumeration-design-only"
+    )
+    value = materialize(case)
+    value["overview"]["reported_liabilities"]["amount"] = amount
+    assert not validator("#/$defs/snapshot_v3").is_valid(value)
+
+
+@pytest.mark.parametrize(
+    "eur,full,expected",
+    [
+        ("250.00", "250.0", None),
+        ("250", "250.000", None),
+        ("0.00", "-0.0", None),
+        ("9007199254740993.00", "9007199254740993.0", None),
+        ("250.00", "250.000000000000000001", "CURRENCY_EVIDENCE"),
+        ("9007199254740993.00", "9007199254740992.00", "CURRENCY_EVIDENCE"),
+        ("250.00", None, "CURRENCY_EVIDENCE"),
+    ],
+)
+def test_eur_conversion_compares_exact_decimal_values(eur, full, expected):
+    case = next(
+        case for case in MANIFEST["cases"]
+        if case["id"] == "verified-account-native-to-eur-conversion"
+    )
+    value = materialize(case)
+    value["accounts"][0]["native_balance"]["amount_eur"] = eur
+    value["accounts"][0]["full_value_eur"] = full
+    validator("#/$defs/snapshot_v3").validate(value)
+    assert snapshot_error(value) == expected
 
 
 def walk(value):
