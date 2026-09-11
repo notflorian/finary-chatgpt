@@ -14,12 +14,12 @@ migration, release publication and revoking existing connections are excluded.
 | #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes, natural expiry and server-side invalidation remain unverified |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
-| #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; live replay and portfolio sync pending |
-| #91 | Generated inactive MCP workflow, complete prewrite gate, RAW serialization, in-graph fixed failure telemetry and success-last terminal | Exported Code nodes; actual pinned graph/connector, restored execution IDs, response-loss and null/zero/blank transitions | Offline implementation; final required runtime gate recorded below; operational draining still required |
+| #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; operator reported live migration replay; authorized manual shadow sync and production-consumer readback passed |
+| #91 | Generated inactive MCP workflow, complete prewrite gate, RAW serialization, in-graph fixed failure telemetry and success-last terminal | Exported Code nodes; actual pinned graph/connector, restored execution IDs, response-loss and null/zero/blank transitions | Offline runtime gate recorded below; authorized isolated manual run reached success-last and fresh Sheets readback passed; production draining remains an operator action |
 | #92 | Protected independent budget and explicit-label search | Periods/leap dates, returned filters, legitimate zero, unpriced/history contradictions and unknown target currency | Implemented with explicit history/rate/target limitations; no scheduled budget or cashflow writes |
 | #93 | Protected complete-response goals with typed plans and explicit account references | Empty/reordered/duplicate-name plans, null fields, currencies, unknown cadence, unresolved references and no progress | Implemented as on-demand plans; no stable goal IDs or inferred progress |
 | #94 | Nine-action matrix, versioned source guidance and production reference consumer | Successful membership, mixed-run/provider rejection, duplicate terminals, explicit dated fallback and compatibility tests | Implemented; live reads and retained observations remain separate |
-| #95 | Integrated harness, opt-in isolated structural test and executable operator runbook | Required local and CI gates; distinguish engine, connector, fake Google and live evidence | Incomplete acceptance: remaining OAuth lifecycle and separately authorized shadow workbook still required |
+| #95 | Integrated harness, opt-in isolated structural test and executable operator runbook | Required local and CI gates; distinguish engine, connector, fake Google and live evidence | Authorized isolated shadow sync and fresh production-consumer readback passed; remaining OAuth lifecycle evidence and production acceptance still required |
 
 
 Implementation order follows the child dependency graph: client → detail →
@@ -172,3 +172,33 @@ HTTP-boundary follow-up validation: full credential-free suite 3,615 passed and
 49 Docker skips (110.50s); mandatory isolated engine/connector gate 49 passed
 (220.75s), including actual HTTP nodes. All three portable imports, Ruff, mypy,
 Compose, JSON/generated parity, documentation links and diff checks passed.
+
+
+## Authorized live shadow synchronization and readback (2026-09-11)
+
+After the operator explicitly authorized one manual portfolio synchronization
+against the separate migrated test candidate, the installed n8n workflow reached
+Record MCP Success with SUCCESS_WITH_WARNINGS. Read-only inspection of the
+isolated execution confirmed no node errors and one terminal output after the
+required writes. The six allowlisted warnings comprised two STALE_SOURCE, two
+BROKEN_CONNECTION, one OWNERSHIP_WORDING_CONFLICT and one UNVERIFIED_DETAIL.
+These qualifiers remain visible; success does not establish fresh bank data or
+complete debt detail. Manual tables were absent from the prepared write batches.
+
+The operator restored writer_control to PAUSED. An initial partial read reused
+cached prewrite inputs and was explicitly rejected as readback evidence. After
+clearing execution data and rerunning the read-only chain, all canonical table
+headers and cells passed the exported production decoder. The decoded rows were
+piped in memory to app.mcp_consumer.select, without saving live payloads or
+printing portfolio values. It returned WORKBOOK_READBACK_VALIDATED: PAUSED
+control, complete current selection, no dated fallback, operationally non-stale
+observation and a series break. The selected terminal matched the authorized
+manual run; every expected table membership count passed. Debt detail remained
+unavailable rather than zero. No write node executed during this readback.
+
+This is live installed-connector write/read and production-consumer evidence,
+not a simulation or an additional synchronization. No schedule was published
+and no production workbook was changed. It does not establish live natural
+OAuth expiry, server-side token invalidation, all null transitions, production
+cutover or the first scheduled execution. The previously recorded synthetic
+regressions remain separate evidence for failure and transition cases.
