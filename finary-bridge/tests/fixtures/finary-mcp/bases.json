@@ -1,0 +1,735 @@
+{
+  "no_args": {},
+  "get_me": {"data": {}},
+  "profiles": {"data": []},
+  "accounts": {
+    "_reading_note": "Synthetic note: explicit direct-owner entries; household stake not established.",
+    "data": [
+      {
+        "id": "synthetic-a",
+        "type": "assets",
+        "attributes": {
+          "name": "Synthetic account",
+          "account_type": "investment",
+          "currency": "EUR",
+          "balance": "250.00",
+          "full_value_eur": "250.00",
+          "total_owned_value_eur": "375.00",
+          "total_owned_share": "1.5",
+          "owners": [
+            {
+              "id": "synthetic-owner",
+              "type": "profiles",
+              "name": "Synthetic owner",
+              "ownership_share": "1.5",
+              "owner_value_eur": "375.00"
+            }
+          ],
+          "updated_at": "2026-09-11T05:00:00+00:00"
+        },
+        "relationships": {}
+      }
+    ],
+    "included": [],
+    "sync_warnings": []
+  },
+  "account": {
+    "id": "synthetic-a",
+    "type": "assets",
+    "attributes": {
+      "name": "Synthetic account",
+      "account_type": "investment",
+      "currency": "EUR",
+      "balance": "250.00",
+      "full_value_eur": "250.00",
+      "total_owned_value_eur": "375.00",
+      "total_owned_share": "1.5",
+      "owners": [
+        {
+          "id": "synthetic-owner",
+          "type": "profiles",
+          "name": "Synthetic owner",
+          "ownership_share": "1.5",
+          "owner_value_eur": "375.00"
+        }
+      ],
+      "updated_at": "2026-09-11T05:00:00+00:00"
+    },
+    "relationships": {}
+  },
+  "holdings": {
+    "data": [
+      {
+        "id": "synthetic-h1",
+        "type": "security-holdings",
+        "attributes": {
+          "quantity": "2",
+          "current_value": "90.00",
+          "current_value_currency": "EUR",
+          "buying_price": "30.00",
+          "buying_price_currency": "USD"
+        },
+        "relationships": {
+          "asset": {"data": {"type": "assets", "id": "synthetic-a"}},
+          "security": {"data": {"type": "securities", "id": "synthetic-product"}}
+        }
+      }
+    ],
+    "included": [],
+    "meta": {"total": 1, "offset": 0, "limit": 1, "has_more": false},
+    "links": {"self": "/synthetic/relative-evidence-only"}
+  },
+  "holding_session": {
+    "account_id": "synthetic-a",
+    "pages": [
+      {
+        "data": [
+          {
+            "id": "synthetic-h1",
+            "type": "security-holdings",
+            "attributes": {
+              "quantity": "2",
+              "current_value": "90.00",
+              "current_value_currency": "EUR",
+              "buying_price": "30.00",
+              "buying_price_currency": "USD"
+            },
+            "relationships": {
+              "asset": {"data": {"type": "assets", "id": "synthetic-a"}},
+              "security": {"data": {"type": "securities", "id": "synthetic-product"}}
+            }
+          }
+        ],
+        "included": [],
+        "meta": {"total": 2, "offset": 0, "limit": 1, "has_more": true},
+        "links": {"self": "/synthetic/relative-evidence-only"}
+      },
+      {
+        "data": [
+          {
+            "id": "synthetic-h2",
+            "type": "security-holdings",
+            "attributes": {
+              "quantity": "2",
+              "current_value": "90.00",
+              "current_value_currency": "EUR",
+              "buying_price": "30.00",
+              "buying_price_currency": "USD"
+            },
+            "relationships": {
+              "asset": {"data": {"type": "assets", "id": "synthetic-a"}},
+              "security": {"data": {"type": "securities", "id": "synthetic-product"}}
+            }
+          }
+        ],
+        "included": [],
+        "meta": {"total": 2, "offset": 1, "limit": 1, "has_more": false},
+        "links": {"self": "/synthetic/relative-evidence-only"}
+      }
+    ]
+  },
+  "empty_holdings": {
+    "account_id": "synthetic-a",
+    "pages": [
+      {
+        "data": [],
+        "included": [],
+        "meta": {"total": 0, "offset": 0, "limit": 1, "has_more": false},
+        "links": {"self": "/synthetic/relative-evidence-only"}
+      }
+    ]
+  },
+  "overview": {
+    "_reading_note": "Synthetic explanatory note.",
+    "allocation_direct_note": "Synthetic explanatory note.",
+    "members_note": "Synthetic explanatory note.",
+    "recursive_ownership_note": "Synthetic explanatory note.",
+    "preferred_wealth_metric_note": "Synthetic explanatory note.",
+    "view": {"scope": "household", "ownership": "direct", "metric": "gross_assets", "currency": "EUR"},
+    "balance_sheet": {
+      "completeness": "complete",
+      "owned_gross_assets_direct": "1000.00",
+      "owned_liabilities_direct": "200.00",
+      "owned_net_worth_direct": "800.00",
+      "unvalued_liability_count": 0,
+      "note": "Synthetic reported debt, no loan detail claim."
+    },
+    "financial_assets": {"owned_financial_assets_direct": "600.00", "note": "Synthetic official subset."},
+    "preferred_wealth_metric": "financial_assets",
+    "allocation_direct": [
+      {
+        "category": "synthetic-new-category",
+        "owned_amount_direct": "1000.00",
+        "by_type": [{"holding_type": "synthetic-future-holdings", "owned_amount_direct": "1000.00"}]
+      }
+    ],
+    "members": [
+      {
+        "name": null,
+        "owned_gross_assets_direct": "0",
+        "owned_liabilities_direct": "20",
+        "owned_net_worth_direct": "-20",
+        "unvalued_liability_count": 0
+      }
+    ]
+  },
+  "budget": {
+    "_reading_note": "Synthetic note.",
+    "attribution_note": "Synthetic note.",
+    "by_category_note": "Synthetic note.",
+    "comparison_note": "Synthetic note.",
+    "period_note": "Synthetic note.",
+    "recurring_charges_note": "Synthetic note.",
+    "totals_note": "Synthetic note.",
+    "view": {
+      "currency": "EUR",
+      "from": "2026-09-01",
+      "to": "2026-09-11",
+      "is_partial": true,
+      "elapsed_days": 11,
+      "total_days": 30,
+      "history_from": null,
+      "history_to": null
+    },
+    "family_expense_total": "80.00",
+    "family_income_total": "120.00",
+    "family_net_cashflow": "40.00",
+    "family_savings_rate_percent": null,
+    "transactions_count": 5,
+    "unpriced_transactions_count": 1,
+    "by_category": [
+      {
+        "slug": "synthetic-category",
+        "is_user_authored": true,
+        "family_expense": "80",
+        "family_income": "120",
+        "transactions_count": 5,
+        "target": {"amount": "90", "should_reach": false},
+        "monthly_average_expenses": null
+      }
+    ],
+    "by_month": [],
+    "by_profile": [],
+    "joint": null,
+    "comparison": null,
+    "expense_split": {
+      "family_recurring_expense": "0",
+      "family_variable_expense": "80",
+      "note": "Synthetic split.",
+      "recurring_share_percent": "0"
+    },
+    "monthly_average_months_covered": 0,
+    "recurring_charges": null,
+    "targets_unavailable_reason": null,
+    "capability_notes": {
+      "deferred_debit_cards": "Synthetic limitation.",
+      "online_versus_in_store": "Synthetic limitation.",
+      "running_balance_and_forecast": "Synthetic limitation.",
+      "split_transactions": "Synthetic limitation.",
+      "sub_categories": "Synthetic limitation.",
+      "zero_amount_transactions": "Synthetic limitation."
+    }
+  },
+  "budget_assessment": {
+    "response": {
+      "_reading_note": "Synthetic note.",
+      "attribution_note": "Synthetic note.",
+      "by_category_note": "Synthetic note.",
+      "comparison_note": "Synthetic note.",
+      "period_note": "Synthetic contradiction: no transactions available.",
+      "recurring_charges_note": "Synthetic note.",
+      "totals_note": "Synthetic note.",
+      "view": {
+        "currency": "EUR",
+        "from": "2026-09-01",
+        "to": "2026-09-11",
+        "is_partial": true,
+        "elapsed_days": 11,
+        "total_days": 30,
+        "history_from": null,
+        "history_to": null
+      },
+      "family_expense_total": "80.00",
+      "family_income_total": "120.00",
+      "family_net_cashflow": "40.00",
+      "family_savings_rate_percent": null,
+      "transactions_count": 5,
+      "unpriced_transactions_count": 1,
+      "by_category": [
+        {
+          "slug": "synthetic-category",
+          "is_user_authored": true,
+          "family_expense": "80",
+          "family_income": "120",
+          "transactions_count": 5,
+          "target": {"amount": "90", "should_reach": false},
+          "monthly_average_expenses": null
+        }
+      ],
+      "by_month": [],
+      "by_profile": [],
+      "joint": null,
+      "comparison": null,
+      "expense_split": {
+        "family_recurring_expense": "0",
+        "family_variable_expense": "80",
+        "note": "Synthetic split.",
+        "recurring_share_percent": "0"
+      },
+      "monthly_average_months_covered": 0,
+      "recurring_charges": null,
+      "targets_unavailable_reason": null,
+      "capability_notes": {
+        "deferred_debit_cards": "Synthetic limitation.",
+        "online_versus_in_store": "Synthetic limitation.",
+        "running_balance_and_forecast": "Synthetic limitation.",
+        "split_transactions": "Synthetic limitation.",
+        "sub_categories": "Synthetic limitation.",
+        "zero_amount_transactions": "Synthetic limitation."
+      }
+    },
+    "history_evidence": "CONTRADICTORY_HISTORICAL",
+    "quality": "INCONSISTENT",
+    "trend_certified": false
+  },
+  "goals": {
+    "_reading_note": "Synthetic plans only; duplicate labels and shared funding are intentional.",
+    "goals": [
+      {
+        "name": "Synthetic shared label",
+        "goal_type": "safety_net",
+        "currency": "EUR",
+        "target_date": null,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "contributors": [{"name": null}],
+        "funding_account_ids": ["synthetic-a"],
+        "plan": {
+          "kind": "safety_net",
+          "note": "Synthetic plan.",
+          "monthly_expenses_amount": "80",
+          "target_coverage_months": "6"
+        }
+      },
+      {
+        "name": "Synthetic shared label",
+        "goal_type": "life_project",
+        "currency": "USD",
+        "target_date": "2028-06-15",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "contributors": [{"name": null}],
+        "funding_account_ids": ["synthetic-a"],
+        "plan": {
+          "kind": "life_project",
+          "note": "Synthetic plan.",
+          "target_amount": "500",
+          "contribution_amount": null,
+          "contribution_frequency": "synthetic-new-cadence"
+        }
+      },
+      {
+        "name": "Synthetic shared label",
+        "goal_type": "synthetic-new-kind",
+        "currency": "EUR",
+        "target_date": null,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "contributors": [{"name": null}],
+        "funding_account_ids": ["synthetic-a"],
+        "plan": {"kind": "unavailable", "note": "Synthetic unsupported plan."}
+      }
+    ]
+  },
+  "search": {
+    "_reading_note": "Synthetic label aggregate, documented only.",
+    "matched_expense_total": "20.00",
+    "matched_income_total": "3.00",
+    "matched_transactions_count": 3,
+    "unpriced_transactions_count": 1,
+    "matched_filter": {"query": "synthetic-label", "direction": null},
+    "view": {"currency": "EUR", "from": "2026-08-01", "to": "2026-08-31"}
+  },
+  "simulation": {
+    "final_capital": 110,
+    "total_contributions": 100,
+    "total_interest": 10,
+    "total_gain_percent": 10,
+    "series": [],
+    "summary": "Synthetic illustrative result; no source invocation.",
+    "finary_card_html": "<p>Synthetic illustration</p>"
+  },
+  "simulation_input": {"initial_capital": 100, "duration_years": 1, "annual_rate_percent": 10, "language": "en"},
+  "search_input": {"query": "synthetic-label", "direction": "spending", "period": "last_month"},
+  "period_input": {"start_date": "2026-08-01", "end_date": "2026-08-31"},
+  "holdings_input": {"account_id": "synthetic-a", "limit": 1, "offset": 0},
+  "decimal-zero": "0",
+  "decimal-negative": "-2.25",
+  "decimal-exact": "123456789012345678901234.123456789012345678",
+  "snapshot": {
+    "schema_version": "3.0",
+    "observation_id": "00000000-0000-4000-8000-000000000001",
+    "snapshot_date": "2026-09-11",
+    "generated_at": "2026-09-11T07:30:20+02:00",
+    "provenance": {
+      "provider": "finary_official_mcp",
+      "source_contract_version": "1.0.0",
+      "scope": "household",
+      "ownership_basis": "direct",
+      "metric": "gross_assets",
+      "currency": "EUR",
+      "collection_started_at": "2026-09-11T07:30:00+02:00",
+      "collection_ended_at": "2026-09-11T07:30:19+02:00",
+      "atomicity": "COLLECTION_WINDOW",
+      "upstream_as_of": null
+    },
+    "coverage": {
+      "accounts": "COMPLETE",
+      "holdings": "COMPLETE",
+      "debt_detail": "UNAVAILABLE",
+      "account_valuation": "COMPLETE",
+      "holding_valuation": "COMPLETE",
+      "debt_valuation": "COMPLETE",
+      "overview_quality": "REPORTED_COMPLETE",
+      "detail_semantics": "UNVERIFIED",
+      "source_freshness": "NOT_APPLICABLE",
+      "debt_detail_basis": "UNVERIFIED"
+    },
+    "overview": {
+      "gross_assets": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"},
+      "financial_assets": {"amount": "600.00", "currency": "EUR", "amount_eur": "600.00", "eur_basis": "SOURCE_EUR"},
+      "reported_liabilities": {"amount": "200.00", "currency": "EUR", "amount_eur": "200.00", "eur_basis": "SOURCE_EUR"},
+      "reported_net_worth": {"amount": "800.00", "currency": "EUR", "amount_eur": "800.00", "eur_basis": "SOURCE_EUR"},
+      "unvalued_liability_count": 0,
+      "source_completeness": "complete",
+      "preferred_wealth_metric": "financial_assets"
+    },
+    "accounts": [
+      {
+        "account_key": "mcp:account:assets:synthetic-a",
+        "source_account_id": "synthetic-a",
+        "resource_type": "assets",
+        "label": "Synthetic account",
+        "account_type": "investment",
+        "tax_wrapper": null,
+        "native_balance": {"amount": "250.00", "currency": "EUR", "amount_eur": "250.00", "eur_basis": "SOURCE_EUR"},
+        "full_value_eur": "250.00",
+        "direct_owners_value_eur": "375.00",
+        "total_ownership_share": "1.5",
+        "entity_updated_at": "2026-09-10T06:00:00+00:00",
+        "connection_key": null,
+        "connection_state": "NO_CONNECTION",
+        "ownership_evidence": "EXPLICIT_ENTRIES"
+      }
+    ],
+    "ownership": [
+      {
+        "account_key": "mcp:account:assets:synthetic-a",
+        "owner_key": "mcp:owner:profiles:synthetic-owner",
+        "owner_type": "profiles",
+        "owner_source_id": "synthetic-owner",
+        "owner_label": null,
+        "ownership_share": "1.5",
+        "owner_value_eur": "375.00"
+      }
+    ],
+    "connections": [],
+    "positions": [
+      {
+        "position_key": "mcp:account:assets:synthetic-a:holding:security-holdings:synthetic-h1",
+        "source_asset_id": "mcp:holding:security-holdings:synthetic-h1",
+        "account_key": "mcp:account:assets:synthetic-a",
+        "holding_type": "security-holdings",
+        "holding_id": "synthetic-h1",
+        "label": null,
+        "product_key": null,
+        "quantity": "2",
+        "quantity_unit": "UNITS",
+        "current_value": {"amount": "90.00", "currency": "EUR", "amount_eur": "90.00", "eur_basis": "SOURCE_EUR"},
+        "value_ownership_basis": "UNVERIFIED",
+        "buying_price": {"amount": null, "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+        "buying_price_basis": "UNVERIFIED",
+        "asset_class": "OTHER",
+        "entity_updated_at": null
+      }
+    ],
+    "position_rates": [
+      {
+        "position_key": "mcp:account:assets:synthetic-a:holding:security-holdings:synthetic-h1",
+        "source_field": "annual_yield",
+        "value": "0",
+        "unit": "UNVERIFIED",
+        "period": "UNVERIFIED"
+      }
+    ],
+    "allocation_categories": [
+      {
+        "category": "synthetic-new-category",
+        "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+      }
+    ],
+    "allocation_types": [
+      {
+        "category": "synthetic-new-category",
+        "holding_type": "synthetic-new-type",
+        "value": {"amount": "1000.00", "currency": "EUR", "amount_eur": "1000.00", "eur_basis": "SOURCE_EUR"}
+      }
+    ],
+    "members": [
+      {
+        "member_ordinal": 0,
+        "label": null,
+        "gross_assets": {"amount": "0", "currency": "EUR", "amount_eur": "0", "eur_basis": "SOURCE_EUR"},
+        "reported_liabilities": {"amount": "20", "currency": "EUR", "amount_eur": "20", "eur_basis": "SOURCE_EUR"},
+        "reported_net_worth": {"amount": "-20", "currency": "EUR", "amount_eur": "-20", "eur_basis": "SOURCE_EUR"},
+        "unvalued_liability_count": 0
+      }
+    ],
+    "debt_details": [],
+    "warnings": [{"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null}],
+    "unsupported_details": []
+  },
+  "non_eur_snapshot": {
+    "schema_version": "3.0",
+    "observation_id": "00000000-0000-4000-8000-000000000001",
+    "snapshot_date": "2026-09-11",
+    "generated_at": "2026-09-11T07:30:20+02:00",
+    "provenance": {
+      "provider": "finary_official_mcp",
+      "source_contract_version": "1.0.0",
+      "scope": "household",
+      "ownership_basis": "direct",
+      "metric": "gross_assets",
+      "currency": "USD",
+      "collection_started_at": "2026-09-11T07:30:00+02:00",
+      "collection_ended_at": "2026-09-11T07:30:19+02:00",
+      "atomicity": "COLLECTION_WINDOW",
+      "upstream_as_of": null
+    },
+    "coverage": {
+      "accounts": "COMPLETE",
+      "holdings": "COMPLETE",
+      "debt_detail": "UNAVAILABLE",
+      "account_valuation": "COMPLETE",
+      "holding_valuation": "COMPLETE",
+      "debt_valuation": "COMPLETE",
+      "overview_quality": "REPORTED_COMPLETE",
+      "detail_semantics": "UNVERIFIED",
+      "source_freshness": "NOT_APPLICABLE",
+      "debt_detail_basis": "UNVERIFIED"
+    },
+    "overview": {
+      "gross_assets": {"amount": "1000.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+      "financial_assets": {"amount": "600.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+      "reported_liabilities": {"amount": "200.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+      "reported_net_worth": {"amount": "800.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+      "unvalued_liability_count": 0,
+      "source_completeness": "complete",
+      "preferred_wealth_metric": "financial_assets"
+    },
+    "accounts": [
+      {
+        "account_key": "mcp:account:assets:synthetic-a",
+        "source_account_id": "synthetic-a",
+        "resource_type": "assets",
+        "label": "Synthetic account",
+        "account_type": "investment",
+        "tax_wrapper": null,
+        "native_balance": {"amount": "250.00", "currency": "EUR", "amount_eur": "250.00", "eur_basis": "SOURCE_EUR"},
+        "full_value_eur": "250.00",
+        "direct_owners_value_eur": "375.00",
+        "total_ownership_share": "1.5",
+        "entity_updated_at": "2026-09-10T06:00:00+00:00",
+        "connection_key": null,
+        "connection_state": "NO_CONNECTION",
+        "ownership_evidence": "EXPLICIT_ENTRIES"
+      }
+    ],
+    "ownership": [
+      {
+        "account_key": "mcp:account:assets:synthetic-a",
+        "owner_key": "mcp:owner:profiles:synthetic-owner",
+        "owner_type": "profiles",
+        "owner_source_id": "synthetic-owner",
+        "owner_label": null,
+        "ownership_share": "1.5",
+        "owner_value_eur": "375.00"
+      }
+    ],
+    "connections": [],
+    "positions": [
+      {
+        "position_key": "mcp:account:assets:synthetic-a:holding:security-holdings:synthetic-h1",
+        "source_asset_id": "mcp:holding:security-holdings:synthetic-h1",
+        "account_key": "mcp:account:assets:synthetic-a",
+        "holding_type": "security-holdings",
+        "holding_id": "synthetic-h1",
+        "label": null,
+        "product_key": null,
+        "quantity": "2",
+        "quantity_unit": "UNITS",
+        "current_value": {"amount": "90.00", "currency": "EUR", "amount_eur": "90.00", "eur_basis": "SOURCE_EUR"},
+        "value_ownership_basis": "UNVERIFIED",
+        "buying_price": {"amount": null, "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+        "buying_price_basis": "UNVERIFIED",
+        "asset_class": "OTHER",
+        "entity_updated_at": null
+      }
+    ],
+    "position_rates": [
+      {
+        "position_key": "mcp:account:assets:synthetic-a:holding:security-holdings:synthetic-h1",
+        "source_field": "annual_yield",
+        "value": "0",
+        "unit": "UNVERIFIED",
+        "period": "UNVERIFIED"
+      }
+    ],
+    "allocation_categories": [
+      {
+        "category": "synthetic-new-category",
+        "value": {"amount": "1000.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+      }
+    ],
+    "allocation_types": [
+      {
+        "category": "synthetic-new-category",
+        "holding_type": "synthetic-new-type",
+        "value": {"amount": "1000.00", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"}
+      }
+    ],
+    "members": [
+      {
+        "member_ordinal": 0,
+        "label": null,
+        "gross_assets": {"amount": "0", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+        "reported_liabilities": {"amount": "20", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+        "reported_net_worth": {"amount": "-20", "currency": "USD", "amount_eur": null, "eur_basis": "UNAVAILABLE"},
+        "unvalued_liability_count": 0
+      }
+    ],
+    "debt_details": [],
+    "warnings": [{"code": "OWNERSHIP_WORDING_CONFLICT", "entity_key": null}],
+    "unsupported_details": []
+  },
+  "connection": {
+    "connection_key": "mcp:connection:institution-connections:synthetic-c",
+    "institution_key": null,
+    "institution_label": null,
+    "source_status": "synthetic-broken",
+    "last_sync_at": "2026-09-11T07:00:00+02:00",
+    "last_successful_sync_at": "2026-09-01T07:00:00+02:00",
+    "freshness": "BROKEN"
+  },
+  "wrapper": {
+    "content": [],
+    "structuredContent": {
+      "_reading_note": "Synthetic explanatory note.",
+      "allocation_direct_note": "Synthetic explanatory note.",
+      "members_note": "Synthetic explanatory note.",
+      "recursive_ownership_note": "Synthetic explanatory note.",
+      "preferred_wealth_metric_note": "Synthetic explanatory note.",
+      "view": {"scope": "household", "ownership": "direct", "metric": "gross_assets", "currency": "EUR"},
+      "balance_sheet": {
+        "completeness": "complete",
+        "owned_gross_assets_direct": "1000.00",
+        "owned_liabilities_direct": "200.00",
+        "owned_net_worth_direct": "800.00",
+        "unvalued_liability_count": 0,
+        "note": "Synthetic reported debt, no loan detail claim."
+      },
+      "financial_assets": {"owned_financial_assets_direct": "600.00", "note": "Synthetic official subset."},
+      "preferred_wealth_metric": "financial_assets",
+      "allocation_direct": [
+        {
+          "category": "synthetic-new-category",
+          "owned_amount_direct": "1000.00",
+          "by_type": [{"holding_type": "synthetic-future-holdings", "owned_amount_direct": "1000.00"}]
+        }
+      ],
+      "members": [
+        {
+          "name": null,
+          "owned_gross_assets_direct": "0",
+          "owned_liabilities_direct": "20",
+          "owned_net_worth_direct": "-20",
+          "unvalued_liability_count": 0
+        }
+      ]
+    },
+    "isError": false
+  },
+  "migration": {
+    "legacy_account_id": "42",
+    "mcp_account_id": "42",
+    "legacy_account_key": "finary:account:42",
+    "mcp_account_key": "mcp:account:assets:42",
+    "snapshot_date": "2026-09-11",
+    "observation_id": "00000000-0000-4000-8000-000000000001",
+    "legacy_daily_key": "2026-09-11",
+    "mcp_daily_key": "mcp:daily:2026-09-11:00000000-0000-4000-8000-000000000001",
+    "legacy_history_key": "2026-09-11:finary:42:asset:security:7",
+    "mcp_history_key": "mcp:history:2026-09-11:00000000-0000-4000-8000-000000000001:mcp:account:assets:42:holding:security-holdings:7",
+    "legacy_override": {"source_asset_id": "security:7", "asset_class": "EQUITY", "enabled": true},
+    "mcp_source_asset_id": "mcp:holding:security-holdings:7",
+    "crosswalk": {
+      "legacy_key": "security:7",
+      "mcp_key": null,
+      "state": "UNRESOLVED",
+      "evidence_reference": null,
+      "reviewed_at": null
+    },
+    "apply_legacy_override": false,
+    "series_comparable": false,
+    "rollback_schema": "2.1",
+    "preserve_new_observations": true,
+    "preserve_manual_edits": true
+  },
+  "sanitized-mcp_auth_unavailable": {
+    "error": {
+      "code": "MCP_AUTH_UNAVAILABLE",
+      "message": "Independent Finary MCP authorization is unavailable",
+      "retryable": false
+    }
+  },
+  "sanitized-mcp_capability_unavailable": {
+    "error": {
+      "code": "MCP_CAPABILITY_UNAVAILABLE",
+      "message": "Required Finary MCP capability is unavailable",
+      "retryable": false
+    }
+  },
+  "sanitized-mcp_protocol_error": {
+    "error": {"code": "MCP_PROTOCOL_ERROR", "message": "Finary MCP protocol validation failed", "retryable": false}
+  },
+  "sanitized-mcp_tool_error": {"error": {"code": "MCP_TOOL_ERROR", "message": "Finary MCP action failed", "retryable": false}},
+  "sanitized-mcp_malformed_response": {
+    "error": {"code": "MCP_MALFORMED_RESPONSE", "message": "Finary MCP response validation failed", "retryable": false}
+  },
+  "sanitized-mcp_unsupported_view": {
+    "error": {
+      "code": "MCP_UNSUPPORTED_VIEW",
+      "message": "Finary MCP portfolio view is unsupported",
+      "retryable": false
+    }
+  },
+  "sanitized-mcp_incomplete_collection": {
+    "error": {
+      "code": "MCP_INCOMPLETE_COLLECTION",
+      "message": "Finary MCP collection is incomplete",
+      "retryable": false
+    }
+  },
+  "sanitized-mcp_unsupported_detail": {
+    "error": {"code": "MCP_UNSUPPORTED_DETAIL", "message": "Finary MCP detail is not verified", "retryable": false}
+  },
+  "sanitized-mcp_timeout": {"error": {"code": "MCP_TIMEOUT", "message": "Finary MCP request timed out", "retryable": true}},
+  "sanitized-mcp_rate_limited": {"error": {"code": "MCP_RATE_LIMITED", "message": "Finary MCP rate limit reached", "retryable": true}},
+  "sanitized-mcp_invalid_argument": {
+    "error": {"code": "MCP_INVALID_ARGUMENT", "message": "Finary MCP arguments are invalid", "retryable": false}
+  },
+  "sanitized-snapshot_validation_failed": {
+    "error": {
+      "code": "SNAPSHOT_VALIDATION_FAILED",
+      "message": "Normalized snapshot validation failed",
+      "retryable": false
+    }
+  }
+}

@@ -3,7 +3,10 @@
 ## Purpose
 
 Finary Portfolio Data is a local integration boundary between Finary's private
-API and downstream analysis tools. It converts unstable upstream responses into
+API and downstream analysis tools. This is the implemented provider. The
+[official MCP contract](finary-mcp-contract.md) defines a separate planned
+provider, API 3.0 and workbook 3.0; no MCP runtime is implemented yet.
+The bridge converts unstable upstream responses into
 a stable versioned API, then synchronizes validated data into a Google workbook
 that ChatGPT can read.
 
@@ -36,7 +39,7 @@ The bridge and n8n bind to localhost. The schema server has no host port.
 
 ### Finary boundary
 
-Finary uses a private, unsupported API and must be treated as unstable. All
+The implemented legacy provider uses Finary's private, unsupported API. All
 endpoint knowledge, Clerk authentication, raw response parsing, and upstream
 exception translation are isolated in the bridge adapter. Downstream modules do
 not import Finary client packages or inspect private payloads.
@@ -45,6 +48,12 @@ The adapter returns bridge-owned raw entities. The normalizer then extracts only
 verified fields through category-specific handlers and constructs strict
 Pydantic models. Raw dictionaries and private nested objects are not exposed in
 API metadata.
+
+The planned MCP provider owns its own transport/authentication and resource
+relationships. One provider is frozen per observation/run and one active
+writer/provider owns a workbook. No fallback, mixed-provider snapshot or field
+supplementation is allowed. MCP selection must not initialize the private
+adapter or require its credentials; legacy routes keep their existing binding.
 
 ### Automation boundary
 
@@ -62,11 +71,12 @@ Google Sheets contains normalized portfolio state, user-managed analytical
 inputs, and sanitized synchronization telemetry. It does not contain Finary or
 n8n credentials, raw API responses, or generic metadata blobs.
 
-ChatGPT reads the private workbook through a Project Google Drive source. The
+In the implemented workbook path, ChatGPT reads the private workbook through a
+Project Google Drive source. The
 Project receives the workbook semantics as a separate knowledge file, but it
 never connects to the bridge or Finary directly.
 
-## Bridge layers
+## Implemented legacy bridge layers
 
 ```text
 FastAPI routes (main.py)
@@ -199,7 +209,7 @@ When `FINARY_BRIDGE_API_KEY` is non-empty, both snapshot routes require an exact
 `X-API-Key` match before the Finary client is constructed. Missing or invalid
 keys return HTTP 401 with `BRIDGE_AUTH_FAILED`; `/health` remains unauthenticated.
 
-## Identity and normalization
+## Legacy private-provider identity and normalization
 
 All upstream IDs are canonical strings. A position ID is only unique within its
 Finary collection, so every asset identity includes the position kind:
@@ -233,7 +243,8 @@ currency provenance or a verified conversion. `display_*` fields are never
 treated as proof of EUR. Normalization does not perform speculative FX
 conversion.
 
-Non-collection account balances with verified EUR provenance are the sole
+For the implemented private provider, non-collection account balances with
+verified EUR provenance are the sole
 source of `gross_assets_eur`. Position values provide analytical detail and are
 never added to account balances. If the authoritative total cannot be proved,
 snapshot construction fails rather than producing a partial total.
@@ -242,7 +253,13 @@ Position allocation totals and weights use only active positions with known EUR
 values. They describe the known-EUR position subset and may not reconcile to
 gross assets. The workflow records a partial-coverage warning when appropriate.
 
-## Authentication and session lifecycle
+The planned MCP provider instead preserves authoritative overview totals and
+official allocation, native currencies and direct-owner account values at their
+respective grains. Its independent retrieval, debt-detail, valuation, semantic
+and freshness states do not broaden legacy COMPLETE evidence. See the
+[focused contract](finary-mcp-contract.md) for identity and migration boundaries.
+
+## Legacy private-provider authentication and session lifecycle
 
 The adapter implements Clerk password authentication followed by the supported
 TOTP or email-code challenge. An explicit interactive command bootstraps the
@@ -422,7 +439,9 @@ consumer documentation.
 
 ## Deliberate limitations
 
-- Finary provides no supported public API contract for this use case.
+- The implemented provider relies on a private API. Official MCP connector
+  access exists; independent bridge authorization and several source semantics
+  remain verification gates in the planned contract.
 - Liability coverage is not guaranteed complete by the verified upstream
   surface.
 - No speculative FX conversion is performed.

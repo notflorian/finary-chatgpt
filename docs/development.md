@@ -132,6 +132,16 @@ scheduling, public API authentication, Google transport, or a database backup
 restoration. Python workbook regressions simulate restoration by ID reuse;
 fresh-container engine tests prove new-installation ID reuse separately.
 
+## Planned MCP contract validation
+
+The [official MCP contract](finary-mcp-contract.md) is documentation and
+executable schema evidence only. With the development dependencies installed,
+run `python -m pytest -q tests/test_finary_mcp_contract.py` from `finary-bridge`.
+The tests use Draft 2020-12 validation plus focused cross-field contract checks
+on synthetic fixtures. They do not implement or prove a client, normalizer,
+writer, OAuth lifecycle or migration engine. The full required gates above
+remain applicable.
+
 ## Workflow validation maintenance
 
 The shared [validation source](../n8n/validation.js) is embedded in both workflow
