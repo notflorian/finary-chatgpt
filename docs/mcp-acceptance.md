@@ -11,7 +11,7 @@ migration, release publication and revoking existing connections are excluded.
 
 | Child | Implementation stage | Required evidence | Status / blockers |
 | --- | --- | --- | --- |
-| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes, natural expiry and server-side invalidation remain unverified |
+| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes and natural expiry remain unverified; dedicated live revocation rejected refresh with invalid_grant while the retained access token remained accepted |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
 | #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; operator reported live migration replay; authorized manual shadow sync and production-consumer readback passed |
@@ -202,3 +202,23 @@ and no production workbook was changed. It does not establish live natural
 OAuth expiry, server-side token invalidation, all null transitions, production
 cutover or the first scheduled execution. The previously recorded synthetic
 regressions remain separate evidence for failure and transition cases.
+
+
+## Dedicated live server-side revocation evidence (2026-09-11)
+
+The operator authorized a separate disposable connection while the natural-expiry
+test continued on its original isolated state. The opt-in revocation test reported
+one pass in 4.03s: DISPOSABLE_CONNECTION_VALIDATED, accepted production revocation,
+SERVER_REFRESH_PROBE / REJECTED_INVALID_GRANT and SERVER_ACCESS_PROBE /
+STILL_ACCEPTED. Its final SERVER_REFRESH_REVOCATION_VALIDATED result explicitly
+set immediate_access_revocation to false. This establishes server-side rejection
+of the retained refresh grant, rather than merely local state removal. It does
+not establish immediate loss of access: the retained access token still completed
+native MCP initialization and required-tool discovery. No portfolio tool was
+called by that probe. The repeated accepted-revocation line in pytest output
+comes from the production command's captured print plus the test's structural
+report, not a second invocation of revocation.
+
+Immediate access revocation must not be advertised. The token's eventual rejection
+and the separate natural-expiry renewal run remain unverified until their own
+results are observed. No production or assistant-managed connection was revoked.
