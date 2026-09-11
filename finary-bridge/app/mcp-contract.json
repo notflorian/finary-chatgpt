@@ -1,0 +1,4109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/notflorian/finary-chatgpt/blob/main/docs/finary-mcp-contract.json",
+  "title": "Planned Finary official MCP integration contract",
+  "contract_version": "1.0.0",
+  "status": "PLANNED_NOT_IMPLEMENTED",
+  "inspection_date": "2026-09-11",
+  "implemented": {
+    "api_schema": "2.0",
+    "canonical_route": "/v2/snapshot",
+    "workbook_schema": "2.1",
+    "application_version": "1.1.0"
+  },
+  "planned": {"api_schema": "3.0", "route": "/v3/snapshot", "workbook_schema": "3.0"},
+  "providers": {
+    "finary_private_api": {
+      "status": "IMPLEMENTED",
+      "interface": "app.finary_client.FinaryClient",
+      "source_contract_version": "legacy-api-2.0",
+      "routes": ["/v1/snapshot", "/v2/snapshot"]
+    },
+    "finary_official_mcp": {
+      "status": "PLANNED",
+      "source_contract_version": "1.0.0",
+      "route": "/v3/snapshot",
+      "schema": "#/$defs/snapshot_v3",
+      "standalone_authorization": "UNVERIFIED"
+    }
+  },
+  "evidence": {
+    "catalog_2026_09_11": {
+      "class": "declared_connector_schema",
+      "date": "2026-09-11",
+      "source": "Connected Finary catalog; nine action declarations inspected during this task",
+      "native_wire_proven": false
+    },
+    "bounded_reads_2026_09_11": {
+      "class": "observed_structure",
+      "date": "2026-09-11",
+      "source": "This task: accounts and overview read once; first account holdings read with limit=1, offset=0; only field/type summaries retained; one budget default-period read to verify view field names only (not note consistency)",
+      "actions": ["accounts", "holdings", "get_portfolio_overview", "get_budget_overview"],
+      "native_wire_proven": false
+    },
+    "roadmap_investigation": {
+      "class": "historical_observation",
+      "date": "2026-09-11",
+      "source": "https://github.com/notflorian/finary-chatgpt/issues/85",
+      "details": "Seven successful actions; forced offset pagination. No search or simulation invocation."
+    },
+    "contract_issue": {
+      "class": "historical_observation",
+      "date": "2026-09-11",
+      "source": "https://github.com/notflorian/finary-chatgpt/issues/86"
+    },
+    "product_page": {
+      "class": "official_documentation",
+      "date": "2026-09-11",
+      "source": "https://finary.com/fr/mcp",
+      "details": "Lists eight actions, omitting search_spending; public count is not capability authority."
+    },
+    "help_page": {
+      "class": "official_documentation",
+      "date": "2026-09-11",
+      "source": "https://help.finary.com/fr/articles/16335735-utiliser-le-mcp-finary-avec-mon-assistant-ia-claude-chatgpt-perplexity-mistral",
+      "details": "Assistant setup at https://public-api.finary.com/mcp; does not establish this bridge authorization lifecycle."
+    },
+    "goal_month_precision": {
+      "class": "historical_observation",
+      "date": "2026-09-11",
+      "source": "https://github.com/notflorian/finary-chatgpt/issues/93",
+      "details": "Month selection normalized to day 15; attributed, not newly verified."
+    },
+    "project_decision": {"class": "project_decision", "date": "2026-09-11", "source": "finary-mcp-contract.md"},
+    "synthetic_defensive": {
+      "class": "synthetic_defensive",
+      "date": "2026-09-11",
+      "source": "../finary-bridge/tests/fixtures/finary-mcp/manifest.json",
+      "details": "Constructed from invented data; never establishes upstream support."
+    }
+  },
+  "capabilities": {
+    "get_me": {
+      "support_status": "HISTORICALLY_OBSERVED",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/analytics_input",
+      "output_schema": "#/$defs/get_me_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "connection_identity_only",
+      "population_ownership": "signed-in user; exclude IDs/email from portfolio",
+      "units_currency": "not_applicable",
+      "dates": "not_applicable",
+      "pagination": "not_applicable",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+    },
+    "profiles": {
+      "support_status": "HISTORICALLY_OBSERVED",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/analytics_input",
+      "output_schema": "#/$defs/profiles_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "optional_owner_context",
+      "population_ownership": "managed people/companies; not proof of household stake",
+      "units_currency": "not_applicable",
+      "dates": "unknown object; no freshness established",
+      "pagination": "not declared",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+    },
+    "accounts": {
+      "support_status": "OBSERVED_SUBSET",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/analytics_input",
+      "output_schema": "#/$defs/accounts_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "detail",
+      "population_ownership": "full account and explicit direct-owner entries; not household total",
+      "units_currency": "balance native; full/direct/owner values EUR; shares fractions",
+      "dates": "created/updated/opened entity dates; connection sync separate",
+      "pagination": "no arguments or pagination declared; whole response does not prove universal coverage",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"]
+    },
+    "holdings": {
+      "support_status": "OBSERVED_SUBSET",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/holdings_input",
+      "output_schema": "#/$defs/holdings_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "detail",
+      "population_ownership": "one account; holding resource; ownership verified per type only",
+      "units_currency": "current_value_currency and buying_price_currency independent; quantities/rates type-specific",
+      "dates": "created/updated entity dates, no bank sync guarantee",
+      "pagination": "offset; default 100; max 1000; must exhaust every account",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "input_schema_layer": "Project acceptance narrows declared number limit/offset to bounded integers; account_id required in connector declaration."
+    },
+    "get_portfolio_overview": {
+      "support_status": "OBSERVED_SUBSET",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/analytics_input",
+      "output_schema": "#/$defs/overview_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "required_overview",
+      "population_ownership": "explicit household/direct/gross_assets view",
+      "units_currency": "all owned amounts in view.currency; no inferred FX",
+      "dates": "collection time only; no upstream as-of declared",
+      "pagination": "not_applicable",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"]
+    },
+    "get_budget_overview": {
+      "support_status": "OBSERVED_SUBSET",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/period_input",
+      "output_schema": "#/$defs/budget_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "optional_on_demand",
+      "population_ownership": "caller-configured whole household cashflows, no ownership scaling",
+      "units_currency": "money in view.currency; signed percentage rates; target currency unconfirmed",
+      "dates": "returned inclusive dates/partial/history evidence; period defaults this_month",
+      "pagination": "not_applicable",
+      "freshness": "returned window/history and unpriced evidence; retrieval time separate",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "input_schema_layer": "Project date/calendar/nonblank constraints supplement declared string arguments; paired/default semantics are declared descriptions."
+    },
+    "goals": {
+      "support_status": "HISTORICALLY_OBSERVED",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/analytics_input",
+      "output_schema": "#/$defs/goals_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "optional_on_demand",
+      "population_ownership": "plans shared by contributor labels; no progress or stable goal ID",
+      "units_currency": "plan money in goal.currency; coverage count months; cadence retained",
+      "dates": "created_at not update time; target precision month per attributed evidence",
+      "pagination": "ordered full response; not persistent row identity",
+      "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+    },
+    "search_spending": {
+      "support_status": "DECLARED_ONLY",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/search_input",
+      "output_schema": "#/$defs/search_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "explicit_label_only",
+      "population_ownership": "label substring aggregates; no transaction details or merchant directory",
+      "units_currency": "money in view.currency; integer counts; whole household configured cashflows",
+      "dates": "returned from/to inclusive; paired dates override period",
+      "pagination": "not_applicable",
+      "freshness": "returned window/history and unpriced evidence; retrieval time separate",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11"],
+      "input_schema_layer": "Project date/calendar/nonblank constraints supplement declared string arguments; paired/default semantics are declared descriptions."
+    },
+    "simulate_compound_interest": {
+      "support_status": "DECLARED_ONLY",
+      "runtime_status": "NOT_IMPLEMENTED",
+      "input_schema": "#/$defs/simulation_input",
+      "output_schema": "#/$defs/simulation_output",
+      "schema_layer": "assistant_connector_declared_payload",
+      "role": "explicit_projection_only",
+      "population_ownership": "user-confirmed illustrative inputs, outside ingestion",
+      "units_currency": "capital/contribution EUR numbers; duration years; annual_rate_percent percent",
+      "dates": "not_applicable; annual compounding; no fees/inflation",
+      "pagination": "not_applicable",
+      "freshness": "not_applicable",
+      "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
+      "errors": "transport_policy; HTTP success is insufficient",
+      "evidence": ["catalog_2026_09_11"]
+    }
+  },
+  "schema_layers": {
+    "declared_payloads": "*_output: lossless connector declaration transcription of known types; unknown objects remain open; not native MCP schemas",
+    "observed_overlays": "*_observed: known inspected fields are optional/nullable defensively; type/id/parent requirements are project acceptance, not claimed universal upstream requirements",
+    "project_acceptance": "decimal, holdings_page/session, snapshot_v3: stricter planned ingestion requirements",
+    "wrapper": "connector_result is the assistant wrapper only; content and structuredContent mapping to native results must be verified separately"
+  },
+  "input_policy": {
+    "scheduled_prompt": "OMIT",
+    "period": "this_month default; last_3_months is current month plus prior two, not previous calendar quarter",
+    "explicit_dates": "paired inclusive valid calendar dates override period; start <= end <= today in Europe/Paris; preserve returned dates",
+    "search": "explicit user-supplied nonblank label; trimmed case-insensitive substring; direction omitted includes income and spending; no wildcard crawl",
+    "simulation": "only explicit user projection with confirmed capital, duration and annual rate; do not infer from portfolio; set conversation language; optional contribution defaults zero; never ingestion",
+    "date_validation_clock": "Current Europe/Paris calendar date at invocation, never a cached inspection date; test cases inject a fixed clock."
+  },
+  "numeric_policy": {
+    "ingestion": "Decimal constructed directly from bounded strings; no float intermediate; validate lexical length before parsing; preserve exact value; reject malformed/non-finite/out-of-range without truncation or rounding",
+    "limits": {"integer_digits": 24, "fractional_digits": 18},
+    "absence": "absent/null unknown, zero is known; reject booleans, blanks and text placeholders as amounts",
+    "sheets": "new monetary/quantity/rate columns use exact decimal TEXT written RAW; nullable cells explicitly cleared; legacy numeric columns remain as-is and do not receive MCP amounts",
+    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and implementation-time bounds before invocation. Never use as ingestion decimals.",
+    "rate_units": {
+      "annual_yield_percent": "PERCENT, ANNUAL",
+      "annual_yield": "UNVERIFIED until type-specific source evidence",
+      "expense_ratio": "UNVERIFIED until scale independently confirmed",
+      "subscription_fees_ratio": "UNVERIFIED until scale independently confirmed",
+      "ownership_share": "FRACTION; nonnegative, can exceed 1",
+      "target_coverage_months": "MONTHS, not money"
+    },
+    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds."
+  },
+  "transport_policy": {
+    "native_protocol_revision": null,
+    "negotiated_transport": null,
+    "authorization": "UNVERIFIED; discover and verify in client issue; no invented OAuth endpoints/grants/scopes/registration/token lifetime",
+    "credential_boundary": "Never inspect or extract assistant-managed credentials. Separate bridge OAuth store from Clerk; minimum verified restart state only; operator bootstrap outside HTTP routes.",
+    "success": "Validate negotiated protocol and tool result, reject protocol error or isError=true even on HTTP 200. Require an unambiguous typed payload; conflicting text/structured payloads or malformed envelopes fail. Do not parse arbitrary notes/HTML as accounting instructions.",
+    "limits": {
+      "call_timeout_seconds": 30,
+      "collection_timeout_seconds": 180,
+      "max_response_bytes": 8388608,
+      "max_attempts_per_call": 3,
+      "max_pages_per_account": 1000,
+      "max_accounts": 10000,
+      "max_holdings_per_run": 100000
+    },
+    "limit_authority": "project safety budgets; not observed server limits",
+    "retry": "Only verified transient transport/timeouts/rate limits, bounded backoff within collection deadline. Protocol/schema/view/auth/permanent tool failures are not cured by argument rewriting.",
+    "failure_mapping": {
+      "malformed_envelope": "MCP_MALFORMED_RESPONSE",
+      "protocol_error": "MCP_PROTOCOL_ERROR",
+      "isError": "MCP_TOOL_ERROR",
+      "unsupported_view": "MCP_UNSUPPORTED_VIEW",
+      "incomplete_pagination": "MCP_INCOMPLETE_COLLECTION",
+      "unknown_nonempty_type": "MCP_UNSUPPORTED_DETAIL",
+      "missing_capability": "MCP_CAPABILITY_UNAVAILABLE",
+      "standalone_auth_unverified": "MCP_AUTH_UNAVAILABLE"
+    },
+    "telemetry": "fixed code and fixed <=160-character message, retryable; allowlisted warning codes only; no upstream notes, HTML, raw errors, IDs from auth, prompts or personal values",
+    "error_messages": {
+      "MCP_AUTH_UNAVAILABLE": {"message": "Independent Finary MCP authorization is unavailable", "retryable": false},
+      "MCP_CAPABILITY_UNAVAILABLE": {"message": "Required Finary MCP capability is unavailable", "retryable": false},
+      "MCP_PROTOCOL_ERROR": {"message": "Finary MCP protocol validation failed", "retryable": false},
+      "MCP_TOOL_ERROR": {"message": "Finary MCP action failed", "retryable": false},
+      "MCP_MALFORMED_RESPONSE": {"message": "Finary MCP response validation failed", "retryable": false},
+      "MCP_UNSUPPORTED_VIEW": {"message": "Finary MCP portfolio view is unsupported", "retryable": false},
+      "MCP_INCOMPLETE_COLLECTION": {"message": "Finary MCP collection is incomplete", "retryable": false},
+      "MCP_UNSUPPORTED_DETAIL": {"message": "Finary MCP detail is not verified", "retryable": false},
+      "MCP_TIMEOUT": {"message": "Finary MCP request timed out", "retryable": true},
+      "MCP_RATE_LIMITED": {"message": "Finary MCP rate limit reached", "retryable": true},
+      "MCP_INVALID_ARGUMENT": {"message": "Finary MCP arguments are invalid", "retryable": false},
+      "SNAPSHOT_VALIDATION_FAILED": {"message": "Normalized snapshot validation failed", "retryable": false}
+    }
+  },
+  "identity": {
+    "encoding": "E(x) = percent-encode each UTF-8 byte except ASCII ALPHA/DIGIT/-._~, uppercase hex; never trim, case-fold, Unicode-normalize, decode or numerically coerce IDs. Reject empty/whitespace/control source IDs and inputs >256 characters. Encoded keys may exceed source-ID length.",
+    "account_key": "mcp:account:assets:{E(account_id)}",
+    "source_asset_id": "mcp:holding:{E(holding_type)}:{E(holding_id)}",
+    "position_key": "mcp:account:assets:{E(account_id)}:holding:{E(holding_type)}:{E(holding_id)}",
+    "owner_key": "mcp:owner:{E(owner_type)}:{E(owner_id)}",
+    "connection_key": "mcp:connection:{E(type)}:{E(id)}",
+    "product_key": "mcp:product:{E(type)}:{E(id)}",
+    "institution_key": "mcp:institution:{E(type)}:{E(id)}",
+    "observation_id": "fresh UUID per bridge collection, retained for retries of that exact payload only",
+    "run_id": "existing restored-safe n8n identity, one terminal outcome; observation_id separately binds immutable data",
+    "daily_key": "mcp:daily:{snapshot_date}:{observation_id}",
+    "history_key": "mcp:history:{snapshot_date}:{observation_id}:{position_key}",
+    "observation_child_key": "{observation_id}:{E(table)}:{E(component1)}:...; fixed arity per table; optional components use nullable_key_components tags; ordinal components are canonical base-10 nonnegative integers and local to observation only",
+    "legacy": "Keep all finary:* keys and date-only daily/history keys unchanged. Never infer a cross-provider match from equal IDs, name, ticker, ISIN or order.",
+    "nullable_key_components": "Encode absent optional child-key component as literal ~null and present components as ~value followed by E(value); this discriminates an absent warning entity from any real ID. Fixed table key arity; no delimiter ambiguity."
+  },
+  "pagination": {
+    "collection": "accounts once, holdings for every returned account including zero holdings; first offset=0, fixed requested limit; next offset += length(data)",
+    "required_meta": ["total", "limit", "offset", "has_more"],
+    "completion": "stable total; exact contiguous offsets; has_more false iff offset+len(data)==total; unique holding (type,id) across all pages/accounts; total reached; empty data only valid at total=0 offset=0",
+    "relationships": "holding.relationships.asset.data must equal (assets, requested account_id); included indexed by (type,id); ambiguous duplicates or contradictory parents fail; missing optional enrichment leaves null",
+    "failures": [
+      "changed_total",
+      "repeated_offset",
+      "repeated_identity",
+      "missing_page",
+      "empty_nonterminal_page",
+      "limit_mismatch",
+      "conflicting_parent",
+      "unknown_nonempty_type",
+      "budget_exceeded"
+    ],
+    "unknown_types": "Preserve sanitized type/count diagnostics, mark holding semantics UNVERIFIED and collection PARTIAL; emit no position write set. Unknown details never disappear into COMPLETE. Unverified loans separately forbid debt-detail COMPLETE.",
+    "links": "Relative self/first/last/next/prev are structural evidence, never REST traversal authority; tool offset calls only",
+    "observed_types": ["security-holdings", "fiat-holdings", "crypto-holdings", "fond-euro-holdings", "scpi-holdings"],
+    "observed_type_evidence": "roadmap_investigation supplies the vocabulary; bounded current page confirms security relationship and field names only; existence is not verification of all valuation fields",
+    "loan_status": "NO_VERIFIED_NONEMPTY_MAPPING"
+  },
+  "authority": {
+    "overview": "sole authority for its reported totals and official allocation; no account/holding/member/allocation reconciliation replaces it",
+    "financial_assets_includes": ["savings", "stocks_and_funds", "crypto", "fonds_euros", "precious_metals"],
+    "financial_assets_excludes": ["checking", "real_estate", "startups", "crowdlending", "other_assets", "debt"],
+    "company_look_through": "UNAVAILABLE",
+    "owner_values": "apportion account value; combined shares can exceed one; never add to full account or label as household stake",
+    "preferred_wealth_metric": "display preference only",
+    "allocation": "official category/by_type preserved separately from custom AssetClass and overrides; unknown category identifiers retained",
+    "debt": "reported totals and independently complete loan retrieval are different; complete with unvalued debt is qualified, assets_only count zero proves nothing; never sum details to correct overview",
+    "currency": "Native storage in workbook 3.0, nullable exact EUR projections. Overview amount_eur only when view.currency=EUR; account EUR fields never imply overview FX. Unsupported view is rejected, valid non-EUR currency preserved. Legacy EUR-only writer rejects v3 entirely.",
+    "freshness": "ingestion, entity update and bank success are distinct; last_sync_at not success; source last_successful_sync_at >48h stale; broken status remains broken even after recent attempt; manual account no connection is NOT_APPLICABLE, unresolved relationship UNKNOWN; no silent deduplication"
+  },
+  "write_gates": {
+    "overview": ["valid_snapshot", "supported_explicit_view", "matching_provider_workbook", "all_prepared_rows_valid"],
+    "accounts": ["accounts=COMPLETE"],
+    "positions": [
+      "accounts=COMPLETE",
+      "holdings=COMPLETE",
+      "detail_semantics in allowed_position_semantics; preserve explicit per-field qualifiers"
+    ],
+    "debt_details": ["debt_detail=COMPLETE", "independently_verified_detail_enumeration"],
+    "no_partial_rows": "PARTIAL/UNAVAILABLE dimension has empty corresponding API write arrays; completeness field distinguishes unknown from known empty; keep last compatible detail separately dated",
+    "overview_only": "Explicitly unavailable/unsupported detail can yield SUCCESS_WITH_WARNINGS and overview/allocation/member rows only. Malformed/protocol/pagination failures abort the run before any portfolio write; no conversion of failures into overview-only success. Successful unsupported detail reads retain only typed unsupported_details counts/reasons; these diagnostics cannot authorize any missing-row inactivation.",
+    "terminal": "one active writer/provider; validate every permitted batch before any write; terminal success last, binds observation/run and per-table expected counts; failed/latest partial writes are not accepted evidence; inactivation only within complete same-provider collection",
+    "qualified_fields": "UNVERIFIED field units/ownership permit preservation of supported-type source values with explicit qualifiers, never derivation of cost, yield or ownership. Unknown nonempty resource shapes remain PARTIAL with no position write set. INCONSISTENT detail requires PARTIAL holdings and no position writes.",
+    "allowed_position_semantics": ["SUPPORTED", "UNVERIFIED"]
+  },
+  "provider_interfaces": {
+    "private_api": {
+      "status": "UNCHANGED_IMPLEMENTED",
+      "input": "Existing FinaryClient.authenticate/get_accounts/get_positions/get_liabilities; legacy credential/session requirements",
+      "output": "Existing FinaryRaw* -> SnapshotService -> PortfolioSnapshot/PortfolioSnapshotV2; gross account sum and complete detailed-liability sum retained"
+    },
+    "official_mcp": {
+      "status": "PLANNED",
+      "input": "Typed per-action inputs in capability registry; no analytics prompt in scheduled calls; explicit provider frozen before any I/O",
+      "output": "Adapter-owned decoded typed results and collection evidence -> separate MCP snapshot service -> snapshot_v3; no raw relationships outside adapter",
+      "owns": [
+        "transport",
+        "authorization",
+        "catalog discovery",
+        "payload decoding",
+        "included-resource joins",
+        "pagination",
+        "error translation"
+      ],
+      "dependencies": "n8n sees normalized HTTP only; get_me optional connection check, profiles optional enrichment; missing either must not redefine ownership"
+    },
+    "routing": {
+      "legacy_routes": "pinned to private_api, lazy initialization only if invoked; keep existing behavior",
+      "v3": "requires explicit configured finary_official_mcp; reject mismatch before client creation; never initialize private client or validate FINARY_EMAIL/PASSWORD/MFA for MCP",
+      "health": "metadata only, no client/auth-state access",
+      "bridge_auth": "check local API key before constructing either provider",
+      "fallback": "FORBIDDEN"
+    }
+  },
+  "workbook_migration": {
+    "status": "PLANNED_DELTA_ONLY",
+    "from": "2.1",
+    "to": "3.0",
+    "canonical_schema": "google-sheets-schema.json",
+    "preserve_sheet_order": true,
+    "legacy_sheets": "retain existing ten sheets in existing order; existing rows/values/keys unchanged; append new tables only during coordinated implementation",
+    "manual_sheets": ["allocation_targets", "asset_overrides", "cashflows"],
+    "currency_storage": "DECIMAL_TEXT_NATIVE_WITH_NULLABLE_EUR",
+    "manual_policy": "never synchronization-owned; copy content/formulas/formatting/validations exactly during migration; legacy overrides retain original source_asset_id, no auto-application to MCP keys",
+    "current_tables": "append typed v3 columns derived below; legacy columns retained, incompatible legacy-only amounts blank on new MCP rows; separate source identity; no generic JSON cells",
+    "history_policy": "legacy rows unchanged; MCP observations use new observation-specific keys, one row per observation/position; immutable successful history across same-day collections; retry same payload+run upserts same keys",
+    "daily_policy": "retain legacy date keys; new daily_key column carries mcp:daily:date:observation_id; legacy row key remains its old date value; no rewriting historical values",
+    "provenance_backfill": "new legacy_observations side table: only evidence-backed provider/version/currency/run; scope/ownership unknown unless independently established; original history membership may be null; never assign MCP view by date",
+    "crosswalk": "retain legacy and MCP identities separately even after deliberate verified mapping; record proposed/verified/rejected mapping and evidence_reference, never infer by labels or equal IDs; unresolved overrides remain unapplied",
+    "writer_exclusion": "writer_control singleton selects provider+schema+generation+writer_id. Operator drains old executions/error handlers and disables old schedule/credentials path before migration; checks alone are not a distributed lock. Fail closed on mismatch/concurrency; no auto switch.",
+    "shadow": "separate workbook, explicitly authorized synthetic dry-run first; no production writes in this issue",
+    "ordering": [
+      "inventory_versions_and_writers",
+      "backup_workbook_and_manual_content_without_finary_auth",
+      "create_separate_shadow_workbook",
+      "dry_run_schema_and_identity_checks",
+      "drain_disable_old_writer_and_error_handlers",
+      "copy_legacy_evidence_and_manual_content",
+      "apply_append_only_schema_delta_once",
+      "verify_row_counts_values_keys_and_manual_hashes",
+      "set_writer_control_generation_and_provider",
+      "run_validated_candidate",
+      "accept_terminal_membership_and_freshness",
+      "operator_activate_new_schedule"
+    ],
+    "idempotency": "migration ledger keyed by migration_id + source/destination workbook identity + version; validate preconditions, detect partial state, no duplicate columns/rows/crosswalk; rerun only identical plan, conflict stops",
+    "acceptance": [
+      "all_legacy_values_keys_and_history_preserved",
+      "manual_contents_unchanged",
+      "no_unresolved_mapping_applied",
+      "same_day_both_observations_retained",
+      "native_currency_and_nulls_preserved",
+      "single_writer_proven",
+      "terminal_counts_membership_valid",
+      "no_unsupported_complete_claim",
+      "series_break_disclosed"
+    ],
+    "rollback": "pause/drain MCP writer; preserve new workbook observations and all manual edits; resume legacy writer only against untouched/restored compatible 2.1 workbook after validated manual-change reconciliation. Keep 3.0 workbook archived/read-only for evidence; never point legacy writer at 3.0. No automatic reverse conversion or deletion.",
+    "comparability_dimensions": [
+      "provider",
+      "source_contract_version",
+      "scope",
+      "ownership_basis",
+      "currency",
+      "metric_definition",
+      "valuation_quality"
+    ],
+    "series_break": "provider/scope/ownership/currency/definition changes disclose a series break and reset change alerts; unknown legacy dimensions are not comparable. Collection windows/freshness and quality qualify even matching series. Value changes are not performance without sufficient investment cashflow evidence.",
+    "tables": {
+      "accounts_current": {
+        "row_schema": "#/$defs/account",
+        "grain": "account current",
+        "key": "account_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "extend_existing",
+        "column_bindings": {
+          "account_key": "/account_key",
+          "source_account_id": "/source_account_id",
+          "mcp_resource_type": "/resource_type",
+          "mcp_label": "/label",
+          "mcp_account_type": "/account_type",
+          "mcp_tax_wrapper": "/tax_wrapper",
+          "mcp_native_balance_amount": "/native_balance/amount",
+          "mcp_native_balance_currency": "/native_balance/currency",
+          "mcp_native_balance_amount_eur": "/native_balance/amount_eur",
+          "mcp_native_balance_eur_basis": "/native_balance/eur_basis",
+          "mcp_full_value_eur": "/full_value_eur",
+          "mcp_direct_owners_value_eur": "/direct_owners_value_eur",
+          "mcp_total_ownership_share": "/total_ownership_share",
+          "mcp_entity_updated_at": "/entity_updated_at",
+          "mcp_connection_key": "/connection_key",
+          "mcp_connection_state": "/connection_state",
+          "mcp_ownership_evidence": "/ownership_evidence"
+        }
+      },
+      "positions_current": {
+        "row_schema": "#/$defs/position",
+        "grain": "holding current",
+        "key": "position_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "extend_existing",
+        "column_bindings": {
+          "position_key": "/position_key",
+          "source_asset_id": "/source_asset_id",
+          "account_key": "/account_key",
+          "mcp_holding_type": "/holding_type",
+          "mcp_holding_id": "/holding_id",
+          "mcp_label": "/label",
+          "mcp_product_key": "/product_key",
+          "mcp_quantity": "/quantity",
+          "mcp_quantity_unit": "/quantity_unit",
+          "mcp_current_value_amount": "/current_value/amount",
+          "mcp_current_value_currency": "/current_value/currency",
+          "mcp_current_value_amount_eur": "/current_value/amount_eur",
+          "mcp_current_value_eur_basis": "/current_value/eur_basis",
+          "mcp_value_ownership_basis": "/value_ownership_basis",
+          "mcp_buying_price_amount": "/buying_price/amount",
+          "mcp_buying_price_currency": "/buying_price/currency",
+          "mcp_buying_price_amount_eur": "/buying_price/amount_eur",
+          "mcp_buying_price_eur_basis": "/buying_price/eur_basis",
+          "mcp_buying_price_basis": "/buying_price_basis",
+          "asset_class": "/asset_class",
+          "mcp_entity_updated_at": "/entity_updated_at"
+        }
+      },
+      "positions_history": {
+        "row_schema": "#/$defs/position",
+        "grain": "holding observation",
+        "key": "history_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "extend_existing",
+        "column_bindings": {
+          "position_key": "/position_key",
+          "source_asset_id": "/source_asset_id",
+          "account_key": "/account_key",
+          "mcp_holding_type": "/holding_type",
+          "mcp_holding_id": "/holding_id",
+          "mcp_label": "/label",
+          "mcp_product_key": "/product_key",
+          "mcp_quantity": "/quantity",
+          "mcp_quantity_unit": "/quantity_unit",
+          "mcp_current_value_amount": "/current_value/amount",
+          "mcp_current_value_currency": "/current_value/currency",
+          "mcp_current_value_amount_eur": "/current_value/amount_eur",
+          "mcp_current_value_eur_basis": "/current_value/eur_basis",
+          "mcp_value_ownership_basis": "/value_ownership_basis",
+          "mcp_buying_price_amount": "/buying_price/amount",
+          "mcp_buying_price_currency": "/buying_price/currency",
+          "mcp_buying_price_amount_eur": "/buying_price/amount_eur",
+          "mcp_buying_price_eur_basis": "/buying_price/eur_basis",
+          "mcp_buying_price_basis": "/buying_price_basis",
+          "asset_class": "/asset_class",
+          "mcp_entity_updated_at": "/entity_updated_at"
+        }
+      },
+      "portfolio_daily": {
+        "row_schema": "#/$defs/overview",
+        "grain": "authoritative observation",
+        "key": "daily_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "extend_existing",
+        "column_bindings": {
+          "mcp_gross_assets_amount": "/gross_assets/amount",
+          "mcp_gross_assets_currency": "/gross_assets/currency",
+          "mcp_gross_assets_amount_eur": "/gross_assets/amount_eur",
+          "mcp_gross_assets_eur_basis": "/gross_assets/eur_basis",
+          "mcp_financial_assets_amount": "/financial_assets/amount",
+          "mcp_financial_assets_currency": "/financial_assets/currency",
+          "mcp_financial_assets_amount_eur": "/financial_assets/amount_eur",
+          "mcp_financial_assets_eur_basis": "/financial_assets/eur_basis",
+          "mcp_reported_liabilities_amount": "/reported_liabilities/amount",
+          "mcp_reported_liabilities_currency": "/reported_liabilities/currency",
+          "mcp_reported_liabilities_amount_eur": "/reported_liabilities/amount_eur",
+          "mcp_reported_liabilities_eur_basis": "/reported_liabilities/eur_basis",
+          "mcp_reported_net_worth_amount": "/reported_net_worth/amount",
+          "mcp_reported_net_worth_currency": "/reported_net_worth/currency",
+          "mcp_reported_net_worth_amount_eur": "/reported_net_worth/amount_eur",
+          "mcp_reported_net_worth_eur_basis": "/reported_net_worth/eur_basis",
+          "mcp_unvalued_liability_count": "/unvalued_liability_count",
+          "mcp_source_completeness": "/source_completeness",
+          "mcp_preferred_wealth_metric": "/preferred_wealth_metric"
+        }
+      },
+      "account_ownership": {
+        "row_schema": "#/$defs/ownership",
+        "grain": "account/direct-owner observation",
+        "key": "observation_id+account_key+owner_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "account_key": "/account_key",
+          "owner_key": "/owner_key",
+          "owner_type": "/owner_type",
+          "owner_source_id": "/owner_source_id",
+          "owner_label": "/owner_label",
+          "ownership_share": "/ownership_share",
+          "owner_value_eur": "/owner_value_eur"
+        }
+      },
+      "source_connections": {
+        "row_schema": "#/$defs/connection",
+        "grain": "connection observation",
+        "key": "observation_id+connection_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "connection_key": "/connection_key",
+          "institution_key": "/institution_key",
+          "institution_label": "/institution_label",
+          "source_status": "/source_status",
+          "last_sync_at": "/last_sync_at",
+          "last_successful_sync_at": "/last_successful_sync_at",
+          "freshness": "/freshness"
+        }
+      },
+      "position_rates": {
+        "row_schema": "#/$defs/position_rate",
+        "grain": "holding/source-field observation",
+        "key": "observation_id+position_key+source_field",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "position_key": "/position_key",
+          "source_field": "/source_field",
+          "value": "/value",
+          "unit": "/unit",
+          "period": "/period"
+        }
+      },
+      "official_allocation_categories": {
+        "row_schema": "#/$defs/allocation_category",
+        "grain": "official category observation",
+        "key": "observation_id+category",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "category": "/category",
+          "value_amount": "/value/amount",
+          "value_currency": "/value/currency",
+          "value_amount_eur": "/value/amount_eur",
+          "value_eur_basis": "/value/eur_basis"
+        }
+      },
+      "official_allocation_types": {
+        "row_schema": "#/$defs/allocation_type",
+        "grain": "official category/type observation",
+        "key": "observation_id+category+holding_type",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "category": "/category",
+          "holding_type": "/holding_type",
+          "value_amount": "/value/amount",
+          "value_currency": "/value/currency",
+          "value_amount_eur": "/value/amount_eur",
+          "value_eur_basis": "/value/eur_basis"
+        }
+      },
+      "portfolio_members": {
+        "row_schema": "#/$defs/member",
+        "grain": "observation-local member row",
+        "key": "observation_id+member_ordinal",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership_columns": ["observation_id", "run_id"],
+        "mode": "append_table",
+        "column_bindings": {
+          "member_ordinal": "/member_ordinal",
+          "label": "/label",
+          "gross_assets_amount": "/gross_assets/amount",
+          "gross_assets_currency": "/gross_assets/currency",
+          "gross_assets_amount_eur": "/gross_assets/amount_eur",
+          "gross_assets_eur_basis": "/gross_assets/eur_basis",
+          "reported_liabilities_amount": "/reported_liabilities/amount",
+          "reported_liabilities_currency": "/reported_liabilities/currency",
+          "reported_liabilities_amount_eur": "/reported_liabilities/amount_eur",
+          "reported_liabilities_eur_basis": "/reported_liabilities/eur_basis",
+          "reported_net_worth_amount": "/reported_net_worth/amount",
+          "reported_net_worth_currency": "/reported_net_worth/currency",
+          "reported_net_worth_amount_eur": "/reported_net_worth/amount_eur",
+          "reported_net_worth_eur_basis": "/reported_net_worth/eur_basis",
+          "unvalued_liability_count": "/unvalued_liability_count"
+        }
+      },
+      "liabilities_current": {
+        "mode": "retain_no_mcp_write",
+        "reason": "No verified nonempty detail schema; independent complete zero enumeration may inactivate only same-provider rows after future detail support; overview alone never authorizes it"
+      },
+      "sync_runs": {
+        "mode": "extend_existing",
+        "append": [
+          "observation_id",
+          "provider",
+          "source_contract_version",
+          "writer_generation",
+          "per_table_expected_counts"
+        ],
+        "types": "observation_id UUID nullable on failed runs; provider/version TEXT; writer_generation INTEGER; each per-table count a separate nullable INTEGER column, not JSON; count_columns defines exact headers; null means table not in this run write set, zero means validated empty membership.",
+        "terminal": "same run binding and success-last semantics; preserve legacy rows",
+        "count_columns": {
+          "accounts_current": "accounts_current_expected_count",
+          "positions_current": "positions_current_expected_count",
+          "positions_history": "positions_history_expected_count",
+          "portfolio_daily": "portfolio_daily_expected_count",
+          "account_ownership": "account_ownership_expected_count",
+          "source_connections": "source_connections_expected_count",
+          "position_rates": "position_rates_expected_count",
+          "official_allocation_categories": "official_allocation_categories_expected_count",
+          "official_allocation_types": "official_allocation_types_expected_count",
+          "portfolio_members": "portfolio_members_expected_count",
+          "observations": "observations_expected_count",
+          "liabilities_current": "liabilities_current_expected_count",
+          "source_warnings": "source_warnings_expected_count",
+          "unsupported_details": "unsupported_details_expected_count"
+        }
+      },
+      "observations": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/observation_row",
+        "key": "observation_id",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "membership": "Per-table counts in successful sync_runs select each immutable observation; current table last_seen_run_id/at remain legacy-compatible names for membership.",
+        "column_bindings": {
+          "observation_id": "/observation_id",
+          "run_id": "/run_id",
+          "snapshot_date": "/snapshot_date",
+          "generated_at": "/generated_at",
+          "provenance_provider": "/provenance/provider",
+          "provenance_source_contract_version": "/provenance/source_contract_version",
+          "provenance_scope": "/provenance/scope",
+          "provenance_ownership_basis": "/provenance/ownership_basis",
+          "provenance_metric": "/provenance/metric",
+          "provenance_currency": "/provenance/currency",
+          "provenance_collection_started_at": "/provenance/collection_started_at",
+          "provenance_collection_ended_at": "/provenance/collection_ended_at",
+          "provenance_atomicity": "/provenance/atomicity",
+          "provenance_upstream_as_of": "/provenance/upstream_as_of",
+          "coverage_accounts": "/coverage/accounts",
+          "coverage_holdings": "/coverage/holdings",
+          "coverage_debt_detail": "/coverage/debt_detail",
+          "coverage_account_valuation": "/coverage/account_valuation",
+          "coverage_holding_valuation": "/coverage/holding_valuation",
+          "coverage_debt_valuation": "/coverage/debt_valuation",
+          "coverage_overview_quality": "/coverage/overview_quality",
+          "coverage_detail_semantics": "/coverage/detail_semantics",
+          "coverage_source_freshness": "/coverage/source_freshness",
+          "coverage_debt_detail_basis": "/coverage/debt_detail_basis"
+        }
+      },
+      "legacy_observations": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/legacy_observation_row",
+        "key": "table_name+legacy_key",
+        "ownership": "synchronization",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "column_bindings": {
+          "legacy_key": "/legacy_key",
+          "table_name": "/table_name",
+          "provider": "/provider",
+          "source_contract_version": "/source_contract_version",
+          "scope": "/scope",
+          "ownership_basis": "/ownership_basis",
+          "currency": "/currency",
+          "run_id": "/run_id",
+          "evidence_reference": "/evidence_reference"
+        }
+      },
+      "identity_crosswalk": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/crosswalk_row",
+        "key": "legacy_key+tagged_optional_mcp_key; unresolved candidate has explicit null component",
+        "ownership": "operator",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "column_bindings": {
+          "legacy_key": "/legacy_key",
+          "mcp_key": "/mcp_key",
+          "state": "/state",
+          "evidence_reference": "/evidence_reference",
+          "reviewed_at": "/reviewed_at"
+        }
+      },
+      "writer_control": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/writer_control",
+        "key": "singleton",
+        "ownership": "operator",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "column_bindings": {
+          "workbook_schema": "/workbook_schema",
+          "provider": "/provider",
+          "generation": "/generation",
+          "writer_id": "/writer_id",
+          "migration_id": "/migration_id",
+          "state": "/state"
+        }
+      },
+      "migration_ledger": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/migration_ledger",
+        "key": "migration_id",
+        "ownership": "operator",
+        "columns": "column_bindings maps exact destination columns to JSON Pointer fields of row_schema. Resolve refs for leaf types/nullability; string decimals are TEXT, dates DATE/DATETIME, booleans BOOLEAN, integer counts NUMBER. Do not coerce decimals to NUMBER.",
+        "column_bindings": {
+          "migration_id": "/migration_id",
+          "source_workbook_reference": "/source_workbook_reference",
+          "destination_workbook_reference": "/destination_workbook_reference",
+          "from_schema": "/from_schema",
+          "to_schema": "/to_schema",
+          "plan_digest": "/plan_digest",
+          "legacy_digest": "/legacy_digest",
+          "manual_digest": "/manual_digest",
+          "status": "/status",
+          "changed_at": "/changed_at"
+        }
+      },
+      "source_warnings": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/warning",
+        "grain": "allowlisted warning per observation and entity",
+        "key": "observation_id+code+tagged_optional_entity_key; deduplicate exact same code/entity within one observation",
+        "ownership": "synchronization",
+        "column_bindings": {"code": "/code", "entity_key": "/entity_key"},
+        "membership_columns": ["observation_id", "run_id"],
+        "columns": "Types/nullability from warning schema; no free-text provider messages"
+      },
+      "unsupported_details": {
+        "mode": "append_table",
+        "row_schema": "#/$defs/unsupported_detail",
+        "grain": "account/type/reason diagnostics per observation; never portfolio value or supported detail evidence",
+        "key": "observation_id+account_key+holding_type+reason",
+        "ownership": "synchronization",
+        "column_bindings": {
+          "account_key": "/account_key",
+          "holding_type": "/holding_type",
+          "count": "/count",
+          "reason": "/reason"
+        },
+        "membership_columns": ["observation_id", "run_id"],
+        "columns": "Types/nullability from unsupported_detail schema; no raw resources or notes"
+      }
+    },
+    "optional_tables": "No budget/search/goals tables in portfolio migration; initially on-demand versioned responses only. Goals may later persist entire observation, never durable goal rows by label/order/date.",
+    "current_column_mapping": {
+      "accounts_current": {
+        "account_key": "account.account_key",
+        "source": "literal finary_official_mcp",
+        "source_account_id": "account.source_account_id",
+        "account_type": "generic account.account_type; wrapper unknown",
+        "market_value_eur": "blank for MCP rows; use typed native_balance/full_value_eur/direct_owners_value_eur columns",
+        "owner": "blank; structured account_ownership rows",
+        "last_seen_run_id": "terminal run identity",
+        "last_seen_at": "generated_at",
+        "is_active": "true only in selected complete compatible observation",
+        "name": "account.label; nullable planned delta"
+      },
+      "positions_current_and_history": {
+        "position_key": "position.position_key",
+        "source": "literal finary_official_mcp",
+        "source_asset_id": "position.source_asset_id",
+        "account_key": "position.account_key",
+        "asset_class": "position.asset_class (custom only)",
+        "legacy_float_valuation_columns": "blank for MCP rows; exact native/EUR decimal text via flattened current_value and buying_price fields",
+        "weight_portfolio": "blank unless explicitly computed for known-EUR custom position subset, separately labeled; never official allocation",
+        "history_key": "identity.history_key for MCP; unchanged legacy keys"
+      },
+      "portfolio_daily": {
+        "snapshot_date": "same business date can have multiple immutable observations",
+        "daily_key": "identity.daily_key; replaces unique-key selection only in future schema 3.0",
+        "legacy_eur_aggregate_columns": "blank for MCP rows, retained unchanged for legacy",
+        "remaining_overview_fields": "flatten overview schema; join observations for scope/coverage/currency",
+        "mcp_gross_assets_amount": "overview.gross_assets.amount",
+        "mcp_financial_assets_amount": "overview.financial_assets.amount",
+        "mcp_reported_liabilities_amount": "overview.reported_liabilities.amount",
+        "mcp_reported_net_worth_amount": "overview.reported_net_worth.amount"
+      },
+      "allocation_targets": "existing manual custom AssetClass semantics retained; never rewrite official allocation",
+      "asset_overrides": "exact matching source_asset_id within provider only; append deliberate new MCP override row after verified mapping, retain legacy row",
+      "cashflows": "manual investment cashflows only; budget/search/goals never auto-populate"
+    },
+    "legacy_column_policy": {
+      "new_mcp_rows": "Populate shared keys/source/context/membership fields explicitly mapped; all other legacy analytical columns are nullable and blank for MCP rows, conditional on provider. Exact MCP values use mcp_ columns so quantity/valuation numeric headers never collide. Validate legacy rows under retained legacy constraints.",
+      "existing_rows": "Never change legacy column values, key formats or manual contents; appended MCP columns remain blank on legacy rows.",
+      "key_additions": {
+        "portfolio_daily": "append daily_key TEXT; copy old date key literally for legacy rows; new observations use identity.daily_key",
+        "positions_history": "existing history_key column supports provider-isolated observation key; retain every legacy key",
+        "accounts_current_and_positions_current": "shared existing keys retained; source=provider; last_seen_run_id/at and is_active remain existing membership fields"
+      },
+      "membership_additions": "Add observation_id TEXT nullable on legacy rows and run_id TEXT where not already present. Every new MCP row requires membership; its provenance/coverage is the referenced observations row."
+    },
+    "append_table_order": [
+      "account_ownership",
+      "source_connections",
+      "position_rates",
+      "official_allocation_categories",
+      "official_allocation_types",
+      "portfolio_members",
+      "observations",
+      "legacy_observations",
+      "identity_crosswalk",
+      "writer_control",
+      "migration_ledger",
+      "source_warnings",
+      "unsupported_details"
+    ]
+  },
+  "ambiguities": {
+    "account_wording": {
+      "evidence": ["bounded_reads_2026_09_11", "contract_issue"],
+      "affected_fields": ["accounts._reading_note", "owners", "total_owned_value_eur"],
+      "conservative_behavior": "Preserve explicit direct-owner values; warning OWNERSHIP_WORDING_CONFLICT; no recomputed household total",
+      "downstream_impact": "Account household stake and company look-through unavailable",
+      "resolution": "Upstream clarification consistent with explicit owner fields and overview view",
+      "state": "OPEN"
+    },
+    "budget_history": {
+      "evidence": ["roadmap_investigation"],
+      "affected_fields": ["view history bounds", "period_note", "transactions_count", "family_*"],
+      "conservative_behavior": "Retain populated amounts and actual bounds; null history -> UNVERIFIED, historically contradictory evidence -> INCONSISTENT; no trend certification or English-note parser",
+      "downstream_impact": "Optional budget quality limitation, never zero cashflows",
+      "resolution": "Stable upstream coverage fields and consistent populated/history evidence",
+      "state": "OPEN"
+    },
+    "standalone_oauth": {
+      "evidence": ["roadmap_investigation", "help_page"],
+      "affected_fields": ["transport", "discovery", "authorization", "refresh", "restart"],
+      "conservative_behavior": "Fail sanitized unavailable until independent bridge verification; earlier unauthenticated GET 403 without WWW-Authenticate has unknown cause",
+      "downstream_impact": "Client implementation/production readiness gate only; contract can ship",
+      "resolution": "Authorized SDK negotiation/discovery, registration, redirect, consent, refresh rotation, cold restart and revocation structural tests",
+      "state": "OPEN"
+    },
+    "unobserved_shapes": {
+      "evidence": ["roadmap_investigation"],
+      "affected_fields": [
+        "nonempty loans",
+        "joint/company owner scenarios",
+        "non-EUR holdings",
+        "other advertised holding types"
+      ],
+      "conservative_behavior": "Synthetic defensive only; unsupported nonempty details cannot establish COMPLETE; no guessed loan fields",
+      "downstream_impact": "Loan detail mapping gated; supported overview remains independently available",
+      "resolution": "Authorized structural samples and official field/unit/ownership clarification for each type",
+      "state": "OPEN"
+    },
+    "holding_units": {
+      "evidence": ["roadmap_investigation", "bounded_reads_2026_09_11"],
+      "affected_fields": [
+        "buying_price",
+        "annual_yield",
+        "fee ratios",
+        "holding ownership",
+        "annual_yield_percent resource/attribute placement"
+      ],
+      "conservative_behavior": "Retain source decimals with UNVERIFIED units/basis; never derive cost/P&L/yield or ownership",
+      "downstream_impact": "No cost/P&L derivation; conservative classification and detail_semantics qualification",
+      "resolution": "Per-type unit/total/ownership and ratio scale confirmation; explicit resource location for description-only rate fields",
+      "state": "OPEN"
+    },
+    "provider_identity": {
+      "evidence": ["contract_issue"],
+      "affected_fields": ["account IDs", "holding IDs", "legacy overrides"],
+      "conservative_behavior": "Isolate namespaces; unresolved crosswalk remains unapplied",
+      "downstream_impact": "Series break and manual review of legacy override mappings",
+      "resolution": "Explicit audited source relationship or operator-verified crosswalk with evidence; no label/ticker matching",
+      "state": "OPEN"
+    },
+    "goal_precision": {
+      "evidence": ["goal_month_precision", "catalog_2026_09_11"],
+      "affected_fields": ["target_date", "goal identity"],
+      "conservative_behavior": "Attribute month semantics; do not interpret 15th as deadline; no stable identity",
+      "downstream_impact": "Versioned response only, no progress or persistent goal upserts",
+      "resolution": "Official stable ID or qualified observation persistence design; verify month precision",
+      "state": "OPEN"
+    },
+    "budget_target_currency": {
+      "evidence": ["catalog_2026_09_11"],
+      "affected_fields": ["by_category.target.amount", "should_reach"],
+      "conservative_behavior": "Keep currency unconfirmed; true=floor false=ceiling; no monetary target comparison until currency confirmed",
+      "downstream_impact": "No target variance/achievement certification",
+      "resolution": "Explicit target currency evidence",
+      "state": "OPEN"
+    },
+    "unknown_objects": {
+      "evidence": ["catalog_2026_09_11"],
+      "affected_fields": [
+        "get_me.data",
+        "profiles.data[]",
+        "accounts.data[]",
+        "holdings.data[]",
+        "budget.view",
+        "recurring_charges.family_monthly_equivalent",
+        "simulation.series[]"
+      ],
+      "conservative_behavior": "Do not fill unspecified shapes; validate mapped fields only with evidence; missing optional enrichment null",
+      "downstream_impact": "Further adapter-specific schema verification needed",
+      "resolution": "Declared structured schema or authorized bounded structural inspection",
+      "state": "OPEN"
+    }
+  },
+  "fixture_manifest": "../finary-bridge/tests/fixtures/finary-mcp/manifest.json",
+  "contract_checks": [
+    "schema_and_registry_integrity",
+    "decimal_lexical_safety",
+    "explicit_view_and_provenance",
+    "coverage_implications",
+    "money_currency_evidence",
+    "identity_and_relationships",
+    "bounded_pagination",
+    "provider_isolation",
+    "same_day_retention",
+    "manual_override_preservation",
+    "declarative_workbook_delta_consistency"
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s\\x00-\\x1f\\x7f-\\x9f]+$",
+      "description": "Project acceptance policy for opaque source IDs; no trimming or numeric conversion."
+    },
+    "decimal": {
+      "type": "string",
+      "maxLength": 44,
+      "pattern": "^-?(0|[1-9][0-9]{0,23})(\\.[0-9]{1,18})?$",
+      "description": "Exact base-10 value; <=24 integer and <=18 fractional digits. No exponent, whitespace, NaN, infinity or binary numeric input. Bounds are project policy, not upstream limits."
+    },
+    "nonnegative_decimal": {"allOf": [{"$ref": "#/$defs/decimal"}, {"pattern": "^[0-9]"}]},
+    "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+    "date": {"type": "string", "format": "date"},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "T.*(Z|[+-][0-9]{2}:[0-9]{2})$"},
+    "uuid": {"type": "string", "format": "uuid"},
+    "collection_state": {"enum": ["COMPLETE", "PARTIAL", "UNAVAILABLE"]},
+    "valuation_state": {"enum": ["COMPLETE", "PARTIAL", "UNAVAILABLE"]},
+    "semantic_state": {"enum": ["SUPPORTED", "UNVERIFIED", "INCONSISTENT"]},
+    "freshness_state": {"enum": ["FRESH", "STALE", "BROKEN", "UNKNOWN", "NOT_APPLICABLE"]},
+    "resource_link": {
+      "type": "object",
+      "properties": {"type": {"$ref": "#/$defs/id"}, "id": {"$ref": "#/$defs/id"}},
+      "required": ["type", "id"],
+      "additionalProperties": false
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "type": {"$ref": "#/$defs/id"},
+        "id": {"$ref": "#/$defs/id"},
+        "attributes": {"type": "object"},
+        "relationships": {"type": "object"}
+      },
+      "required": ["type", "id"],
+      "additionalProperties": true
+    },
+    "analytics_input": {
+      "type": "object",
+      "properties": {"prompt": {"type": "string"}},
+      "required": [],
+      "additionalProperties": false
+    },
+    "period_input": {
+      "type": "object",
+      "properties": {
+        "period": {"enum": ["this_month", "last_month", "last_3_months", "year_to_date"], "default": "this_month"},
+        "start_date": {"$ref": "#/$defs/date"},
+        "end_date": {"$ref": "#/$defs/date"},
+        "prompt": {"type": "string"}
+      },
+      "required": [],
+      "additionalProperties": false,
+      "dependentRequired": {"start_date": ["end_date"], "end_date": ["start_date"]}
+    },
+    "holdings_input": {
+      "type": "object",
+      "properties": {
+        "account_id": {"$ref": "#/$defs/id"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100},
+        "offset": {"type": "integer", "minimum": 0, "default": 0},
+        "prompt": {"type": "string"}
+      },
+      "required": ["account_id"],
+      "additionalProperties": false
+    },
+    "search_input": {
+      "type": "object",
+      "properties": {
+        "period": {"enum": ["this_month", "last_month", "last_3_months", "year_to_date"], "default": "this_month"},
+        "start_date": {"$ref": "#/$defs/date"},
+        "end_date": {"$ref": "#/$defs/date"},
+        "prompt": {"type": "string"},
+        "query": {"type": "string", "pattern": "\\S", "minLength": 1},
+        "direction": {"enum": ["spending", "income"]}
+      },
+      "required": ["query"],
+      "additionalProperties": false,
+      "dependentRequired": {"start_date": ["end_date"], "end_date": ["start_date"]}
+    },
+    "simulation_input": {
+      "type": "object",
+      "properties": {
+        "initial_capital": {"type": "number"},
+        "duration_years": {"type": "number"},
+        "annual_rate_percent": {"type": "number"},
+        "monthly_contribution": {"type": "number", "default": 0},
+        "language": {"enum": ["fr", "en"], "default": "fr"},
+        "prompt": {"type": "string"}
+      },
+      "required": ["initial_capital", "duration_years", "annual_rate_percent"],
+      "additionalProperties": false
+    },
+    "get_me_output": {
+      "type": "object",
+      "properties": {"data": {"type": "object", "additionalProperties": true}},
+      "required": ["data"],
+      "additionalProperties": true
+    },
+    "profiles_output": {
+      "type": "object",
+      "properties": {"data": {"type": "array", "items": {}}},
+      "required": ["data"],
+      "additionalProperties": true
+    },
+    "accounts_output": {
+      "type": "object",
+      "properties": {
+        "_reading_note": {"type": "string"},
+        "data": {"type": "array", "items": {}},
+        "included": {"type": "array", "items": {}},
+        "sync_warnings": {"type": "array", "items": {"type": "object"}}
+      },
+      "required": ["_reading_note", "data", "included"],
+      "additionalProperties": true
+    },
+    "holdings_output": {
+      "type": "object",
+      "properties": {
+        "data": {"type": "array", "items": {}},
+        "included": {"type": "array", "items": {}},
+        "links": {"type": "object"},
+        "meta": {"type": "object"}
+      },
+      "required": ["data", "included", "links", "meta"],
+      "additionalProperties": true
+    },
+    "owner_observed": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"$ref": "#/$defs/id"},
+        "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "ownership_share": {"anyOf": [{"$ref": "#/$defs/nonnegative_decimal"}, {"type": "null"}]},
+        "owner_value_eur": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]}
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "account_observed": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "assets"},
+        "attributes": {
+          "type": "object",
+          "properties": {
+            "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "account_type": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "currency": {"anyOf": [{"$ref": "#/$defs/currency"}, {"type": "null"}]},
+            "balance": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "full_value_eur": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "total_owned_value_eur": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "total_owned_share": {"anyOf": [{"$ref": "#/$defs/nonnegative_decimal"}, {"type": "null"}]},
+            "owners": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/owner_observed"}}, {"type": "null"}]},
+            "opened_at": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "created_at": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "updated_at": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "relationships": {
+          "type": "object",
+          "properties": {
+            "institution_connection": {
+              "type": "object",
+              "properties": {"data": {"anyOf": [{"$ref": "#/$defs/resource_link"}, {"type": "null"}]}},
+              "required": ["data"],
+              "additionalProperties": false
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        }
+      },
+      "required": ["id", "type"],
+      "additionalProperties": true
+    },
+    "holding_observed": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"$ref": "#/$defs/id"},
+        "attributes": {
+          "type": "object",
+          "properties": {
+            "quantity": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "shares": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "buying_price": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "current_value": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "annual_yield": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
+            "buying_price_currency": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "current_value_currency": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "created_at": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "updated_at": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "relationships": {
+          "type": "object",
+          "properties": {
+            "asset": {
+              "type": "object",
+              "properties": {"data": {"$ref": "#/$defs/resource_link"}},
+              "required": ["data"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["asset"],
+          "additionalProperties": true
+        }
+      },
+      "required": ["id", "type", "relationships"],
+      "additionalProperties": true
+    },
+    "holdings_page": {
+      "type": "object",
+      "properties": {
+        "data": {"type": "array", "items": {"$ref": "#/$defs/holding_observed"}},
+        "included": {"type": "array", "items": {"$ref": "#/$defs/resource"}},
+        "links": {"type": "object"},
+        "meta": {
+          "type": "object",
+          "properties": {
+            "total": {"type": "integer", "minimum": 0},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+            "offset": {"type": "integer", "minimum": 0},
+            "has_more": {"type": "boolean"}
+          },
+          "required": ["total", "limit", "offset", "has_more"],
+          "additionalProperties": true
+        }
+      },
+      "required": ["data", "included", "links", "meta"],
+      "additionalProperties": true
+    },
+    "holdings_session": {
+      "type": "object",
+      "properties": {
+        "account_id": {"$ref": "#/$defs/id"},
+        "pages": {"type": "array", "items": {"$ref": "#/$defs/holdings_page"}}
+      },
+      "required": ["account_id", "pages"],
+      "additionalProperties": false
+    },
+    "overview_output": {
+      "type": "object",
+      "properties": {
+        "_reading_note": {"type": "string"},
+        "view": {
+          "type": "object",
+          "properties": {
+            "scope": {"type": "string"},
+            "ownership": {"type": "string"},
+            "metric": {"type": "string"},
+            "currency": {"type": "string"}
+          },
+          "required": ["scope", "ownership", "metric", "currency"],
+          "additionalProperties": true
+        },
+        "balance_sheet": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "completeness": {"const": "complete"},
+                "note": {"type": "string"},
+                "owned_gross_assets_direct": {"type": "string"},
+                "unvalued_liability_count": {"type": "number"},
+                "owned_liabilities_direct": {"type": "string"},
+                "owned_net_worth_direct": {"type": "string"}
+              },
+              "required": [
+                "completeness",
+                "note",
+                "owned_gross_assets_direct",
+                "unvalued_liability_count",
+                "owned_liabilities_direct",
+                "owned_net_worth_direct"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "completeness": {"const": "assets_only"},
+                "note": {"type": "string"},
+                "owned_gross_assets_direct": {"type": "string"},
+                "unvalued_liability_count": {"type": "number"}
+              },
+              "required": ["completeness", "note", "owned_gross_assets_direct", "unvalued_liability_count"],
+              "additionalProperties": true
+            }
+          ]
+        },
+        "financial_assets": {
+          "type": "object",
+          "properties": {"note": {"type": "string"}, "owned_financial_assets_direct": {"type": "string"}},
+          "required": ["note", "owned_financial_assets_direct"],
+          "additionalProperties": true
+        },
+        "allocation_direct": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {"type": "string"},
+              "owned_amount_direct": {"type": "string"},
+              "by_type": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {"holding_type": {"type": "string"}, "owned_amount_direct": {"type": "string"}},
+                  "required": ["holding_type", "owned_amount_direct"],
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": ["category", "owned_amount_direct", "by_type"],
+            "additionalProperties": true
+          }
+        },
+        "allocation_direct_note": {"type": "string"},
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "owned_gross_assets_direct": {"type": "string"},
+              "owned_liabilities_direct": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "owned_net_worth_direct": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "unvalued_liability_count": {"type": "number"}
+            },
+            "required": ["owned_gross_assets_direct", "unvalued_liability_count"],
+            "additionalProperties": true
+          }
+        },
+        "members_note": {"type": "string"},
+        "recursive_ownership_note": {"type": "string"},
+        "preferred_wealth_metric": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "preferred_wealth_metric_note": {"type": "string"}
+      },
+      "required": [
+        "_reading_note",
+        "view",
+        "balance_sheet",
+        "financial_assets",
+        "allocation_direct",
+        "allocation_direct_note",
+        "members",
+        "members_note",
+        "recursive_ownership_note",
+        "preferred_wealth_metric_note"
+      ],
+      "additionalProperties": true
+    },
+    "budget_output": {
+      "type": "object",
+      "properties": {
+        "_reading_note": {"type": "string"},
+        "attribution_note": {"type": "string"},
+        "by_category_note": {"type": "string"},
+        "comparison_note": {"type": "string"},
+        "period_note": {"type": "string"},
+        "recurring_charges_note": {"type": "string"},
+        "totals_note": {"type": "string"},
+        "family_expense_total": {"type": "string"},
+        "family_income_total": {"type": "string"},
+        "family_net_cashflow": {"type": "string"},
+        "view": {},
+        "by_category": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slug": {"type": "string"},
+              "is_user_authored": {"type": "boolean"},
+              "family_expense": {"type": "string"},
+              "family_income": {"type": "string"},
+              "transactions_count": {"type": "number"},
+              "label_en": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "label_fr": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "monthly_average_expenses": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "share_of_expenses_percent": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {"amount": {"type": "string"}, "should_reach": {"type": "boolean"}},
+                    "required": ["amount", "should_reach"],
+                    "additionalProperties": true
+                  },
+                  {"type": "null"}
+                ]
+              }
+            },
+            "required": ["slug", "is_user_authored", "family_expense", "family_income", "transactions_count"],
+            "additionalProperties": true
+          }
+        },
+        "by_month": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "month": {"type": "string"},
+              "family_expense": {"type": "string"},
+              "family_income": {"type": "string"},
+              "family_net_cashflow": {"type": "string"}
+            },
+            "required": ["month", "family_expense", "family_income", "family_net_cashflow"],
+            "additionalProperties": true
+          }
+        },
+        "by_profile": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "family_expense": {"type": "string"},
+              "family_income": {"type": "string"},
+              "transactions_count": {"type": "number"},
+              "unpriced_transactions_count": {"type": "number"}
+            },
+            "required": ["family_expense", "family_income", "transactions_count", "unpriced_transactions_count"],
+            "additionalProperties": true
+          }
+        },
+        "capability_notes": {
+          "type": "object",
+          "properties": {
+            "deferred_debit_cards": {"type": "string"},
+            "online_versus_in_store": {"type": "string"},
+            "running_balance_and_forecast": {"type": "string"},
+            "split_transactions": {"type": "string"},
+            "sub_categories": {"type": "string"},
+            "zero_amount_transactions": {"type": "string"}
+          },
+          "required": [
+            "deferred_debit_cards",
+            "online_versus_in_store",
+            "running_balance_and_forecast",
+            "split_transactions",
+            "sub_categories",
+            "zero_amount_transactions"
+          ],
+          "additionalProperties": true
+        },
+        "comparison": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "from": {"type": "string"},
+                "to": {"type": "string"},
+                "family_expense_total": {"type": "string"},
+                "family_income_total": {"type": "string"},
+                "family_net_cashflow": {"type": "string"},
+                "expenses_change_percent": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+              },
+              "required": ["from", "to", "family_expense_total", "family_income_total", "family_net_cashflow"],
+              "additionalProperties": true
+            },
+            {"type": "null"}
+          ]
+        },
+        "expense_split": {
+          "type": "object",
+          "properties": {
+            "family_recurring_expense": {"type": "string"},
+            "family_variable_expense": {"type": "string"},
+            "note": {"type": "string"},
+            "recurring_share_percent": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+          },
+          "required": ["family_recurring_expense", "family_variable_expense", "note"],
+          "additionalProperties": true
+        },
+        "family_savings_rate_percent": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "joint": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "family_expense": {"type": "string"},
+                "family_income": {"type": "string"},
+                "transactions_count": {"type": "number"},
+                "unpriced_transactions_count": {"type": "number"}
+              },
+              "required": ["family_expense", "family_income", "transactions_count", "unpriced_transactions_count"],
+              "additionalProperties": true
+            },
+            {"type": "null"}
+          ]
+        },
+        "monthly_average_months_covered": {"type": "number"},
+        "recurring_charges": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "detected_count": {"type": "number"},
+                "family_monthly_equivalent": {},
+                "unpriced_count": {"type": "number"}
+              },
+              "required": ["detected_count", "family_monthly_equivalent", "unpriced_count"],
+              "additionalProperties": true
+            },
+            {"type": "null"}
+          ]
+        },
+        "targets_unavailable_reason": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "transactions_count": {"type": "number"},
+        "unpriced_transactions_count": {"type": "number"}
+      },
+      "required": [
+        "_reading_note",
+        "attribution_note",
+        "by_category_note",
+        "comparison_note",
+        "period_note",
+        "recurring_charges_note",
+        "totals_note",
+        "family_expense_total",
+        "family_income_total",
+        "family_net_cashflow",
+        "view",
+        "by_category",
+        "by_month",
+        "by_profile",
+        "capability_notes",
+        "expense_split",
+        "monthly_average_months_covered",
+        "transactions_count",
+        "unpriced_transactions_count"
+      ],
+      "additionalProperties": true
+    },
+    "budget_view_observed": {
+      "type": "object",
+      "properties": {
+        "currency": {"anyOf": [{"$ref": "#/$defs/currency"}, {"type": "null"}]},
+        "from": {"anyOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]},
+        "to": {"anyOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]},
+        "is_partial": {"anyOf": [{"type": "boolean"}, {"type": "null"}]},
+        "elapsed_days": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "total_days": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "history_from": {"anyOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]},
+        "history_to": {"anyOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]}
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "search_output": {
+      "type": "object",
+      "properties": {
+        "_reading_note": {"type": "string"},
+        "matched_expense_total": {"type": "string"},
+        "matched_income_total": {"type": "string"},
+        "matched_transactions_count": {"type": "number"},
+        "unpriced_transactions_count": {"type": "number"},
+        "matched_filter": {
+          "type": "object",
+          "properties": {"query": {"type": "string"}, "direction": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+          "required": ["query"],
+          "additionalProperties": true
+        },
+        "view": {
+          "type": "object",
+          "properties": {"currency": {"type": "string"}, "from": {"type": "string"}, "to": {"type": "string"}},
+          "required": ["currency", "from", "to"],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "_reading_note",
+        "matched_expense_total",
+        "matched_income_total",
+        "matched_transactions_count",
+        "unpriced_transactions_count",
+        "matched_filter",
+        "view"
+      ],
+      "additionalProperties": true
+    },
+    "goals_output": {
+      "type": "object",
+      "properties": {
+        "_reading_note": {"type": "string"},
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "goal_type": {"type": "string"},
+              "currency": {"type": "string"},
+              "target_date": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+              "created_at": {"type": "string"},
+              "contributors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+                  "required": [],
+                  "additionalProperties": true
+                }
+              },
+              "funding_account_ids": {"type": "array", "items": {"type": "string"}},
+              "plan": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {"const": "safety_net"},
+                      "note": {"type": "string"},
+                      "monthly_expenses_amount": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                      "target_coverage_months": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+                    },
+                    "required": ["kind", "note"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {"const": "life_project"},
+                      "note": {"type": "string"},
+                      "target_amount": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                      "contribution_amount": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                      "contribution_frequency": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+                    },
+                    "required": ["kind", "note"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {"kind": {"const": "unavailable"}, "note": {"type": "string"}},
+                    "required": ["kind", "note"],
+                    "additionalProperties": true
+                  }
+                ]
+              }
+            },
+            "required": ["name", "goal_type", "currency", "created_at", "contributors", "funding_account_ids", "plan"],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": ["_reading_note", "goals"],
+      "additionalProperties": true
+    },
+    "simulation_output": {
+      "type": "object",
+      "properties": {
+        "final_capital": {"type": "number"},
+        "total_contributions": {"type": "number"},
+        "total_gain_percent": {"type": "number"},
+        "total_interest": {"type": "number"},
+        "summary": {"type": "string"},
+        "finary_card_html": {"type": "string"},
+        "series": {"type": "array", "items": {}}
+      },
+      "required": [
+        "final_capital",
+        "total_contributions",
+        "total_gain_percent",
+        "total_interest",
+        "summary",
+        "finary_card_html",
+        "series"
+      ],
+      "additionalProperties": true
+    },
+    "connector_result": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"type": {"type": "string"}},
+            "required": ["type"],
+            "additionalProperties": true
+          }
+        },
+        "structuredContent": {},
+        "isError": {"type": "boolean"}
+      },
+      "required": ["content"],
+      "additionalProperties": true
+    },
+    "failure": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "MCP_AUTH_UNAVAILABLE",
+                "MCP_CAPABILITY_UNAVAILABLE",
+                "MCP_PROTOCOL_ERROR",
+                "MCP_TOOL_ERROR",
+                "MCP_MALFORMED_RESPONSE",
+                "MCP_UNSUPPORTED_VIEW",
+                "MCP_INCOMPLETE_COLLECTION",
+                "MCP_UNSUPPORTED_DETAIL",
+                "MCP_TIMEOUT",
+                "MCP_RATE_LIMITED",
+                "MCP_INVALID_ARGUMENT",
+                "SNAPSHOT_VALIDATION_FAILED"
+              ]
+            },
+            "message": {"type": "string", "maxLength": 160},
+            "retryable": {"type": "boolean"}
+          },
+          "required": ["code", "message", "retryable"],
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "code": {"const": "MCP_AUTH_UNAVAILABLE"},
+                "message": {"const": "Independent Finary MCP authorization is unavailable"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_CAPABILITY_UNAVAILABLE"},
+                "message": {"const": "Required Finary MCP capability is unavailable"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_PROTOCOL_ERROR"},
+                "message": {"const": "Finary MCP protocol validation failed"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_TOOL_ERROR"},
+                "message": {"const": "Finary MCP action failed"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_MALFORMED_RESPONSE"},
+                "message": {"const": "Finary MCP response validation failed"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_UNSUPPORTED_VIEW"},
+                "message": {"const": "Finary MCP portfolio view is unsupported"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_INCOMPLETE_COLLECTION"},
+                "message": {"const": "Finary MCP collection is incomplete"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_UNSUPPORTED_DETAIL"},
+                "message": {"const": "Finary MCP detail is not verified"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_TIMEOUT"},
+                "message": {"const": "Finary MCP request timed out"},
+                "retryable": {"const": true}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_RATE_LIMITED"},
+                "message": {"const": "Finary MCP rate limit reached"},
+                "retryable": {"const": true}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "MCP_INVALID_ARGUMENT"},
+                "message": {"const": "Finary MCP arguments are invalid"},
+                "retryable": {"const": false}
+              }
+            },
+            {
+              "properties": {
+                "code": {"const": "SNAPSHOT_VALIDATION_FAILED"},
+                "message": {"const": "Normalized snapshot validation failed"},
+                "retryable": {"const": false}
+              }
+            }
+          ]
+        }
+      },
+      "required": ["error"],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "const": "finary_official_mcp",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_contract_version": {
+          "const": "1.0.0",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "scope": {
+          "const": "household",
+          "x-field": {
+            "authority": "overview.view",
+            "grain": "all overview monetary groups",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "ownership_basis": {
+          "const": "direct",
+          "x-field": {
+            "authority": "overview.view",
+            "grain": "all overview monetary groups",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "metric": {
+          "const": "gross_assets",
+          "x-field": {
+            "authority": "overview.view",
+            "grain": "overview headline",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "currency": {
+          "$ref": "#/$defs/currency",
+          "x-field": {
+            "authority": "overview.view",
+            "grain": "all overview monetary groups",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "collection_started_at": {
+          "$ref": "#/$defs/timestamp",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "collection_ended_at": {
+          "$ref": "#/$defs/timestamp",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "atomicity": {
+          "const": "COLLECTION_WINDOW",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "upstream_as_of": {
+          "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}],
+          "x-field": {
+            "authority": "source if explicitly supplied; currently absent",
+            "grain": "overview freshness",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "provider",
+        "source_contract_version",
+        "scope",
+        "ownership_basis",
+        "metric",
+        "currency",
+        "collection_started_at",
+        "collection_ended_at",
+        "atomicity",
+        "upstream_as_of"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "$ref": "#/$defs/collection_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "holdings": {
+          "$ref": "#/$defs/collection_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "debt_detail": {
+          "$ref": "#/$defs/collection_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "account_valuation": {
+          "$ref": "#/$defs/valuation_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "description": "Native accounts.native_balance amount/currency coverage; exact criteria in valuation_contracts.account_valuation. Zero is valued. Nullable EUR projections and other excluded fields cannot establish or invalidate this state."
+        },
+        "holding_valuation": {
+          "$ref": "#/$defs/valuation_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "description": "Native positions.current_value amount/currency coverage; exact criteria in valuation_contracts.holding_valuation. Zero is valued. Nullable EUR projections and other excluded fields cannot establish or invalidate this state."
+        },
+        "debt_valuation": {
+          "$ref": "#/$defs/valuation_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "overview_quality": {
+          "enum": ["REPORTED_COMPLETE", "REPORTED_UNVALUED_DEBT", "ASSETS_ONLY"],
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "detail_semantics": {
+          "$ref": "#/$defs/semantic_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_freshness": {
+          "$ref": "#/$defs/freshness_state",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "debt_detail_basis": {
+          "enum": ["UNVERIFIED", "INDEPENDENT_EMPTY_ENUMERATION"],
+          "x-field": {
+            "authority": "adapter verified enumeration evidence, not overview",
+            "grain": "debt detail",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "accounts",
+        "holdings",
+        "debt_detail",
+        "account_valuation",
+        "holding_valuation",
+        "debt_valuation",
+        "overview_quality",
+        "detail_semantics",
+        "source_freshness",
+        "debt_detail_basis"
+      ],
+      "additionalProperties": false
+    },
+    "money": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "source indicated by parent field",
+            "grain": "parent group",
+            "unit": "money",
+            "currency": "currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "currency": {
+          "anyOf": [{"$ref": "#/$defs/currency"}, {"type": "null"}],
+          "x-field": {
+            "authority": "explicit denomination only",
+            "grain": "parent group",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "amount_eur": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "source EUR value only; no inferred FX",
+            "grain": "same as amount",
+            "unit": "money",
+            "currency": "EUR",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "eur_basis": {
+          "enum": ["SOURCE_EUR", "SOURCE_CONVERSION", "UNAVAILABLE"],
+          "x-field": {
+            "authority": "adapter evidence",
+            "grain": "same as amount",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": ["amount", "currency", "amount_eur", "eur_basis"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"eur_basis": {"const": "UNAVAILABLE"}}},
+          "then": {"properties": {"amount_eur": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"eur_basis": {"enum": ["SOURCE_EUR", "SOURCE_CONVERSION"]}}},
+          "then": {"properties": {"amount_eur": {"$ref": "#/$defs/decimal"}}}
+        },
+        {
+          "if": {"properties": {"eur_basis": {"const": "SOURCE_EUR"}}},
+          "then": {"properties": {"currency": {"const": "EUR"}}}
+        },
+        {
+          "if": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}},
+          "then": {"properties": {"currency": {"$ref": "#/$defs/currency"}}}
+        }
+      ]
+    },
+    "overview": {
+      "type": "object",
+      "properties": {
+        "gross_assets": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.balance_sheet.owned_gross_assets_direct",
+            "grain": "household direct assets",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "financial_assets": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.financial_assets.owned_financial_assets_direct",
+            "grain": "official Financial Assets subset",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "reported_liabilities": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.balance_sheet.owned_liabilities_direct",
+            "grain": "household direct reported debt",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "description": "Nonnegative when present; never convert net-worth negativity into negative debt.",
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "reported_net_worth": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.balance_sheet.owned_net_worth_direct",
+            "grain": "household direct reported net worth",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "unvalued_liability_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-field": {
+            "authority": "overview.balance_sheet",
+            "grain": "debt not valued; assets_only zero can mean unknown",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_completeness": {
+          "enum": ["complete", "assets_only"],
+          "x-field": {
+            "authority": "overview.balance_sheet",
+            "grain": "reported availability",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "preferred_wealth_metric": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "overview preference",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "gross_assets",
+        "financial_assets",
+        "reported_liabilities",
+        "reported_net_worth",
+        "unvalued_liability_count",
+        "source_completeness",
+        "preferred_wealth_metric"
+      ],
+      "additionalProperties": false
+    },
+    "account": {
+      "type": "object",
+      "properties": {
+        "account_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "identity.account_key",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_account_id": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "accounts.id",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "resource_type": {
+          "const": "assets",
+          "x-field": {
+            "authority": "accounts.type",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "label": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.name",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "account_type": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.account_type",
+            "grain": "generic account; never tax wrapper",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "tax_wrapper": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "explicit source wrapper only; currently unavailable",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "native_balance": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "accounts.attributes.balance",
+            "grain": "full account",
+            "unit": "money",
+            "currency": "accounts.attributes.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "full_value_eur": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.full_value_eur",
+            "grain": "full account",
+            "unit": "money",
+            "currency": "EUR",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "direct_owners_value_eur": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.total_owned_value_eur",
+            "grain": "all explicit direct owners combined; household stake unproven",
+            "unit": "money",
+            "currency": "EUR",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "total_ownership_share": {
+          "anyOf": [{"$ref": "#/$defs/nonnegative_decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.total_owned_share",
+            "grain": "direct owners combined; no cap at one",
+            "unit": "fraction",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "entity_updated_at": {
+          "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}],
+          "x-field": {
+            "authority": "accounts.attributes.updated_at",
+            "grain": "entity update; not bank sync",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "connection_key": {
+          "anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}],
+          "x-field": {
+            "authority": "resolved institution_connection relationship",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "connection_state": {
+          "enum": ["NO_CONNECTION", "RESOLVED", "UNRESOLVED"],
+          "x-field": {
+            "authority": "account institution_connection relationship and included resolution; absence has no bank-sync freshness",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; never infer empty complete entries from absent owners",
+            "evidence": "project_decision"
+          }
+        },
+        "ownership_evidence": {
+          "enum": ["EXPLICIT_ENTRIES", "UNAVAILABLE"],
+          "x-field": {
+            "authority": "accounts.attributes.owners presence; no inferred owners from labels",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; never infer empty complete entries from absent owners",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "account_key",
+        "source_account_id",
+        "resource_type",
+        "label",
+        "account_type",
+        "tax_wrapper",
+        "native_balance",
+        "full_value_eur",
+        "direct_owners_value_eur",
+        "total_ownership_share",
+        "entity_updated_at",
+        "connection_key",
+        "connection_state",
+        "ownership_evidence"
+      ],
+      "additionalProperties": false
+    },
+    "ownership": {
+      "type": "object",
+      "properties": {
+        "account_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "account relationship",
+            "grain": "account direct-owner entry",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "owner_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "owners[].(type,id)",
+            "grain": "explicit direct owner",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "owner_type": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "owners[].type",
+            "grain": "direct owner; preserve unknown types",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "owner_source_id": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "owners[].id",
+            "grain": "direct owner",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "owner_label": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "owners[].name",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "ownership_share": {
+          "anyOf": [{"$ref": "#/$defs/nonnegative_decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "owners[].ownership_share",
+            "grain": "direct owner",
+            "unit": "fraction",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "owner_value_eur": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "owners[].owner_value_eur",
+            "grain": "apportionment; never additive to account value",
+            "unit": "money",
+            "currency": "EUR",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "account_key",
+        "owner_key",
+        "owner_type",
+        "owner_source_id",
+        "owner_label",
+        "ownership_share",
+        "owner_value_eur"
+      ],
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "properties": {
+        "connection_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "included institution-connections.(type,id)",
+            "grain": "connection",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "institution_key": {
+          "anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}],
+          "x-field": {
+            "authority": "connection.relationships.institution",
+            "grain": "institution",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "institution_label": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "included institution.attributes.name",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_status": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "connection.attributes.sync_status",
+            "grain": "source status vocabulary not assumed closed",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "last_sync_at": {
+          "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}],
+          "x-field": {
+            "authority": "connection.attributes.last_sync_at",
+            "grain": "sync attempt",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "last_successful_sync_at": {
+          "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}],
+          "x-field": {
+            "authority": "connection.attributes.last_successful_sync_at",
+            "grain": "successful bank synchronization",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "freshness": {
+          "$ref": "#/$defs/freshness_state",
+          "x-field": {
+            "authority": "bridge conservative assessment",
+            "grain": "bank connection",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "connection_key",
+        "institution_key",
+        "institution_label",
+        "source_status",
+        "last_sync_at",
+        "last_successful_sync_at",
+        "freshness"
+      ],
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "position_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "identity.position_key",
+            "grain": "holding resource in account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_asset_id": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "identity.source_asset_id",
+            "grain": "holding resource, not product",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "account_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "relationships.asset.data",
+            "grain": "account",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "holding_type": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "holding.type",
+            "grain": "holding resource",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "enum": ["security-holdings", "fiat-holdings", "crypto-holdings", "fond-euro-holdings", "scpi-holdings"]
+        },
+        "holding_id": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "holding.id",
+            "grain": "holding resource",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "label": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "optional included product label",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "product_key": {
+          "anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}],
+          "x-field": {
+            "authority": "explicit included product relationship",
+            "grain": "enrichment only; never holding identity",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "quantity": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "verified type-specific quantity or shares",
+            "grain": "holding; unit separately qualified",
+            "unit": "quantity",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "quantity_unit": {
+          "enum": ["UNITS", "SHARES", "UNKNOWN"],
+          "x-field": {
+            "authority": "verified type-specific semantics",
+            "grain": "holding",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "current_value": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "holding.attributes.current_value",
+            "grain": "source holding valuation; ownership unverified unless separately proven",
+            "unit": "money",
+            "currency": "current_value_currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "value_ownership_basis": {
+          "enum": ["DIRECT_OWNERS_COMBINED", "UNVERIFIED"],
+          "x-field": {
+            "authority": "verified per-type semantics only",
+            "grain": "holding",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "buying_price": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "holding.attributes.buying_price",
+            "grain": "source quote; unit/total semantics unverified",
+            "unit": "money",
+            "currency": "buying_price_currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "buying_price_basis": {
+          "const": "UNVERIFIED",
+          "x-field": {
+            "authority": "upstream ambiguity",
+            "grain": "not cost basis",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "asset_class": {
+          "enum": [
+            "EQUITY",
+            "BOND",
+            "CASH",
+            "REAL_ESTATE",
+            "SCPI",
+            "PRIVATE_EQUITY",
+            "CRYPTO",
+            "COMMODITY",
+            "LIFE_INSURANCE_FUND",
+            "OTHER"
+          ],
+          "x-field": {
+            "authority": "conservative normalized type then exact provider-specific override",
+            "grain": "custom analytical classification",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "entity_updated_at": {
+          "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}],
+          "x-field": {
+            "authority": "holding.attributes.updated_at",
+            "grain": "entity update; not bank sync",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "position_key",
+        "source_asset_id",
+        "account_key",
+        "holding_type",
+        "holding_id",
+        "label",
+        "product_key",
+        "quantity",
+        "quantity_unit",
+        "current_value",
+        "value_ownership_basis",
+        "buying_price",
+        "buying_price_basis",
+        "asset_class",
+        "entity_updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "position_rate": {
+      "type": "object",
+      "properties": {
+        "position_key": {
+          "$ref": "#/$defs/key",
+          "x-field": {
+            "authority": "holding resource identity",
+            "grain": "holding",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "source_field": {
+          "enum": ["annual_yield", "annual_yield_percent", "expense_ratio", "subscription_fees_ratio"],
+          "x-field": {
+            "authority": "holding or included product field",
+            "grain": "source rate",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "value": {
+          "anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}],
+          "x-field": {
+            "authority": "same source field",
+            "grain": "source rate",
+            "unit": "unit",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "unit": {
+          "enum": ["PERCENT", "FRACTION", "UNVERIFIED"],
+          "x-field": {
+            "authority": "explicit verified field semantics",
+            "grain": "rate",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "period": {
+          "enum": ["ANNUAL", "UNVERIFIED"],
+          "x-field": {
+            "authority": "explicit source semantics",
+            "grain": "rate",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": ["position_key", "source_field", "value", "unit", "period"],
+      "additionalProperties": false
+    },
+    "allocation_category": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "overview.allocation_direct[].category",
+            "grain": "official category; preserve unknown identifiers",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "value": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.allocation_direct[].owned_amount_direct",
+            "grain": "household direct official allocation",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        }
+      },
+      "required": ["category", "value"],
+      "additionalProperties": false
+    },
+    "allocation_type": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "overview.allocation_direct[].category",
+            "grain": "official category",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "holding_type": {
+          "$ref": "#/$defs/id",
+          "x-field": {
+            "authority": "overview.allocation_direct[].by_type[].holding_type",
+            "grain": "official holding taxonomy; preserve unknown identifiers",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "value": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.allocation_direct[].by_type[].owned_amount_direct",
+            "grain": "household direct official allocation subcategory",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        }
+      },
+      "required": ["category", "holding_type", "value"],
+      "additionalProperties": false
+    },
+    "member": {
+      "type": "object",
+      "properties": {
+        "member_ordinal": {
+          "type": "integer",
+          "minimum": 0,
+          "x-field": {
+            "authority": "bridge observation-local ordinal",
+            "grain": "member row; never persistent identity",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "label": {
+          "anyOf": [{"type": "string"}, {"type": "null"}],
+          "x-field": {
+            "authority": "overview.members[].name",
+            "grain": "display only",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "gross_assets": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.members[].owned_gross_assets_direct",
+            "grain": "member direct reported assets",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "reported_liabilities": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.members[].owned_liabilities_direct",
+            "grain": "member reported debt; nullable",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "description": "Nonnegative when present; never convert net-worth negativity into negative debt.",
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "reported_net_worth": {
+          "$ref": "#/$defs/money",
+          "x-field": {
+            "authority": "overview.members[].owned_net_worth_direct",
+            "grain": "member reported net worth; negative valid",
+            "unit": "money",
+            "currency": "provenance.currency",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "properties": {"currency": {"$ref": "#/$defs/currency"}}
+        },
+        "unvalued_liability_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-field": {
+            "authority": "overview.members[]",
+            "grain": "member unvalued debt",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": [
+        "member_ordinal",
+        "label",
+        "gross_assets",
+        "reported_liabilities",
+        "reported_net_worth",
+        "unvalued_liability_count"
+      ],
+      "additionalProperties": false
+    },
+    "warning": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "OWNERSHIP_WORDING_CONFLICT",
+            "UNVERIFIED_DETAIL",
+            "INCOMPLETE_DETAIL",
+            "UNVALUED_DEBT",
+            "STALE_SOURCE",
+            "BROKEN_CONNECTION",
+            "UNKNOWN_FRESHNESS",
+            "MISSING_ENRICHMENT",
+            "BUDGET_HISTORY_INCONSISTENT",
+            "UNRESOLVED_CROSSWALK"
+          ],
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "entity_key": {
+          "anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}],
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        }
+      },
+      "required": ["code", "entity_key"],
+      "additionalProperties": false
+    },
+    "snapshot_v3": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "3.0",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "observation_id": {
+          "$ref": "#/$defs/uuid",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "snapshot_date": {
+          "$ref": "#/$defs/date",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "generated_at": {
+          "$ref": "#/$defs/timestamp",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "overview": {
+          "$ref": "#/$defs/overview",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "accounts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/account"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "ownership": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ownership"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/connection"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/position"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "position_rates": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/position_rate"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "allocation_categories": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/allocation_category"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "allocation_types": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/allocation_type"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/member"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "x-unique-by": ["member_ordinal"]
+        },
+        "debt_details": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Reserved empty representation; nonempty loan mapping is not supported by this contract version.",
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/warning"},
+          "x-field": {
+            "authority": "bridge",
+            "grain": "observation",
+            "unit": "not_applicable",
+            "currency": "not_applicable",
+            "absence": "required; null only if schema permits",
+            "evidence": "project_decision"
+          },
+          "uniqueItems": true,
+          "x-unique-by": ["code", "entity_key"],
+          "description": "One row per declared key within the observation; reject duplicates before counting table membership."
+        },
+        "unsupported_details": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/unsupported_detail"},
+          "x-field": {
+            "authority": "adapter structural type/count diagnostics only",
+            "grain": "account and unsupported holding type",
+            "unit": "record count",
+            "currency": "not_applicable",
+            "absence": "required, empty only when no unsupported details observed",
+            "evidence": "project_decision"
+          },
+          "uniqueItems": true,
+          "x-unique-by": ["account_key", "holding_type", "reason"],
+          "description": "One row per declared key within the observation; reject duplicates before counting table membership.",
+          "x-reference": {"field": "account_key", "collection": "accounts", "target": "account_key"}
+        }
+      },
+      "required": [
+        "schema_version",
+        "observation_id",
+        "snapshot_date",
+        "generated_at",
+        "provenance",
+        "coverage",
+        "overview",
+        "accounts",
+        "ownership",
+        "connections",
+        "positions",
+        "position_rates",
+        "allocation_categories",
+        "allocation_types",
+        "members",
+        "debt_details",
+        "warnings",
+        "unsupported_details"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}, "required": ["accounts"]}},
+              "required": ["coverage"]
+            }
+          },
+          "then": {"properties": {"accounts": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}, "required": ["holdings"]}},
+              "required": ["coverage"]
+            }
+          },
+          "then": {"properties": {"positions": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "coverage": {"properties": {"debt_detail": {"const": "COMPLETE"}}, "required": ["debt_detail"]}
+              },
+              "required": ["coverage"]
+            }
+          },
+          "then": {"properties": {"debt_details": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "properties": {"coverage": {"properties": {"debt_detail": {"const": "COMPLETE"}}, "required": ["debt_detail"]}},
+            "required": ["coverage"]
+          },
+          "then": {
+            "properties": {
+              "overview": {
+                "properties": {"reported_liabilities": {"properties": {"amount": {"$ref": "#/$defs/zero_decimal"}}}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"coverage": {"properties": {"debt_detail": {"const": "COMPLETE"}}, "required": ["debt_detail"]}},
+            "required": ["coverage"]
+          },
+          "then": {"properties": {"coverage": {"properties": {"debt_valuation": {"const": "COMPLETE"}}}}}
+        },
+        {
+          "if": {
+            "properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}, "required": ["holdings"]}},
+            "required": ["coverage"]
+          },
+          "then": {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}}
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {"properties": {"coverage": {"properties": {"overview_quality": {"const": "ASSETS_ONLY"}}}}}
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {"properties": {"coverage": {"properties": {"debt_valuation": {"const": "UNAVAILABLE"}}}}}
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"reported_liabilities": {"properties": {"amount": {"type": "null"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"reported_liabilities": {"properties": {"amount_eur": {"type": "null"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {"overview": {"properties": {"reported_net_worth": {"properties": {"amount": {"type": "null"}}}}}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "assets_only"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"reported_net_worth": {"properties": {"amount_eur": {"type": "null"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "complete"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"gross_assets": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "complete"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"financial_assets": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "complete"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {
+                "properties": {"reported_liabilities": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "overview": {
+                "properties": {"source_completeness": {"const": "complete"}},
+                "required": ["source_completeness"]
+              }
+            },
+            "required": ["overview"]
+          },
+          "then": {
+            "properties": {
+              "overview": {"properties": {"reported_net_worth": {"properties": {"amount": {"$ref": "#/$defs/decimal"}}}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"source_completeness": {"const": "complete"}},
+                    "required": ["source_completeness"]
+                  }
+                },
+                "required": ["overview"]
+              },
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"unvalued_liability_count": {"const": 0}},
+                    "required": ["unvalued_liability_count"]
+                  }
+                },
+                "required": ["overview"]
+              }
+            ]
+          },
+          "then": {"properties": {"coverage": {"properties": {"overview_quality": {"const": "REPORTED_COMPLETE"}}}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"source_completeness": {"const": "complete"}},
+                    "required": ["source_completeness"]
+                  }
+                },
+                "required": ["overview"]
+              },
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"unvalued_liability_count": {"const": 0}},
+                    "required": ["unvalued_liability_count"]
+                  }
+                },
+                "required": ["overview"]
+              }
+            ]
+          },
+          "then": {"properties": {"coverage": {"properties": {"debt_valuation": {"const": "COMPLETE"}}}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"source_completeness": {"const": "complete"}},
+                    "required": ["source_completeness"]
+                  }
+                },
+                "required": ["overview"]
+              },
+              {"properties": {"overview": {"properties": {"unvalued_liability_count": {"minimum": 1}}}}}
+            ]
+          },
+          "then": {
+            "properties": {"coverage": {"properties": {"overview_quality": {"const": "REPORTED_UNVALUED_DEBT"}}}}
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "overview": {
+                    "properties": {"source_completeness": {"const": "complete"}},
+                    "required": ["source_completeness"]
+                  }
+                },
+                "required": ["overview"]
+              },
+              {"properties": {"overview": {"properties": {"unvalued_liability_count": {"minimum": 1}}}}}
+            ]
+          },
+          "then": {"properties": {"coverage": {"properties": {"debt_valuation": {"const": "PARTIAL"}}}}}
+        },
+        {
+          "if": {},
+          "then": {
+            "properties": {
+              "overview": {
+                "properties": {"gross_assets": {"properties": {"amount": {"$ref": "#/$defs/nonnegative_decimal"}}}}
+              }
+            }
+          }
+        },
+        {
+          "if": {},
+          "then": {
+            "properties": {
+              "overview": {
+                "properties": {"financial_assets": {"properties": {"amount": {"$ref": "#/$defs/nonnegative_decimal"}}}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"coverage": {"properties": {"debt_detail": {"const": "COMPLETE"}}, "required": ["debt_detail"]}},
+            "required": ["coverage"]
+          },
+          "then": {
+            "allOf": [
+              {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}},
+              {"properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}}}},
+              {"properties": {"coverage": {"properties": {"detail_semantics": {"const": "SUPPORTED"}}}}}
+            ]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}, "required": ["accounts"]}},
+              "required": ["coverage"]
+            }
+          },
+          "then": {"properties": {"ownership": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}, "required": ["holdings"]}},
+              "required": ["coverage"]
+            }
+          },
+          "then": {"properties": {"position_rates": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"debt_detail": {"const": "COMPLETE"}}}}},
+          "then": {
+            "properties": {"coverage": {"properties": {"debt_detail_basis": {"const": "INDEPENDENT_EMPTY_ENUMERATION"}}}}
+          }
+        },
+        {
+          "if": {"properties": {"unsupported_details": {"minItems": 1}}},
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "holdings": {"const": "PARTIAL"},
+                  "detail_semantics": {"enum": ["UNVERIFIED", "INCONSISTENT"]}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"not": {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}}},
+          "then": {"properties": {"connections": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"detail_semantics": {"const": "INCONSISTENT"}}}}},
+          "then": {"properties": {"coverage": {"properties": {"holdings": {"const": "PARTIAL"}}}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"accounts": {"const": "COMPLETE"}}}}},
+          "then": {
+            "if": {
+              "properties": {
+                "accounts": {
+                  "items": {
+                    "properties": {"native_balance": {"$ref": "#/$defs/valued_money_fields"}},
+                    "required": ["native_balance"]
+                  }
+                }
+              }
+            },
+            "then": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "COMPLETE"}}}}},
+            "else": {
+              "if": {
+                "properties": {
+                  "accounts": {
+                    "contains": {
+                      "properties": {"native_balance": {"$ref": "#/$defs/valued_money_fields"}},
+                      "required": ["native_balance"]
+                    }
+                  }
+                }
+              },
+              "then": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "PARTIAL"}}}}},
+              "else": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "UNAVAILABLE"}}}}}
+            }
+          },
+          "else": {"properties": {"coverage": {"properties": {"account_valuation": {"const": "UNAVAILABLE"}}}}}
+        },
+        {
+          "if": {"properties": {"coverage": {"properties": {"holdings": {"const": "COMPLETE"}}}}},
+          "then": {
+            "if": {
+              "properties": {
+                "positions": {
+                  "items": {
+                    "properties": {"current_value": {"$ref": "#/$defs/valued_money_fields"}},
+                    "required": ["current_value"]
+                  }
+                }
+              }
+            },
+            "then": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "COMPLETE"}}}}},
+            "else": {
+              "if": {
+                "properties": {
+                  "positions": {
+                    "contains": {
+                      "properties": {"current_value": {"$ref": "#/$defs/valued_money_fields"}},
+                      "required": ["current_value"]
+                    }
+                  }
+                }
+              },
+              "then": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "PARTIAL"}}}}},
+              "else": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "UNAVAILABLE"}}}}}
+            }
+          },
+          "else": {"properties": {"coverage": {"properties": {"holding_valuation": {"const": "UNAVAILABLE"}}}}}
+        }
+      ]
+    },
+    "key": {"type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^[A-Za-z0-9:._~%\\-]+$"},
+    "observation_row": {
+      "type": "object",
+      "properties": {
+        "observation_id": {"$ref": "#/$defs/uuid"},
+        "run_id": {"$ref": "#/$defs/id"},
+        "snapshot_date": {"$ref": "#/$defs/date"},
+        "generated_at": {"$ref": "#/$defs/timestamp"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "coverage": {"$ref": "#/$defs/coverage"}
+      },
+      "required": ["observation_id", "run_id", "snapshot_date", "generated_at", "provenance", "coverage"],
+      "additionalProperties": false
+    },
+    "legacy_observation_row": {
+      "type": "object",
+      "properties": {
+        "legacy_key": {"$ref": "#/$defs/id"},
+        "table_name": {"$ref": "#/$defs/id"},
+        "provider": {"anyOf": [{"enum": ["finary_private_api"]}, {"type": "null"}]},
+        "source_contract_version": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "scope": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "ownership_basis": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "currency": {"anyOf": [{"$ref": "#/$defs/currency"}, {"type": "null"}]},
+        "run_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "evidence_reference": {"type": "string"}
+      },
+      "required": [
+        "legacy_key",
+        "table_name",
+        "provider",
+        "source_contract_version",
+        "scope",
+        "ownership_basis",
+        "currency",
+        "run_id",
+        "evidence_reference"
+      ],
+      "additionalProperties": false
+    },
+    "crosswalk_row": {
+      "type": "object",
+      "properties": {
+        "legacy_key": {"$ref": "#/$defs/id"},
+        "mcp_key": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
+        "state": {"enum": ["UNRESOLVED", "VERIFIED", "REJECTED"]},
+        "evidence_reference": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "reviewed_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      },
+      "required": ["legacy_key", "mcp_key", "state", "evidence_reference", "reviewed_at"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "VERIFIED"}}},
+          "then": {
+            "properties": {
+              "mcp_key": {"$ref": "#/$defs/key"},
+              "evidence_reference": {"type": "string", "pattern": "\\S"},
+              "reviewed_at": {"$ref": "#/$defs/timestamp"}
+            }
+          }
+        }
+      ]
+    },
+    "writer_control": {
+      "type": "object",
+      "properties": {
+        "workbook_schema": {"const": "3.0"},
+        "provider": {"const": "finary_official_mcp"},
+        "generation": {"type": "integer", "minimum": 1},
+        "writer_id": {"$ref": "#/$defs/id"},
+        "migration_id": {"$ref": "#/$defs/id"},
+        "state": {"enum": ["PAUSED", "ACTIVE"]}
+      },
+      "required": ["workbook_schema", "provider", "generation", "writer_id", "migration_id", "state"],
+      "additionalProperties": false
+    },
+    "migration_ledger": {
+      "type": "object",
+      "properties": {
+        "migration_id": {"$ref": "#/$defs/id"},
+        "source_workbook_reference": {"$ref": "#/$defs/id"},
+        "destination_workbook_reference": {"$ref": "#/$defs/id"},
+        "from_schema": {"const": "2.1"},
+        "to_schema": {"const": "3.0"},
+        "plan_digest": {"type": "string"},
+        "legacy_digest": {"type": "string"},
+        "manual_digest": {"type": "string"},
+        "status": {"enum": ["PREPARED", "VALIDATED", "ACCEPTED", "ROLLED_BACK"]},
+        "changed_at": {"$ref": "#/$defs/timestamp"}
+      },
+      "required": [
+        "migration_id",
+        "source_workbook_reference",
+        "destination_workbook_reference",
+        "from_schema",
+        "to_schema",
+        "plan_digest",
+        "legacy_digest",
+        "manual_digest",
+        "status",
+        "changed_at"
+      ],
+      "additionalProperties": false
+    },
+    "capability_case": {
+      "type": "object",
+      "properties": {"input": {"type": "object"}, "output": {"type": "object"}},
+      "required": ["input", "output"],
+      "additionalProperties": false
+    },
+    "budget_assessment": {
+      "type": "object",
+      "properties": {
+        "response": {"$ref": "#/$defs/budget_output"},
+        "history_evidence": {"enum": ["UNKNOWN", "CONTRADICTORY_HISTORICAL", "SUPPORTED"]},
+        "quality": {"enum": ["UNVERIFIED", "INCONSISTENT", "SUPPORTED"]},
+        "trend_certified": {"type": "boolean"}
+      },
+      "required": ["response", "history_evidence", "quality", "trend_certified"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"history_evidence": {"const": "UNKNOWN"}}, "required": ["history_evidence"]},
+          "then": {"properties": {"quality": {"const": "UNVERIFIED"}, "trend_certified": {"const": false}}}
+        },
+        {
+          "if": {
+            "properties": {"history_evidence": {"const": "CONTRADICTORY_HISTORICAL"}},
+            "required": ["history_evidence"]
+          },
+          "then": {"properties": {"quality": {"const": "INCONSISTENT"}, "trend_certified": {"const": false}}}
+        }
+      ]
+    },
+    "migration_case": {
+      "type": "object",
+      "properties": {
+        "legacy_account_id": {"$ref": "#/$defs/id"},
+        "mcp_account_id": {"$ref": "#/$defs/id"},
+        "legacy_account_key": {"$ref": "#/$defs/id"},
+        "mcp_account_key": {"$ref": "#/$defs/key"},
+        "snapshot_date": {"$ref": "#/$defs/date"},
+        "observation_id": {"$ref": "#/$defs/uuid"},
+        "legacy_daily_key": {"$ref": "#/$defs/id"},
+        "mcp_daily_key": {"$ref": "#/$defs/key"},
+        "legacy_history_key": {"$ref": "#/$defs/id"},
+        "mcp_history_key": {"$ref": "#/$defs/key"},
+        "legacy_override": {
+          "type": "object",
+          "properties": {
+            "source_asset_id": {"$ref": "#/$defs/id"},
+            "asset_class": {"type": "string"},
+            "enabled": {"type": "boolean"}
+          },
+          "required": ["source_asset_id", "asset_class", "enabled"],
+          "additionalProperties": false
+        },
+        "mcp_source_asset_id": {"$ref": "#/$defs/key"},
+        "crosswalk": {"$ref": "#/$defs/crosswalk_row"},
+        "apply_legacy_override": {"type": "boolean"},
+        "series_comparable": {"type": "boolean"},
+        "rollback_schema": {"type": "string"},
+        "preserve_new_observations": {"type": "boolean"},
+        "preserve_manual_edits": {"type": "boolean"},
+        "mcp_position_key": {"$ref": "#/$defs/key"}
+      },
+      "required": [
+        "legacy_account_id",
+        "mcp_account_id",
+        "legacy_account_key",
+        "mcp_account_key",
+        "snapshot_date",
+        "observation_id",
+        "legacy_daily_key",
+        "mcp_daily_key",
+        "legacy_history_key",
+        "mcp_history_key",
+        "legacy_override",
+        "mcp_source_asset_id",
+        "crosswalk",
+        "apply_legacy_override",
+        "series_comparable",
+        "rollback_schema",
+        "preserve_new_observations",
+        "preserve_manual_edits",
+        "mcp_position_key"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"apply_legacy_override": {"const": true}}},
+          "then": {
+            "properties": {
+              "crosswalk": {"properties": {"state": {"const": "VERIFIED"}}},
+              "legacy_override": {"properties": {"enabled": {"const": true}}}
+            }
+          }
+        }
+      ]
+    },
+    "unsupported_detail": {
+      "type": "object",
+      "properties": {
+        "account_key": {"$ref": "#/$defs/key"},
+        "holding_type": {"$ref": "#/$defs/id"},
+        "count": {"type": "integer", "minimum": 1},
+        "reason": {"enum": ["UNSUPPORTED_TYPE", "UNVERIFIED_FIELDS", "UNVERIFIED_LOAN"]}
+      },
+      "required": ["account_key", "holding_type", "count", "reason"],
+      "additionalProperties": false
+    },
+    "zero_decimal": {
+      "allOf": [{"$ref": "#/$defs/decimal"}, {"pattern": "^-?0(\\.0+)?$"}],
+      "description": "Exact numeric zero at any permitted scale, including signed zero."
+    },
+    "valued_money_fields": {
+      "type": "object",
+      "properties": {"amount": {"$ref": "#/$defs/decimal"}, "currency": {"$ref": "#/$defs/currency"}},
+      "required": ["amount", "currency"],
+      "description": "Known native amount and explicit denomination; applied alongside money, not an EUR or ownership guarantee."
+    }
+  },
+  "inspected_fields": {
+    "accounts": {
+      "schema": "#/$defs/account_observed",
+      "upstream_requiredness": "UNKNOWN within declared unknown arrays",
+      "nullability": "Unproven except observed nulls; all optional inspected attributes accept null defensively",
+      "fields": {
+        "balance": "full account native currency",
+        "full_value_eur": "full account EUR",
+        "total_owned_value_eur": "direct owners combined EUR, not necessarily household",
+        "total_owned_share": "fraction; may exceed one",
+        "owners": "id/type/name/ownership_share/owner_value_eur, direct-owner entries",
+        "relationships.institution_connection": "included institution-connections -> relationships.institution -> included institutions"
+      }
+    },
+    "holdings": {
+      "schema": "#/$defs/holding_observed",
+      "upstream_requiredness": "UNKNOWN within declared unknown arrays; identity and asset parent are project acceptance prerequisites",
+      "nullability": "Optional monetary/enrichment fields accept absent/null defensively",
+      "fields": {
+        "current_value": "decimal with current_value_currency; per-type ownership qualification",
+        "buying_price": "decimal with buying_price_currency; unit versus total unresolved",
+        "quantity": "security/crypto quantity; not money",
+        "shares": "SCPI shares attributed to historical investigation; not newly verified",
+        "annual_yield": "fund source field, unit not assumed",
+        "relationships.asset.data": "account resource (assets, id)",
+        "included securities": "name/symbol/isin/security_type/current_price/current_price_currency_code/expense_ratio/subscription_fees_ratio inspected; optional enrichment, never identity"
+      },
+      "documented_rate_location": "annual_yield_percent is named in the accounts action description; its exact resource/attribute placement is not verified and is deliberately absent from the observed holding overlay. The normalized rate schema is a project design, gated on explicit per-type source mapping."
+    },
+    "connections": {
+      "upstream_requiredness": "UNKNOWN; inspected fields are not universally required",
+      "fields": {
+        "sync_status": "source status, closed enum not established",
+        "last_sync_at": "attempt, not successful sync",
+        "last_successful_sync_at": "successful sync time",
+        "next_retry_at": "timestamp or null observed",
+        "access_expires_at": "timestamp or null observed; exclude from portfolio",
+        "error_message": "string or null observed; never export raw",
+        "is_newly_connected": "boolean observed",
+        "relationships.institution": "resolve by type/id"
+      }
+    },
+    "get_me_profiles": {
+      "fields": "Only declared open data object/array and historical successful reads available; identity/labels not exported as totals; no invented inner schema"
+    },
+    "budget": {
+      "schema": "#/$defs/budget_view_observed",
+      "fields": "currency/from/to/is_partial/elapsed_days/total_days strings, boolean and numeric types observed; history_from/history_to null observed, nonnull date shape remains defensive design",
+      "recurring_charges.family_monthly_equivalent": "declared unknown; current null recurring block does not establish numeric representation"
+    },
+    "goals": {
+      "schema": "#/$defs/goals_output",
+      "identity": "No declared stable ID; created_at is not update time; target month precision attributed to goal_month_precision"
+    },
+    "simulation": {
+      "schema": "#/$defs/simulation_output",
+      "series": "unknown[]; no invented year-row schema; sample empty array cannot prove support"
+    }
+  },
+  "semantic_rules": {
+    "currency": "all overview/allocation/member money.currency equals provenance.currency; amount_eur equals amount only if EUR; no overview SOURCE_CONVERSION until independently verified upstream support is added. account native_balance may have SOURCE_CONVERSION using supplied full_value_eur only, never direct owners value. Check view denomination even for null amounts: every overview/allocation/member currency must be nonnull and equal provenance.currency. Any normalized nonnull amount requires an explicit currency; a bare upstream number cannot become validated money.",
+    "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.0.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
+    "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
+    "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
+    "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag. Resource support is distinct from field-unit/ownership confidence: supported resources may retain explicitly qualified UNVERIFIED fields without derived accounting claims.",
+    "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts.",
+    "native_valuation": "Apply valuation_contracts independently per collection. COMPLETE requires every accepted row to have both the covered native amount and its currency, including known zero; an independently complete empty collection is vacuously COMPLETE. EUR projection, cost/rate/quantity and ownership confidence remain separately qualified. Incomplete retrieval has no accepted current rows and cannot certify valuation.",
+    "member_identity": "member_ordinal must be unique within one observation, regardless of labels; portfolio_members is keyed by observation_id + member_ordinal. Reuse across different observations is allowed and implies no persistent person identity. The x-unique-by annotation requires the cross-record identity check; JSON Schema alone cannot enforce projected uniqueness.",
+    "legacy_override_application": "apply_legacy_override requires an enabled override and state VERIFIED with nonnull MCP key, nonblank sanitized evidence_reference and timezone-aware reviewed_at. Cross-record equality must bind crosswalk.legacy_key to legacy_override.source_asset_id and crosswalk.mcp_key to mcp_source_asset_id. UNRESOLVED and REJECTED stay unapplied. Evidence records audited source evidence or explicit operator verification of this exact pair; no inferred cross-provider match.",
+    "diagnostic_identity": "Reject repeated warning (code, entity_key) pairs, including a null entity_key. The adapter must deduplicate identical warnings before publishing the snapshot and table membership counts. Unsupported detail (account_key, holding_type, reason) must be unique regardless of count, and every diagnostic account_key must reference an account in the same observation. Conflicting counts are rejected, never silently summed or selected. If no accepted accounts are available, per-account diagnostics cannot be published as orphan rows. These diagnostics never authorize portfolio inactivation."
+  },
+  "version_policy": {
+    "source_contract_version": "Project-owned version of the evidence-backed source interpretation; not an upstream Finary release or negotiated MCP protocol revision. Native revision remains unverified.",
+    "change_control": "Version changes record new evidence and compatibility impact; no unsupported observation silently becomes supported. Breaking normalized or workbook changes require coordinated major revisions.",
+    "registry_support": "OBSERVED_SUBSET and HISTORICALLY_OBSERVED describe evidence, never standalone bridge runtime availability."
+  },
+  "valuation_contracts": {
+    "account_valuation": {
+      "collection": "accounts",
+      "rows": "accounts",
+      "money_field": "native_balance",
+      "grain": "full native account value",
+      "required_value_fields": ["amount", "currency"],
+      "excluded": ["full_value_eur", "direct_owners_value_eur", "ownership"],
+      "states": {
+        "COMPLETE": "Collection COMPLETE and every row has a valid amount and currency; independently complete empty collection qualifies.",
+        "PARTIAL": "Collection COMPLETE, at least one row has both amount and currency and at least one does not.",
+        "UNAVAILABLE": "Collection is not COMPLETE, or its nonempty accepted rows contain no known amount/currency pair."
+      }
+    },
+    "holding_valuation": {
+      "collection": "holdings",
+      "rows": "positions",
+      "money_field": "current_value",
+      "grain": "reported holding current value; source ownership qualification retained",
+      "required_value_fields": ["amount", "currency"],
+      "excluded": ["amount_eur", "buying_price", "quantity", "position_rates", "ownership"],
+      "states": {
+        "COMPLETE": "Collection COMPLETE and every row has a valid amount and currency; independently complete empty collection qualifies.",
+        "PARTIAL": "Collection COMPLETE, at least one row has both amount and currency and at least one does not.",
+        "UNAVAILABLE": "Collection is not COMPLETE, or its nonempty accepted rows contain no known amount/currency pair."
+      }
+    }
+  },
+  "fixture_quality_policy": "Every fixture compares the full schema_valid/contract_error/quality outcome. Rules are keyed by schema; no implicit default for new schemas. Schema rejection yields NOT_APPLICABLE. Contract rejection yields NOT_APPLICABLE except failed holdings pagination yields PARTIAL collection evidence. Successful normalized snapshots report overview_quality; other coverage dimensions remain independently schema/semantically validated. Declared-shape examples report their action registry support_status; defensive output examples remain UNVERIFIED (goals: NO_STABLE_ID), and DECLARED_ONLY actions never acquire observed support. Account shapes remain UNVERIFIED_OWNERSHIP; accepted cross-provider migration cases imply SERIES_BREAK. Field rules assert the named quality/freshness field; constant NOT_APPLICABLE means that schema defines no quality dimension. These are fixture assessment rules, never upstream runtime proof.",
+  "fixture_quality_rules": {
+    "#/$defs/account_observed": {"kind": "constant", "value": "UNVERIFIED_OWNERSHIP"},
+    "#/$defs/accounts_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/analytics_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/budget_assessment": {"kind": "field", "path": "/quality"},
+    "#/$defs/budget_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/connection": {"kind": "field", "path": "/freshness"},
+    "#/$defs/connector_result": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/decimal": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/failure": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/get_me_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/goals_output": {"kind": "capability", "defensive_quality": "NO_STABLE_ID"},
+    "#/$defs/holdings_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/holdings_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/holdings_session": {"kind": "pagination", "required_check": "pagination"},
+    "#/$defs/id": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/migration_case": {"kind": "constant", "value": "SERIES_BREAK", "required_check": "migration"},
+    "#/$defs/overview_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/period_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/profiles_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/search_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/search_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/simulation_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
+    "#/$defs/simulation_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
+    "#/$defs/snapshot_v3": {"kind": "field", "path": "/coverage/overview_quality", "required_check": "snapshot"}
+  }
+}

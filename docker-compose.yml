@@ -9,6 +9,8 @@ services:
       FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
       FINARY_PASSWORD: ${FINARY_PASSWORD:-}
       FINARY_SESSION_PATH: ${FINARY_SESSION_PATH:-/var/lib/finary-session/state/session.json}
+      FINARY_PROVIDER: ${FINARY_PROVIDER:-private_api}
+      FINARY_MCP_STATE_PATH: ${FINARY_MCP_STATE_PATH:-/var/lib/finary-mcp/state/oauth.json}
       TZ: ${TZ:-Europe/Paris}
     ports:
       - "127.0.0.1:${FINARY_BRIDGE_PORT:-8000}:8000"
@@ -28,6 +30,7 @@ services:
       - finary-stack
     volumes:
       - finary_session_data:/var/lib/finary-session
+      - finary_mcp_data:/var/lib/finary-mcp
 
   schema-server:
     image: nginx:1.31.4@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
@@ -100,4 +103,5 @@ networks:
 
 volumes:
   finary_session_data:
+  finary_mcp_data:
   n8n_data:
