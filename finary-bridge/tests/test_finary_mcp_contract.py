@@ -487,3 +487,5 @@ def test_declared_unknowns_do_not_acquire_false_upstream_requirements():
     assert "id" not in goal["properties"]
     assert "progress" not in goal["properties"]
     assert CONTRACT["input_policy"]["scheduled_prompt"] == "OMIT"
+    attributes = CONTRACT["$defs"]["holding_observed"]["properties"]["attributes"]
+    assert "annual_yield_percent" not in attributes["properties"]

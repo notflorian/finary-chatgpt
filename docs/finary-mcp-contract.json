@@ -938,10 +938,16 @@
     },
     "holding_units": {
       "evidence": ["roadmap_investigation", "bounded_reads_2026_09_11"],
-      "affected_fields": ["buying_price", "annual_yield", "fee ratios", "holding ownership"],
+      "affected_fields": [
+        "buying_price",
+        "annual_yield",
+        "fee ratios",
+        "holding ownership",
+        "annual_yield_percent resource/attribute placement"
+      ],
       "conservative_behavior": "Retain source decimals with UNVERIFIED units/basis; never derive cost/P&L/yield or ownership",
       "downstream_impact": "No cost/P&L derivation; conservative classification and detail_semantics qualification",
-      "resolution": "Per-type unit/total/ownership and ratio scale confirmation",
+      "resolution": "Per-type unit/total/ownership and ratio scale confirmation; explicit resource location for description-only rate fields",
       "state": "OPEN"
     },
     "provider_identity": {
@@ -1194,7 +1200,6 @@
             "buying_price": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
             "current_value": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
             "annual_yield": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
-            "annual_yield_percent": {"anyOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]},
             "buying_price_currency": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "current_value_currency": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "created_at": {"anyOf": [{"type": "string"}, {"type": "null"}]},
@@ -3853,7 +3858,8 @@
         "annual_yield": "fund source field, unit not assumed",
         "relationships.asset.data": "account resource (assets, id)",
         "included securities": "name/symbol/isin/security_type/current_price/current_price_currency_code/expense_ratio/subscription_fees_ratio inspected; optional enrichment, never identity"
-      }
+      },
+      "documented_rate_location": "annual_yield_percent is named in the accounts action description; its exact resource/attribute placement is not verified and is deliberately absent from the observed holding overlay. The normalized rate schema is a project design, gated on explicit per-type source mapping."
     },
     "connections": {
       "upstream_requiredness": "UNKNOWN; inspected fields are not universally required",
