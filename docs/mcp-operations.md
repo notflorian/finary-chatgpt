@@ -241,3 +241,41 @@ The candidate writer rejects source-contract 1.0.0 snapshots and terminal rows;
 never relabel old observations. Regenerate migration plans and use a fresh
 isolated candidate when testing a previous 1.0.0 candidate. Existing observations
 remain preserved, with incompatible comparisons treated as series breaks.
+
+## Isolated local acceptance stack
+
+Use `docker-compose.mcp-test.yml` as a standalone file, never as an override on
+production. The fixed `finary-mcp-candidate` project has its own network and n8n
+volume; localhost ports are 8001 (bridge) and 5679 (n8n). Image pins match the
+canonical stack. No existing n8n state, private-provider settings, Google tokens
+or production environment file is imported. The bridge alone mounts the
+operator's isolated OAuth directory. Its bind mount cannot create a missing
+source directory. Stop host-side users of that OAuth state before container use.
+
+From the repository root, with `FINARY_MCP_TEST_DIR` still set to the explicitly
+bootstrapped test directory, set `FINARY_MCP_CANDIDATE_WORKBOOK_ID` to the reviewed
+candidate and generate a separate bridge API key without writing an environment file:
+
+```bash
+export FINARY_MCP_CANDIDATE_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
+  -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
+COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
+  -p finary-mcp-candidate -f docker-compose.mcp-test.yml up -d --build --wait
+```
+
+Keep those exports for later commands; do not print the resolved Compose
+configuration or share environment dumps. Open `http://localhost:5679` and create
+the independent test owner. n8n generates its own encryption key in its new
+private data volume; do not copy a production key or database. Import only the
+inactive MCP export and configure an independent Google credential in this test
+instance. Register its displayed OAuth callback URL in the operator-owned Google
+client. Never export or read Google credentials from another n8n instance.
+
+Starting this empty instance does not authorize portfolio writes. Keep the
+candidate writer control PAUSED and the imported workflow inactive until the
+operator approves the reviewed manual shadow run. Serial manual execution is
+required. Do not publish the schedule during isolated acceptance. Stop only this
+project with the same arguments and `stop`; preserve its volume and OAuth state
+until the operator has accepted cleanup. Never use the production project name
+or `down -v` in this procedure.

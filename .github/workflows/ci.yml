@@ -112,6 +112,13 @@ jobs:
         run: python scripts/validate-json.py
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
+      - name: Validate isolated MCP candidate configuration
+        env:
+          COMPOSE_ENV_FILES: /dev/null
+          FINARY_MCP_TEST_DIR: /tmp
+          FINARY_MCP_CANDIDATE_API_KEY: synthetic-ci-key
+          FINARY_MCP_CANDIDATE_WORKBOOK_ID: synthetic-candidate
+        run: docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
 
   n8n-import:
     name: n8n-import

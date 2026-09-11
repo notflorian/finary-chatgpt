@@ -144,3 +144,10 @@ VALIDATED. Independent connector readback confirmed 24 tabs, original tab order
 including the auxiliary chart tab, one PAUSED 3.0 MCP writer control and one
 VALIDATED migration ledger. No Finary portfolio synchronization or production
 activation occurred. Live migration replay remains to be tested.
+
+The operator reported successful native migration replay, then bootstrapped a
+new isolated MCP connection with AUTHORIZED / protocol 2025-11-25 / required
+tools. A standalone candidate Compose file now prepares separate ports, network
+and n8n storage with no private-provider settings or production environment
+file. Synthetic configuration validation passed and is included in CI; live
+container startup and manual shadow synchronization remain pending.
