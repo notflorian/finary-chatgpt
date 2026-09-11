@@ -333,3 +333,28 @@ def test_raw_json_is_validated_before_sdk_parsing(body):
 
     with pytest.raises(McpFailure):
         asyncio.run(read())
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_sse_multiline_event_is_bounded_before_sdk_decoding(duplicate):
+    import httpx2
+
+    from app.mcp_client import LimitedStream
+
+    body = b'event: message\r\ndata: {"jsonrpc":"2.0",\r\ndata: "id":1,"result":{}}\r\n\r\n'
+    if duplicate:
+        body = body.replace(b'"result":{}', b'"result":{},"result":{}')
+
+    class Chunks(httpx2.AsyncByteStream):
+        async def __aiter__(self):
+            for offset in range(0, len(body), 7):
+                yield body[offset : offset + 7]
+
+    async def read():
+        return b"".join([chunk async for chunk in LimitedStream(Chunks(), "text/event-stream")])
+
+    if duplicate:
+        with pytest.raises(McpFailure):
+            asyncio.run(read())
+    else:
+        assert asyncio.run(read()) == body

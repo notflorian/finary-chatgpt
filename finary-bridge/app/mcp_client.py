@@ -116,6 +116,7 @@ class LimitedStream(httpx2.AsyncByteStream):
     async def __aiter__(self) -> AsyncIterator[bytes]:
         total = 0
         pending = b""
+        event_data: list[bytes] = []
         is_json = self.content_type.split(";")[0] == "application/json"
         is_sse = self.content_type.split(";")[0] == "text/event-stream"
         async for chunk in self.stream:
@@ -129,16 +130,31 @@ class LimitedStream(httpx2.AsyncByteStream):
                 lines = pending.split(b"\n")
                 pending = lines.pop()
                 for line in lines:
-                    if line.startswith(b"data:") and line[5:].strip():
-                        self.validate_json(line[5:].strip())
+                    line = line.rstrip(b"\r")
+                    if line.startswith(b"data:"):
+                        event_data.append(line[5:].lstrip(b" "))
+                    elif not line:
+                        payload = b"\n".join(event_data)
+                        if payload.strip():
+                            self.validate_json(payload)
+                        event_data.clear()
             else:
                 pending = b""
             yield chunk
         if is_json and pending:
             self.validate_json(pending)
             yield pending
-        elif is_sse and pending.startswith(b"data:") and pending[5:].strip():
-            self.validate_json(pending[5:].strip())
+        elif is_sse:
+            if pending.startswith(b"data:"):
+                event_data.append(pending[5:].lstrip(b" "))
+            payload = b"\n".join(event_data)
+            if payload.strip():
+                self.validate_json(payload)
+
+    @staticmethod
+    def invalid_constant(value: str) -> None:
+        del value
+        raise ValueError("Non-finite JSON constant")
 
     @staticmethod
     def validate_json(value: bytes) -> None:
@@ -146,7 +162,7 @@ class LimitedStream(httpx2.AsyncByteStream):
             json.loads(
                 value,
                 object_pairs_hook=_object_pairs,
-                parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+                parse_constant=LimitedStream.invalid_constant,
             )
         except (ValueError, RecursionError):
             raise McpFailure() from None

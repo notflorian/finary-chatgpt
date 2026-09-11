@@ -51,16 +51,26 @@ payload or authentication state was inspected or retained.
 
 ## Executed checks
 
-Current branch results are being finalized. Historical PR #96 results are not
-current-branch validation. The full required gates will be recorded after the
-latest run completes; earlier failed iterations are not reported as passing.
+Executed locally on 2026-09-11 using Python 3.14.5 and the pinned n8n image:
 
-Already executed: all three workflow imports; model/workbook/workflow parity;
-JSON and Compose validation; Ruff and mypy (18 production modules); wheel build
-and inspection confirming the exact contract and production modules are included.
-Targeted synthetic suites cover API/auth, optional capabilities, migration and
-the reference consumer. Full native runtime results and final pytest/CI totals
-are recorded in the final evidence update.
+| Check | Result | Evidence boundary |
+| --- | --- | --- |
+| `python -m pytest -m "not live" --ignore=tests/live` from `finary-bridge` | 3,556 passed, 47 skipped, 416.24s | The skipped cases are the Docker cases executed separately below; live tests were excluded |
+| Required parallel n8n runtime command, existing three modules plus `test_mcp_runtime.py` | 47 passed, 260.02s | Real pinned n8n 2.35.5 engine and installed Sheets connector, synthetic I/O, network disabled, disposable stores |
+| Final transport follow-up `test_mcp_integration.py` | 93 passed | Includes multiline SSE event validation before SDK decoding; this targeted follow-up adds two cases after the full local suite |
+| Ruff / mypy | Passed; 18 production modules | Local static checks |
+| JSON / generated model, workbook and workflow parity | Passed | Canonical contract and generated sources agree |
+| Compose configuration | Passed with `COMPOSE_ENV_FILES=/dev/null` | No local secrets loaded |
+| Portable workflow import | All three exports passed | Isolated import, separate from graph/connector execution |
+| Wheel build and inspection | Passed | Packaged contract exactly matches the reviewed source; production modules included |
+| Changed documentation targets, credential-pattern scan and diff whitespace | Passed | Review checks, not a claim of live acceptance |
+
+The full local suite and 47-case runtime gate include the consumer correction
+found during integration. Earlier failing iterations are not counted as passing.
+The final SSE follow-up has its own targeted result; the latest pushed commit
+also runs the full Python 3.12 CI suite, Python 3.14 compatibility checks and
+mandatory runtime gate. CI status belongs to the latest head of
+[PR #97](https://github.com/notflorian/finary-chatgpt/pull/97), not a historical run.
 
 ## Acceptance blockers and operator action
 
