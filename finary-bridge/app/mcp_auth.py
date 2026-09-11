@@ -219,7 +219,16 @@ class RenewableStorage:
             raise McpFailure("MCP_AUTH_UNAVAILABLE")
         self.state = self.store.replace(
             self.state.generation,
-            OAuthState("", client_info.model_dump(mode="json", exclude_none=True), None, None),
+            OAuthState(
+                "",
+                client_info.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    include={"client_id", "issuer", "redirect_uris", "token_endpoint_auth_method"},
+                ),
+                None,
+                None,
+            ),
         )
 
 

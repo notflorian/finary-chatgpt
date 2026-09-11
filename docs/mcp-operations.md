@@ -39,7 +39,8 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
    manual notes survive. Do not use `docker compose down -v`.
 3. Do not back up either renewable Finary store. Clerk and MCP have distinct
    bridge-only named volumes. The MCP store persists only client registration
-   metadata needed by the SDK, a renewable refresh token, granted scope and a
+   metadata needed by the SDK (`client_id`, issuer, redirect URIs and public
+   token authentication method), a renewable refresh token, granted scope and a
    rotation generation. No bearer access token, authorization code, PKCE secret
    or callback state is persisted. Directory/file permissions are 0700/0600;
    writes are atomic with fsync, CAS generation checks and separate process

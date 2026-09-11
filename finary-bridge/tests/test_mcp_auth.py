@@ -132,6 +132,12 @@ def test_consent_restart_rotation_and_memory_only_access(tmp_path):
     asyncio.run(consent(store, peer))
     first = store.read()
     assert first.refresh_token == "synthetic-renewable-1"
+    assert set(first.client) == {
+        "client_id",
+        "issuer",
+        "redirect_uris",
+        "token_endpoint_auth_method",
+    }
     assert "synthetic-access" not in store.path.read_text()
     assert "synthetic-code" not in store.path.read_text()
     assert os.stat(store.path).st_mode & 0o777 == 0o600
