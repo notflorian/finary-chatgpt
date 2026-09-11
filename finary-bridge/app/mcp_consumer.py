@@ -279,7 +279,10 @@ def observation(
         from app.mcp_models import McpSnapshotV3
 
         McpSnapshotV3.model_validate(snapshot)
-        require(current_positions == positions)
+        require(
+            {row["position_key"]: row for row in current_positions}
+            == {row["position_key"]: row for row in positions or []}
+        )
     return {
         "context": context,
         "overview": overview,

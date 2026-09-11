@@ -111,3 +111,19 @@ def test_formatted_membership_counts_keep_integer_semantics():
     book["sync_runs"][0]["observations_expected_count"] = True
     with pytest.raises(ValueError):
         select(book, now=NOW + timedelta(minutes=1))
+
+
+def test_current_and_history_compare_by_holding_identity_not_sheet_order():
+    from mcp_wire import SyntheticWire
+    from test_mcp_integration import snapshot
+
+    wire = SyntheticWire()
+    second = deepcopy(wire.values["holdings"]["data"][0])
+    second["id"] = "synthetic-second-holding"
+    wire.values["holdings"]["data"].append(second)
+    book = empty_book()
+    for write in writes(prepare(snapshot(wire), book)):
+        table = write["node"]["parameters"]["sheetName"]["value"]
+        book[table] += write["rows"]
+    book["positions_current"].reverse()
+    assert select(book, now=NOW + timedelta(minutes=1))["current_complete"]
