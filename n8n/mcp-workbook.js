@@ -97,7 +97,7 @@ const mcpBuild = (snapshot,run,existing,overrides=[]) => {
   const terminal=mcpBlankRow('sync_runs');
   Object.assign(terminal,{run_id:run.run_id,started_at:run.started_at,completed_at:run.started_at,duration_ms:0,
     status:snapshot.warnings.length?'SUCCESS_WITH_WARNINGS':'SUCCESS',schema_version:'3.0',workbook_schema:'3.0',
-    observation_id:snapshot.observation_id,provider:run.provider,source_contract_version:'1.0.0',
+    observation_id:snapshot.observation_id,provider:run.provider,source_contract_version:mcpContract.contract_version,
     writer_generation:run.writer_generation,writer_id:run.writer_id,warning_count:snapshot.warnings.length,
     accounts_count:permitted.accounts_current?snapshot.accounts.length:null,positions_count:permitted.positions_current?snapshot.positions.length:null,
     series_break:mcpSeriesBreak(existing,snapshot.provenance)});
@@ -150,7 +150,7 @@ const mcpRetained = existing => {
   }
   for(const terminal of existing.sync_runs.filter(r=>r.provider==='finary_official_mcp'&&['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status))){
     mcpRow('sync_runs',terminal);
-    mcpAssert(terminal.schema_version==='3.0'&&terminal.workbook_schema==='3.0'&&terminal.source_contract_version==='1.0.0');
+    mcpAssert(terminal.schema_version==='3.0'&&terminal.workbook_schema==='3.0'&&terminal.source_contract_version===mcpContract.contract_version);
     const observations=existing.observations.filter(r=>r.observation_id===terminal.observation_id&&r.run_id===terminal.run_id);
     mcpAssert(observations.length===1);
     for(const [table,column]of Object.entries(mcpWorkbook.mcp_tables.sync_runs.count_columns)){

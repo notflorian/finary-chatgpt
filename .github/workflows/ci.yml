@@ -68,7 +68,7 @@ jobs:
         run: python -m pytest -q -m "not live" --ignore=tests/live tests/test_upstream_response_recursion.py
       - name: Check native MCP SDK and renewable state compatibility
         working-directory: finary-bridge
-        run: python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py tests/test_mcp_optional.py
+        run: python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py tests/test_mcp_optional.py tests/test_mcp_precision.py
 
   static-analysis:
     name: static-analysis

@@ -8,6 +8,7 @@ from mcp_live_diagnostics import decimal_shape, install_diagnostics
 from mcp_wire import SyntheticWire
 
 from app.mcp_client import McpFailure
+from app.mcp_validation import CONTRACT
 from app.services.mcp_snapshot_service import McpSnapshotService
 
 
@@ -75,7 +76,11 @@ def test_live_diagnostics_leave_valid_production_collection_unchanged(monkeypatc
     "value,syntax,fraction",
     [
         ("1.234e-5", "SCIENTIFIC_NOTATION", False),
-        ("0.1234567890123456789", "PLAIN_DECIMAL", True),
+        (
+            "0." + "1" * (CONTRACT["numeric_policy"]["limits"]["fractional_digits"] + 1),
+            "PLAIN_DECIMAL",
+            True,
+        ),
         ("+00023.50", "PLAIN_DECIMAL", False),
         (" 23.50 ", "PLAIN_DECIMAL", False),
         ("NaN", "NON_FINITE", None),
@@ -111,8 +116,9 @@ def test_live_account_decimal_failure_reports_shape_only(monkeypatch, capsys):
 
 
 def test_decimal_shape_checks_exact_trimming_without_rounding():
-    padded = decimal_shape("0.123456789012345678000")
+    exact = "0." + "1" * CONTRACT["numeric_policy"]["limits"]["fractional_digits"]
+    padded = decimal_shape(exact + "000")
     assert padded["fraction_limit_exceeded"] is True
     assert padded["exact_value_fits_bounds"] is True
-    precise = decimal_shape("0.123456789012345678001")
+    precise = decimal_shape(exact + "001")
     assert precise["exact_value_fits_bounds"] is False

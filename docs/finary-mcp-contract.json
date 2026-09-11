@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/notflorian/finary-chatgpt/blob/main/docs/finary-mcp-contract.json",
   "title": "Planned Finary official MCP integration contract",
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "status": "PLANNED_NOT_IMPLEMENTED",
   "inspection_date": "2026-09-11",
   "implemented": {
@@ -21,13 +21,20 @@
     },
     "finary_official_mcp": {
       "status": "PLANNED",
-      "source_contract_version": "1.0.0",
+      "source_contract_version": "1.1.0",
       "route": "/v3/snapshot",
       "schema": "#/$defs/snapshot_v3",
       "standalone_authorization": "UNVERIFIED"
     }
   },
   "evidence": {
+    "operator_precision_2026_09_11": {
+      "class": "observed_structure",
+      "date": "2026-09-11",
+      "source": "Operator-provided output of the isolated native structural test",
+      "details": "accounts account_observed attributes.balance: plain decimal text, no whitespace/plus/padding, integer bound respected, more than 18 fractional digits and no exact zero-trimming repair. No amount, identifier or raw payload was shared. Exact upstream scale and maximum remain unknown.",
+      "native_wire_proven": true
+    },
     "catalog_2026_09_11": {
       "class": "declared_connector_schema",
       "date": "2026-09-11",
@@ -242,8 +249,9 @@
     "date_validation_clock": "Current Europe/Paris calendar date at invocation, never a cached inspection date; test cases inject a fixed clock."
   },
   "numeric_policy": {
+    "revision_reason": "Contract 1.1.0 raises the project fractional bound from 18 to 64 after an operator-run native accounts read reported a plain decimal with more than 18 significant fractional digits. Preserve the exact source string; never round. The 64-place cap is a bounded project policy, not a verified upstream maximum.",
     "ingestion": "Decimal constructed directly from bounded strings; no float intermediate; validate lexical length before parsing; preserve exact value; reject malformed/non-finite/out-of-range without truncation or rounding",
-    "limits": {"integer_digits": 24, "fractional_digits": 18},
+    "limits": {"integer_digits": 24, "fractional_digits": 64},
     "absence": "absent/null unknown, zero is known; reject booleans, blanks and text placeholders as amounts",
     "sheets": "new monetary/quantity/rate columns use exact decimal TEXT written RAW; nullable cells explicitly cleared; legacy numeric columns remain as-is and do not receive MCP amounts",
     "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and implementation-time bounds before invocation. Never use as ingestion decimals.",
@@ -1022,9 +1030,9 @@
     },
     "decimal": {
       "type": "string",
-      "maxLength": 44,
-      "pattern": "^-?(0|[1-9][0-9]{0,23})(\\.[0-9]{1,18})?$",
-      "description": "Exact base-10 value; <=24 integer and <=18 fractional digits. No exponent, whitespace, NaN, infinity or binary numeric input. Bounds are project policy, not upstream limits."
+      "maxLength": 90,
+      "pattern": "^-?(0|[1-9][0-9]{0,23})(\\.[0-9]{1,64})?$",
+      "description": "Exact base-10 value; <=24 integer and <=64 fractional digits. No exponent, whitespace, NaN, infinity or binary numeric input. Bounds are project policy, not upstream limits."
     },
     "nonnegative_decimal": {"allOf": [{"$ref": "#/$defs/decimal"}, {"pattern": "^[0-9]"}]},
     "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
@@ -1843,7 +1851,7 @@
           }
         },
         "source_contract_version": {
-          "const": "1.0.0",
+          "const": "1.1.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
@@ -4036,7 +4044,7 @@
   },
   "semantic_rules": {
     "currency": "all overview/allocation/member money.currency equals provenance.currency; amount_eur equals amount only if EUR; no overview SOURCE_CONVERSION until independently verified upstream support is added. account native_balance may have SOURCE_CONVERSION using supplied full_value_eur only, never direct owners value. Check view denomination even for null amounts: every overview/allocation/member currency must be nonnull and equal provenance.currency. Any normalized nonnull amount requires an explicit currency; a bare upstream number cannot become validated money.",
-    "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.0.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
+    "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.1.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
     "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
     "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
     "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag. Resource support is distinct from field-unit/ownership confidence: supported resources may retain explicitly qualified UNVERIFIED fields without derived accounting claims.",

@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from app.mcp_adapter import McpAdapter
 from app.mcp_client import McpFailure, NativeMcpClient
 from app.mcp_models import McpSnapshotV3
+from app.mcp_validation import CONTRACT
 
 
 def paris_now() -> datetime:
@@ -65,7 +66,7 @@ class McpSnapshotService:
                     "generated_at": generated.isoformat(),
                     "provenance": {
                         "provider": "finary_official_mcp",
-                        "source_contract_version": "1.0.0",
+                        "source_contract_version": CONTRACT["contract_version"],
                         "scope": "household",
                         "ownership_basis": "direct",
                         "metric": "gross_assets",

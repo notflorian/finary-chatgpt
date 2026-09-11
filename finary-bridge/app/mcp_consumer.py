@@ -105,7 +105,7 @@ def observation(
     require(terminal.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"})
     require(terminal.get("provider") == "finary_official_mcp")
     require(terminal.get("schema_version") == terminal.get("workbook_schema") == "3.0")
-    require(terminal.get("source_contract_version") == "1.0.0")
+    require(terminal.get("source_contract_version") == CONTRACT["contract_version"])
     run_id, observation_id = terminal["run_id"], terminal["observation_id"]
     require(sum(r.get("run_id") == run_id for r in workbook["sync_runs"]) == 1)
     require(sum(r.get("observation_id") == observation_id for r in workbook["sync_runs"]) == 1)

@@ -21,6 +21,7 @@ def build():
     schema["source_contract_version"] = contract["contract_version"]
     schema["mcp_tables"] = contract["workbook_migration"]["tables"]
     schema["mcp_identity"] = contract["identity"]
+    schema["mcp_numeric_policy"] = contract["numeric_policy"]
     schema["mcp_valuation_contracts"] = contract["valuation_contracts"]
     schema["mcp_definitions"] = contract["$defs"]
     schema["legacy_constraints"] = legacy["sheets"]
@@ -118,7 +119,7 @@ def build():
     for name, node in {
         "observation_id": {"$ref": "#/$defs/uuid"},
         "provider": {"const": "finary_official_mcp"},
-        "source_contract_version": {"const": "1.0.0"},
+        "source_contract_version": {"const": contract["contract_version"]},
         "writer_generation": {"type": "integer", "minimum": 1},
         "writer_id": {"type": "string", "minLength": 1},
         "workbook_schema": {"const": "3.0"},

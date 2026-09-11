@@ -18,7 +18,7 @@ class McpMoney(ContractModel):
 class McpProvenance(ContractModel):
     contract_name: ClassVar[str] = "provenance"
     provider: Literal["finary_official_mcp"]
-    source_contract_version: Literal["1.0.0"]
+    source_contract_version: Literal["1.1.0"]
     scope: Literal["household"]
     ownership_basis: Literal["direct"]
     metric: Literal["gross_assets"]

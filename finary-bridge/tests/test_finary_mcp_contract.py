@@ -606,7 +606,14 @@ def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
     assert snapshot_error(value) is None
 
 
-@pytest.mark.parametrize("amount", ["0.01", "-0.01", "0.0000000000000000000", "00", "0e0"])
+@pytest.mark.parametrize(
+    "amount",
+    [
+        "0.01", "-0.01",
+        "0." + "0" * (CONTRACT["numeric_policy"]["limits"]["fractional_digits"] + 1),
+        "00", "0e0",
+    ],
+)
 def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
     case = next(
         case for case in MANIFEST["cases"]

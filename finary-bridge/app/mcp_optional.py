@@ -10,10 +10,14 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.mcp_client import McpFailure, NativeMcpClient, checked
-from app.mcp_validation import key, validate
+from app.mcp_validation import CONTRACT, key, validate
 
 DecimalText = Annotated[
-    str, Field(pattern=r"^-?(0|[1-9][0-9]{0,23})(\.[0-9]{1,18})?$", max_length=44)
+    str,
+    Field(
+        pattern=CONTRACT["$defs"]["decimal"]["pattern"],
+        max_length=CONTRACT["$defs"]["decimal"]["maxLength"],
+    ),
 ]
 Currency = Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
 Count = Annotated[int, Field(ge=0)]
@@ -26,7 +30,7 @@ class OptionalModel(BaseModel):
 class ReadContext(OptionalModel):
     schema_version: Literal["3.0"] = "3.0"
     provider: Literal["finary_official_mcp"] = "finary_official_mcp"
-    source_contract_version: Literal["1.0.0"] = "1.0.0"
+    source_contract_version: Literal["1.1.0"] = "1.1.0"
     observation_id: str
     generated_at: str
 

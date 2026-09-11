@@ -227,3 +227,11 @@ Its first manual successful run and subsequent 07:30 run require independent
 verification. Rollback does not delete MCP observations, reverse-map IDs by
 appearance or overwrite unresolved mappings. OAuth revocation remains a separate
 explicit operator decision.
+
+Source contract 1.1.0 preserves up to 64 fractional digits as exact decimal text
+(24 integer digits). This is a bounded project policy, not an upstream maximum.
+API and workbook schemas remain 3.0; the frozen legacy 2.1 path is unchanged.
+The candidate writer rejects source-contract 1.0.0 snapshots and terminal rows;
+never relabel old observations. Regenerate migration plans and use a fresh
+isolated candidate when testing a previous 1.0.0 candidate. Existing observations
+remain preserved, with incompatible comparisons treated as series breaks.

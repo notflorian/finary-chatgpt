@@ -48,6 +48,11 @@ def substitute(value, book, fail_at=None):
 @pytest.mark.parametrize("mode", ["normal", "empty", "unsupported", "malformed", "write_failure"])
 def test_real_engine_control_flow(runtime_image, tmp_path, mode):
     wire = SyntheticWire()
+    precise_amount = "1." + "1" * 64
+    if mode == "normal":
+        wire.values["accounts"]["data"][0]["attributes"]["balance"] = precise_amount
+        wire.values["accounts"]["data"][0]["attributes"]["full_value_eur"] = precise_amount
+        wire.values["holdings"]["data"][0]["attributes"]["current_value"] = precise_amount
     if mode == "empty":
         wire.values["holdings"]["data"] = []
     if mode == "unsupported":
@@ -96,6 +101,11 @@ def test_real_engine_control_flow(runtime_image, tmp_path, mode):
         "" if mode == "unsupported" else 0 if mode == "empty" else 1
     )
     assert terminal["liabilities_current_expected_count"] == ""
+    if mode == "normal":
+        assert (
+            _output(data, "Write positions_current")[0]["mcp_current_value_amount"]
+            == precise_amount
+        )
 
 
 def test_native_fixture_null_known_null_through_installed_connector(connector):
@@ -120,6 +130,19 @@ def test_native_fixture_null_known_null_through_installed_connector(connector):
         u["column"] == "mcp_current_value_amount" and u["value"] == "" for u in result["updates"]
     )
     assert connector(SCHEMA, book, emitted)["workbook"] == book
+
+
+def test_native_full_precision_through_installed_connector_and_consumer(connector):
+    from test_mcp_precision import precise_wire
+
+    amount = "123456789012345678901234." + "1" * 64
+    value = snapshot(precise_wire(amount))
+    result = connector(SCHEMA, empty_book(), writes(prepare(value)))
+    book = result["workbook"]
+    assert book["positions_current"][0]["mcp_current_value_amount"] == amount
+    assert book["accounts_current"][0]["mcp_native_balance_amount"] == amount
+    accepted = observation(book, book["sync_runs"][-1], now=NOW + timedelta(minutes=1))
+    assert accepted["current_complete"]
 
 
 @pytest.mark.parametrize("all_responses_lost", [False, True])

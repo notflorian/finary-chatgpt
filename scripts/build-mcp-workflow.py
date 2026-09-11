@@ -16,7 +16,11 @@ def prelude(name):
         json.dumps(workbook, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
     if name == "Initialize MCP Run":
-        binding = "const mcpWorkbook={}; const mcpContract={};\n"
+        binding = (
+            "const mcpWorkbook={}; const mcpContract="
+            + json.dumps({"contract_version": workbook["source_contract_version"]})
+            + ";\n"
+        )
     else:
         value = (
             json.dumps(workbook, separators=(",", ":"))
@@ -26,7 +30,7 @@ def prelude(name):
         binding = (
             "const mcpWorkbook="
             + value
-            + ";\nconst mcpContract={$defs:mcpWorkbook.mcp_definitions,identity:mcpWorkbook.mcp_identity,valuation_contracts:mcpWorkbook.mcp_valuation_contracts};\n"
+            + ";\nconst mcpContract={contract_version:mcpWorkbook.source_contract_version,numeric_policy:mcpWorkbook.mcp_numeric_policy,$defs:mcpWorkbook.mcp_definitions,identity:mcpWorkbook.mcp_identity,valuation_contracts:mcpWorkbook.mcp_valuation_contracts};\n"
         )
     library = (
         (ROOT / "n8n/mcp-validation.js").read_text()

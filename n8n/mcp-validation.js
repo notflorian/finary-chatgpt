@@ -61,7 +61,7 @@ const mcpDecimal = value => {
   mcpSchema(value,'decimal');
   const negative=value.startsWith('-');
   const [whole,fraction='']=value.replace(/^-/,'').split('.');
-  return BigInt(whole+fraction.padEnd(18,'0'))*(negative?-1n:1n);
+  return BigInt(whole+fraction.padEnd(mcpContract.numeric_policy.limits.fractional_digits,'0'))*(negative?-1n:1n);
 };
 const mcpMoney = (money,currency=null) => {
   if (currency!==null) mcpAssert(money.currency===currency);
@@ -117,7 +117,7 @@ const mcpRun = (run,executionId) => {
   mcpAssert(mcpObject(run)&&typeof executionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(executionId));
   mcpAssert(new RegExp(`^n8n-run:${executionId}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`).test(run.run_id));
   mcpAssert(mcpInstant(run.started_at)&&Number.isSafeInteger(run.started_epoch_ms)&&Math.abs(Date.parse(run.started_at)-run.started_epoch_ms)<1000);
-  mcpAssert(run.provider==='finary_official_mcp'&&run.api_schema==='3.0'&&run.workbook_schema==='3.0'&&run.source_contract_version==='1.0.0');
+  mcpAssert(run.provider==='finary_official_mcp'&&run.api_schema==='3.0'&&run.workbook_schema==='3.0'&&run.source_contract_version===mcpContract.contract_version);
   mcpAssert(typeof run.writer_id==='string'&&run.writer_id.length>0&&Number.isSafeInteger(run.writer_generation)&&run.writer_generation>=1);
 };
 const mcpControl = (rows,run) => {

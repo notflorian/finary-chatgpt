@@ -32,8 +32,11 @@ def decimal_shape(value):
     if result["syntax"] in {"PLAIN_DECIMAL", "SCIENTIFIC_NOTATION"}:
         try:
             _, digits, exponent = Decimal(stripped).as_tuple()
-            result["integer_limit_exceeded"] = max(len(digits) + exponent, 1) > 24
-            result["fraction_limit_exceeded"] = max(-exponent, 0) > 18
+            limits = validation.CONTRACT["numeric_policy"]["limits"]
+            result["integer_limit_exceeded"] = (
+                max(len(digits) + exponent, 1) > limits["integer_digits"]
+            )
+            result["fraction_limit_exceeded"] = max(-exponent, 0) > limits["fractional_digits"]
             significant = list(digits)
             exact_exponent = exponent
             while significant and significant[-1] == 0:
@@ -42,8 +45,8 @@ def decimal_shape(value):
             if not significant:
                 exact_exponent = 0
             result["exact_value_fits_bounds"] = (
-                max(len(significant) + exact_exponent, 1) <= 24
-                and max(-exact_exponent, 0) <= 18
+                max(len(significant) + exact_exponent, 1) <= limits["integer_digits"]
+                and max(-exact_exponent, 0) <= limits["fractional_digits"]
             )
             result["leading_plus"] = stripped.startswith("+")
             result["leading_zero_padding"] = bool(re.match(r"[+-]?0[0-9]", stripped))

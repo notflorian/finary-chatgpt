@@ -3188,7 +3188,7 @@
           "ownership": "derived",
           "source": "MCP observation membership",
           "mcp_schema": {
-            "const": "1.0.0"
+            "const": "1.1.0"
           }
         },
         {
@@ -4743,7 +4743,7 @@
           "ownership": "automated",
           "source": "#/$defs/observation_row/provenance/source_contract_version",
           "mcp_schema": {
-            "const": "1.0.0",
+            "const": "1.1.0",
             "x-field": {
               "authority": "bridge",
               "grain": "observation",
@@ -5722,7 +5722,7 @@
   },
   "writer_provider": "finary_official_mcp",
   "legacy_schema": "google-sheets-schema-v2.json",
-  "source_contract_version": "1.0.0",
+  "source_contract_version": "1.1.0",
   "mcp_tables": {
     "accounts_current": {
       "row_schema": "#/$defs/account",
@@ -6171,6 +6171,26 @@
     "legacy": "Keep all finary:* keys and date-only daily/history keys unchanged. Never infer a cross-provider match from equal IDs, name, ticker, ISIN or order.",
     "nullable_key_components": "Encode absent optional child-key component as literal ~null and present components as ~value followed by E(value); this discriminates an absent warning entity from any real ID. Fixed table key arity; no delimiter ambiguity."
   },
+  "mcp_numeric_policy": {
+    "revision_reason": "Contract 1.1.0 raises the project fractional bound from 18 to 64 after an operator-run native accounts read reported a plain decimal with more than 18 significant fractional digits. Preserve the exact source string; never round. The 64-place cap is a bounded project policy, not a verified upstream maximum.",
+    "ingestion": "Decimal constructed directly from bounded strings; no float intermediate; validate lexical length before parsing; preserve exact value; reject malformed/non-finite/out-of-range without truncation or rounding",
+    "limits": {
+      "integer_digits": 24,
+      "fractional_digits": 64
+    },
+    "absence": "absent/null unknown, zero is known; reject booleans, blanks and text placeholders as amounts",
+    "sheets": "new monetary/quantity/rate columns use exact decimal TEXT written RAW; nullable cells explicitly cleared; legacy numeric columns remain as-is and do not receive MCP amounts",
+    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and implementation-time bounds before invocation. Never use as ingestion decimals.",
+    "rate_units": {
+      "annual_yield_percent": "PERCENT, ANNUAL",
+      "annual_yield": "UNVERIFIED until type-specific source evidence",
+      "expense_ratio": "UNVERIFIED until scale independently confirmed",
+      "subscription_fees_ratio": "UNVERIFIED until scale independently confirmed",
+      "ownership_share": "FRACTION; nonnegative, can exceed 1",
+      "target_coverage_months": "MONTHS, not money"
+    },
+    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds."
+  },
   "mcp_valuation_contracts": {
     "account_valuation": {
       "collection": "accounts",
@@ -6225,9 +6245,9 @@
     },
     "decimal": {
       "type": "string",
-      "maxLength": 44,
-      "pattern": "^-?(0|[1-9][0-9]{0,23})(\\.[0-9]{1,18})?$",
-      "description": "Exact base-10 value; <=24 integer and <=18 fractional digits. No exponent, whitespace, NaN, infinity or binary numeric input. Bounds are project policy, not upstream limits."
+      "maxLength": 90,
+      "pattern": "^-?(0|[1-9][0-9]{0,23})(\\.[0-9]{1,64})?$",
+      "description": "Exact base-10 value; <=24 integer and <=64 fractional digits. No exponent, whitespace, NaN, infinity or binary numeric input. Bounds are project policy, not upstream limits."
     },
     "nonnegative_decimal": {
       "allOf": [
@@ -8239,7 +8259,7 @@
           }
         },
         "source_contract_version": {
-          "const": "1.0.0",
+          "const": "1.1.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
