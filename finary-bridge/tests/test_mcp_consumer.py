@@ -77,3 +77,37 @@ def test_current_and_history_values_must_agree():
     book["positions_current"][0]["mcp_current_value_amount"] = "900"
     with pytest.raises(ValueError):
         observation(book, book["sync_runs"][0], now=NOW + timedelta(minutes=1))
+
+
+@pytest.mark.parametrize("table", ["accounts_current", "positions_current"])
+def test_extra_foreign_active_row_forces_dated_history(table):
+    book = book_for_consumer()
+    row = deepcopy(book[table][0])
+    key = "account_key" if table == "accounts_current" else "position_key"
+    row[key] += ":extra"
+    row.update(run_id="interrupted-run", observation_id="interrupted-observation")
+    book[table].append(row)
+    result = select(book, now=NOW + timedelta(minutes=1))
+    assert not result["current_complete"] and result["dated_fallback"]
+    assert result["accounts"] is None
+
+
+@pytest.mark.parametrize("flag", [0, 1, "true", None])
+def test_malformed_physical_activity_cannot_certify_current(flag):
+    book = book_for_consumer()
+    book["positions_current"][0]["is_active"] = flag
+    result = select(book, now=NOW + timedelta(minutes=1))
+    assert not result["current_complete"] and result["dated_fallback"]
+
+
+def test_formatted_membership_counts_keep_integer_semantics():
+    book = book_for_consumer()
+    from app.mcp_consumer import COUNTS
+
+    for column in COUNTS.values():
+        if book["sync_runs"][0][column] != "":
+            book["sync_runs"][0][column] = str(book["sync_runs"][0][column]) + ".0"
+    assert select(book, now=NOW + timedelta(minutes=1))["current_complete"]
+    book["sync_runs"][0]["observations_expected_count"] = True
+    with pytest.raises(ValueError):
+        select(book, now=NOW + timedelta(minutes=1))

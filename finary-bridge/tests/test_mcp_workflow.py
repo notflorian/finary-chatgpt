@@ -294,3 +294,13 @@ def test_exported_validator_preserves_every_declared_snapshot_outcome():
                     input_rows=[{}],
                     execution_id="mcp-test",
                 )
+
+
+def test_retained_current_source_cannot_disagree_with_observation_provider():
+    book = empty_book()
+    for write in writes(prepare(book=book)):
+        table = write["node"]["parameters"]["sheetName"]["value"]
+        book[table] += write["rows"]
+    book["positions_current"][0]["source"] = "finary_private_api"
+    with pytest.raises(subprocess.CalledProcessError):
+        prepare(book=book, execution="next-execution")

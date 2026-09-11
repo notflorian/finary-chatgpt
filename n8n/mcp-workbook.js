@@ -139,6 +139,7 @@ const mcpRetained = existing => {
     for(const row of rows){
       if(!row.observation_id)continue;
       mcpRow(table,row);
+      if(table.endsWith('_current'))mcpAssert(row.source==='finary_official_mcp'&&row.provider==='finary_official_mcp');
       if(mcpChildFields[table])mcpAssert(row.row_key===mcpChildKey(row.observation_id,table,mcpNormalized(table,row)));
       if(table==='positions_history')mcpAssert(row.history_key===`mcp:history:${row.snapshot_date}:${row.observation_id}:${row.position_key}`);
       if(table==='portfolio_daily')mcpAssert(row.daily_key===`mcp:daily:${row.snapshot_date}:${row.observation_id}`);

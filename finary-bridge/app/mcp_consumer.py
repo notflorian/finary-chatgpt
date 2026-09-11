@@ -8,6 +8,7 @@ live MCP detail or replace official overview figures with detail sums.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.mcp_validation import CONTRACT, validate, validate_collection_context, validate_money
@@ -40,6 +41,28 @@ def instant(value: Any) -> datetime:
 
 def blank(value: Any) -> Any:
     return None if value == "" else value
+
+
+def activity(value: Any) -> bool | None:
+    if type(value) is bool:
+        return value
+    if isinstance(value, str) and value in {"TRUE", "FALSE"}:
+        return value == "TRUE"
+    return None
+
+
+def count(value: Any) -> int:
+    require(type(value) in {int, float, str})
+    try:
+        number = Decimal(str(value))
+        require(
+            number.is_finite()
+            and 0 <= number <= 9007199254740991
+            and number == number.to_integral_value()
+        )
+        return int(number)
+    except InvalidOperation:
+        raise ValueError("Invalid workbook membership count") from None
 
 
 def normalized(table: str, row: dict[str, Any]) -> dict[str, Any]:
@@ -118,13 +141,27 @@ def observation(
             require(not selected)
             members[table] = None
             continue
-        require(type(expected) is int and expected >= 0)
+        expected = count(expected)
         if table.endswith("_current"):
-            active = [r for r in selected if r.get("is_active") in (True, "TRUE")]
-            require(all(r.get("is_active") in (True, False, "TRUE", "FALSE") for r in selected))
+            physical = [
+                row
+                for row in rows
+                if row.get("provider") == "finary_official_mcp"
+                or row.get("source") == "finary_official_mcp"
+                or str(row.get(key, "")).startswith("mcp:")
+            ]
+            active = [r for r in physical if activity(r.get("is_active")) is True]
+            consistent = all(
+                activity(r.get("is_active")) is not None
+                and r.get("source") == r.get("provider") == "finary_official_mcp"
+                for r in physical
+            ) and all(
+                r.get("observation_id") == observation_id and r.get("run_id") == run_id
+                for r in active
+            )
             # Current rows may have moved on. Historical membership must never
             # borrow their later balances or metadata.
-            members[table] = active if len(active) == expected else None
+            members[table] = active if consistent and len(active) == expected else None
         else:
             require(len(selected) == expected)
             members[table] = selected
