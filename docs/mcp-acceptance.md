@@ -222,3 +222,31 @@ report, not a second invocation of revocation.
 Immediate access revocation must not be advertised. The token's eventual rejection
 and the separate natural-expiry renewal run remain unverified until their own
 results are observed. No production or assistant-managed connection was revoked.
+
+
+## Real Google Sheets interruption, recovery and clearing (2026-09-11)
+
+The operator authorized a new disposable workbook containing only synthetic
+values and canonical headers, with four inactive manual workflows built from
+the production export. The first run stopped deliberately after the installed
+Sheets node wrote accounts_current. Independent native-cell readback confirmed
+one account and no positions, observation or terminal success. Execution evidence
+confirmed only the accounts writer ran before the expected stop.
+
+A fresh null-valued run recovered successfully without duplicating the account.
+The next run wrote the exact synthetic decimal
+123.123456789012345678901234; Google userEnteredValue confirmed string storage
+for both native and independently supported EUR current-value cells. A final
+run returned both cells to actual blanks. Independent readback found one current
+account, one current position, three unique historical positions, three
+observations and three distinct successful terminal runs with matching membership.
+All canonical tables were reread within bounded ranges and passed the production
+consumer: a complete current selection and all three individual observations
+validated. The disposable writer control was then returned to PAUSED.
+
+These are live installed-connector writes and native Google cell readbacks with
+synthetic source data, separate from authenticated Finary portfolio evidence.
+The tested interruption is a deliberate graph stop after a completed write,
+not a killed process, an interrupted HTTP request or a lost Google response.
+Those other failure cases retain their separately recorded isolated runtime
+evidence. No production data or ongoing OAuth expiry state was used.
