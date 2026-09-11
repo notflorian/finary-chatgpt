@@ -367,3 +367,42 @@ and [OAuth implementation](https://clerk.com/docs/guides/configure/auth-strategi
 Those platform statements guide this test but do not replace observed Finary
 behavior. Ordinary CI skips it; synthetic classifiers separately reject
 malformed, transient and unrelated authorization failures as evidence.
+
+## Disposable live Sheets interruption and null transitions
+
+Use a newly authorized workbook containing only canonical 3.0 headers and an
+ACTIVE writer_control for `synthetic-live-writer`, generation 1. Do not reuse a
+portfolio candidate or production workbook. The developer-only builder requires
+the development test dependencies and synthetic native-wire fixtures:
+
+```bash
+python scripts/build-mcp-live-scenarios.py --workbook-id "$DISPOSABLE_SHEET_ID" \
+  --output /private/tmp/mcp-live-scenarios.json
+```
+
+It builds four inactive workflows with no schedule and no Finary HTTP nodes.
+Synthetic upstream data passes through the production native client and snapshot
+service during generation; only the schema/snapshot fetch nodes are substituted.
+All Sheets nodes and downstream validation code remain the production export.
+Bind the isolated n8n Google credential locally; never commit a bound export.
+Run one stage at a time and independently reread Sheets between stages:
+
+1. `MCP Live Test - interrupt`: expected Stop After First Real Write error after
+   the real accounts write. Confirm one account, no position and no success
+   terminal; the reference consumer must reject the incomplete workbook.
+2. `MCP Live Test - null`: full fresh execution resumes using deterministic
+   account keys and a new observation. Confirm a unique complete terminal and
+   blank `mcp_current_value_amount` / EUR projection cells.
+3. `MCP Live Test - known`: writes the synthetic decimal
+   `123.123456789012345678901234`. Read native userEnteredValue to prove exact
+   text storage, not a rounded number, then validate complete membership.
+4. `MCP Live Test - clear`: verify both native amount cells are blank again,
+   one current position remains, and all three successful observations and their
+   history survive without duplicate current keys or terminal membership.
+
+Clear cached execution data before any partial readback. Do not rerun a completed
+stage blindly: each generated stage contains one synthetic observation UUID;
+regenerate for another independent acceptance series. After acceptance, return
+the disposable control to PAUSED. The interruption is an intentional graph stop,
+not a killed n8n process or simulated Google outage; report that distinction.
+A passing offline builder test is not evidence that these live stages ran.
