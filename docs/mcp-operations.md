@@ -323,3 +323,47 @@ docker start finary-mcp-candidate-finary-bridge-1
 Ordinary CI skips this test. Synthetic wait-bound regressions exercise unknown
 expiry, elapsed expiry, excessive lifetime and wall-clock discontinuity without
 network calls; they do not establish a live token lifetime.
+
+## Server-side revocation evidence on a dedicated disposable grant
+
+Use a separate newly created `finary-mcp-revocation.*` directory and independent
+bootstrap. Never point this test at the candidate bridge, assistant connection
+or an ongoing expiry test. The explicit `FINARY_MCP_LIVE_REVOKE_DISPOSABLE=1`
+flag authorizes revocation of this dedicated grant. Do not run the ordinary
+revoke command first: the test needs the current renewable state in memory to
+probe the server after the production revoke command clears local state.
+
+```bash
+FINARY_MCP_LIVE_TEST=1 \
+FINARY_MCP_LIVE_ISOLATED_STATE=1 \
+FINARY_MCP_LIVE_REVOKE_DISPOSABLE=1 \
+python -m pytest -q -s --tb=no -m live \
+  tests/live/test_mcp_revocation_live.py::test_disposable_server_revocation
+```
+
+The directory comes only from `FINARY_MCP_REVOCATION_TEST_DIR`. The test verifies
+native initialization/discovery, retains the current grant and access token in
+memory, releases the session lease, then invokes the production generation-bound
+revoke command. It probes the freshly validated token endpoint using the same
+public-client refresh parameters as the pinned SDK. Only HTTP 400 with OAuth
+`invalid_grant` establishes remote renewal rejection; local file absence,
+network errors, invalid-client errors or HTTP success alone do not qualify.
+A separate native discovery probe uses the retained access token without
+refresh or consent and reports whether it is still accepted, rejected with
+HTTP 401 or inconclusive. No portfolio tools, workbook writes, identifiers,
+tokens or raw error bodies are printed or saved by this test.
+
+SERVER_REFRESH_REVOCATION_VALIDATED means remote refresh rejection was observed;
+only `immediate_access_revocation: true` also establishes immediate rejection of
+the retained access token. A still-accepted access token is an explicit limitation,
+not proof of complete access revocation. Failed probes require review and are
+not retried automatically with a new consent. The disposable local state remains
+cleared by the production revocation path.
+
+Clerk documents grant-scoped revocation for an OAuth application and distinguishes
+revocable opaque tokens from JWT access tokens that remain valid until expiry:
+[revocation reference](https://clerk.com/docs/reference/backend/oauth-applications/revoke-token)
+and [OAuth implementation](https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth).
+Those platform statements guide this test but do not replace observed Finary
+behavior. Ordinary CI skips it; synthetic classifiers separately reject
+malformed, transient and unrelated authorization failures as evidence.
