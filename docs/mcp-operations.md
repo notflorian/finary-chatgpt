@@ -3,7 +3,8 @@
 This runbook is executable preparation for an operator. It does not authorize
 production activation. Independent consent, cold-start renewal, server-side refresh
 revocation, authorized shadow synchronization and real Sheets recovery/clearing
-have live evidence. Natural-expiry renewal and production acceptance remain open.
+have live evidence. Natural-expiry renewal in one OAuth session also passed.
+Production acceptance remains a separate operator action.
 The retained access token remained accepted after revocation; do not promise
 immediate access invalidation. See the dated
 [acceptance matrix](mcp-acceptance.md). Assistant/plugin authorization is unrelated

@@ -11,7 +11,7 @@ migration, release publication and revoking existing connections are excluded.
 
 | Child | Implementation stage | Required evidence | Status / blockers |
 | --- | --- | --- | --- |
-| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; granted scopes and natural expiry remain unverified; dedicated live revocation rejected refresh with invalid_grant while the retained access token remained accepted |
+| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; natural expiry and renewal in the same OAuth session passed; granted scopes remain unverified; dedicated live revocation rejected refresh with invalid_grant while the retained access token remained accepted |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
 | #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; operator reported live migration replay; authorized manual shadow sync and production-consumer readback passed |
@@ -121,9 +121,9 @@ operator has not separately reported browser behavior for this invocation.
 Current acceptance status: native migration replay, authorized portfolio shadow
 synchronization, fresh consumer readback and real Sheets interruption/recovery
 and null transitions have passed. Dedicated live revocation proves server-side
-refresh rejection, while the retained access token remains accepted. Natural
-in-session expiry/renewal is still awaiting the operator's running test; the
-issuer-advertised lifetime observed during setup was approximately 24 hours.
+refresh rejection, while the retained access token remains accepted. On 2026-09-13
+the operator reported successful natural expiry and renewal in the same OAuth
+session after the approximately 24-hour issuer-advertised lifetime.
 Long-term consent validity, granted-scope review and concurrent live refresh
 remain unverified. Production cutover and the first scheduled run have not been
 performed and remain separate operator actions.
@@ -228,9 +228,10 @@ called by that probe. The repeated accepted-revocation line in pytest output
 comes from the production command's captured print plus the test's structural
 report, not a second invocation of revocation.
 
-Immediate access revocation must not be advertised. The token's eventual rejection
-and the separate natural-expiry renewal run remain unverified until their own
-results are observed. No production or assistant-managed connection was revoked.
+Immediate access revocation must not be advertised. The revoked access token's
+eventual rejection remains unverified. The separate natural-expiry renewal test
+subsequently passed, as recorded below; it does not prove revocation of that other
+access token. No production or assistant-managed connection was revoked.
 
 
 ## Real Google Sheets interruption, recovery and clearing (2026-09-11)
@@ -299,3 +300,23 @@ Executed checks: 45 focused consumer/auth tests passed; full offline suite
 engine/connector gate with all 49 passed (202.68s). Ruff, mypy, JSON/generated
 parity, Compose, three inactive imports and diff checks passed. These fixes did
 not read or modify live OAuth state or rerun live acceptance.
+
+
+## Natural expiry and same-session renewal (operator report, 2026-09-13)
+
+The isolated natural-expiry test passed in 86,406.46 seconds. Its initial
+configuration reported an available expiry, 86,397 seconds remaining and an
+86,400-second wait bound. The operator then supplied NATURAL_EXPIRY_OBSERVED
+and NATURAL_EXPIRY_RENEWAL_VALIDATED with same_oauth_session true, followed by
+one passing live test. The production OAuth HTTP session remained in memory
+between two separately bounded native collections. The test did not alter the
+clock, token lifetime or stored expiry to force a refresh. Its assertions verify
+the expired SDK state, a new renewal generation, later expiry and a new valid
+portfolio observation without another consent flow.
+
+This establishes renewal after the issuer-advertised natural expiry in one OAuth
+session. It is operator-run evidence, not a locally rerun test or proof that a
+revoked access token was rejected. Long-term consent behavior, granted-scope
+review, concurrent live refresh and production cutover remain separate limits.
+The prior implementation head c1911a1 had all five CI checks green when inspected
+on 2026-09-13; subsequent documentation-head CI must be evaluated separately.

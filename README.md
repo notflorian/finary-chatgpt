@@ -15,7 +15,8 @@ nor ChatGPT receives Finary credentials or raw upstream payloads.
 
 The MCP path has passed independent live authorization, an authorized shadow
 synchronization and workbook readback, plus real Sheets recovery and null-transition
-tests. Natural-expiry renewal and production acceptance remain open; revocation
+tests, including natural-expiry renewal in one OAuth session. Production
+acceptance remains open; revocation
 blocks refresh but did not immediately invalidate the retained access token. See the
 [MCP operator runbook](docs/mcp-operations.md),
 [acceptance evidence](docs/mcp-acceptance.md) and
