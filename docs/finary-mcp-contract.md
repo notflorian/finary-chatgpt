@@ -1,12 +1,20 @@
 # Official Finary MCP integration contract
 
-**Decision status: planned, contract version 1.0.0, inspected 2026-09-11.**
+Implementation note (2026-09-11): this reviewed foundation now drives an
+executable candidate. Its declaration/observation/acceptance/evidence distinctions
+remain unchanged. See the [implementation matrix](mcp-acceptance.md) and
+[operator runbook](mcp-operations.md) for current status; implemented code does
+not turn unresolved live semantics into verified evidence.
+
+
+**Decision status: planned, contract version 1.1.0, inspected 2026-09-11.**
 This document and the [machine-readable contract](finary-mcp-contract.json)
 prepare API schema **3.0** at **`GET /v3/snapshot`** and workbook schema **3.0**.
 They do not implement a client, authorization, normalization, route, writer or
 migration engine. The implemented application remains 1.1.0, `/v2/snapshot`
 remains canonical with API 2.0, and the active
-[workbook contract](google-sheets-schema.json) remains 2.1. `/v1` and `/v2`
+[legacy workbook contract](google-sheets-schema-v2.json) remains 2.1.
+The canonical [candidate workbook contract](google-sheets-schema.json) is 3.0. `/v1` and `/v2`
 retain their existing behavior.
 
 ## Reading the artifacts
@@ -165,7 +173,7 @@ even when their amount is null. Nullable currency remains valid only for unknown
 detail amounts outside those view-denominated groups.
 
 Ingestion uses bounded decimal strings parsed directly to decimal arithmetic,
-with no binary float intermediate. Project bounds are 24 integer and 18
+with no binary float intermediate. Project bounds are 24 integer and 64
 fractional digits; malformed strings, booleans, blanks, exponents, non-finite or
 oversized values fail without rounding/coercion. Missing and null remain
 unknown; zero remains known. Compare decimals by exact numeric value without
@@ -214,7 +222,7 @@ the same criteria.
 
 A zero count under `assets_only` can itself be unavailable and never proves no
 debt. A complete zero-debt overview needs no fabricated loan row. Conversely,
-no overview authorizes clearing an unknown loan collection. Contract 1.0.0 has
+no overview authorizes clearing an unknown loan collection. Contract 1.1.0 has
 **no nonempty debt-detail mapping**. Its empty detail representation can become
 `COMPLETE` only with independently verified empty enumeration, supported detail
 semantics and compatible complete account/holding retrieval; the overview alone
@@ -406,3 +414,9 @@ operator acceptance remain in the linked
 [roadmap](https://github.com/notflorian/finary-chatgpt/issues/85).
 No workflow activation, release, deployment or production migration is part of
 this contract delivery.
+
+The 1.1.0 source-contract revision follows operator structural evidence of an
+account balance with more than 18 significant fractional digits. The bounded
+64-digit fractional allowance is a project policy, not a verified upstream
+maximum. Strings retain their exact values without rounding; the integer bound
+remains 24 digits. API and workbook versions remain 3.0.

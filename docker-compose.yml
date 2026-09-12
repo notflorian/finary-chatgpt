@@ -9,6 +9,8 @@ services:
       FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
       FINARY_PASSWORD: ${FINARY_PASSWORD:-}
       FINARY_SESSION_PATH: ${FINARY_SESSION_PATH:-/var/lib/finary-session/state/session.json}
+      FINARY_PROVIDER: ${FINARY_PROVIDER:-private_api}
+      FINARY_MCP_STATE_PATH: ${FINARY_MCP_STATE_PATH:-/var/lib/finary-mcp/state/oauth.json}
       TZ: ${TZ:-Europe/Paris}
     ports:
       - "127.0.0.1:${FINARY_BRIDGE_PORT:-8000}:8000"
@@ -28,12 +30,14 @@ services:
       - finary-stack
     volumes:
       - finary_session_data:/var/lib/finary-session
+      - finary_mcp_data:/var/lib/finary-mcp
 
   schema-server:
     image: nginx:1.31.4@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
     restart: unless-stopped
     volumes:
       - ./docs/google-sheets-schema.json:/usr/share/nginx/html/google-sheets-schema.json:ro
+      - ./docs/google-sheets-schema-v2.json:/usr/share/nginx/html/google-sheets-schema-v2.json:ro
     healthcheck:
       test:
         [
@@ -59,7 +63,12 @@ services:
       FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
       FINARY_BRIDGE_URL: ${FINARY_BRIDGE_URL:-http://finary-bridge:8000}
       FINARY_GOOGLE_SHEET_ID: ${FINARY_GOOGLE_SHEET_ID:-}
-      FINARY_SCHEMA_URL: ${FINARY_SCHEMA_URL:-http://schema-server/google-sheets-schema.json}
+      FINARY_SCHEMA_URL: ${FINARY_SCHEMA_URL:-http://schema-server/google-sheets-schema-v2.json}
+      FINARY_MCP_SCHEMA_URL: ${FINARY_MCP_SCHEMA_URL:-http://schema-server/google-sheets-schema.json}
+      FINARY_MCP_GOOGLE_SHEET_ID: ${FINARY_MCP_GOOGLE_SHEET_ID:-}
+      FINARY_MCP_WRITER_ID: ${FINARY_MCP_WRITER_ID:-}
+      FINARY_MCP_WRITER_GENERATION: ${FINARY_MCP_WRITER_GENERATION:-1}
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: ${N8N_CONCURRENCY_PRODUCTION_LIMIT:-1}
       GENERIC_TIMEZONE: ${TZ:-Europe/Paris}
       N8N_DIAGNOSTICS_ENABLED: "false"
       # Required by the canonical workflows' $env-based local service settings.
@@ -100,4 +109,5 @@ networks:
 
 volumes:
   finary_session_data:
+  finary_mcp_data:
   n8n_data:

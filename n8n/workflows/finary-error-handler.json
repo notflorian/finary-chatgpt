@@ -15,7 +15,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.FINARY_SCHEMA_URL || 'http://schema-server/google-sheets-schema.json' }}",
+        "url": "={{ $env.FINARY_SCHEMA_URL || 'http://schema-server/google-sheets-schema-v2.json' }}",
         "options": {
           "response": {
             "response": {

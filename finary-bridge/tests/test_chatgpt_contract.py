@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = REPOSITORY_ROOT / "docs/google-sheets-schema.json"
+SCHEMA_PATH = REPOSITORY_ROOT / "docs/google-sheets-schema-v2.json"
 RUNBOOK_PATH = REPOSITORY_ROOT / "docs/chatgpt.md"
 KNOWLEDGE_PATH = REPOSITORY_ROOT / "docs/finary-portfolio-data-knowledge.md"
 

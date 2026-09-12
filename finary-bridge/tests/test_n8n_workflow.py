@@ -14,7 +14,7 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 WORKFLOW_PATH = REPOSITORY_ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
-SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema.json"
+SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema-v2.json"
 
 
 @pytest.fixture(scope="module")
@@ -300,7 +300,7 @@ def test_workflow_uses_expected_triggers_and_runtime_schema(
     assert _node(workflow, "Manual Trigger")["type"] == "n8n-nodes-base.manualTrigger"
     schema_request = _node(workflow, "Fetch Canonical Schema")
     assert "FINARY_SCHEMA_URL" in schema_request["parameters"]["url"]
-    assert "http://schema-server/google-sheets-schema.json" in (
+    assert "http://schema-server/google-sheets-schema-v2.json" in (
         schema_request["parameters"]["url"]
     )
     assert schema_request["parameters"]["options"]["response"]["response"][

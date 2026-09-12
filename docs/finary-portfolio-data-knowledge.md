@@ -1,5 +1,20 @@
 # Finary Portfolio Data — ChatGPT knowledge reference
 
+For official MCP/API and workbook 3.0, the [source and interpretation matrix](mcp-consumer.md)
+and [canonical schema](google-sheets-schema.json) apply. Validate successful
+observation membership before reading any retained table. Official overview
+and allocation remain authoritative; household/direct ownership, currency,
+reported debt and independent loan coverage remain explicit. Bank freshness is
+separate from ingestion, with the 48-hour operational rule. Incompatible source,
+view, currency or definition creates a series break. Historical fallback is
+validated and dated, never combined with a live overview. Valuation change is
+not investment performance. Budget and goal plans are not investment cashflows;
+simulation requires explicit user inputs and is never scheduled.
+
+The detailed ten-tab rules below describe the preserved private-provider 2.1
+workbook, not the expanded candidate schema.
+
+
 ## Purpose and authority
 
 This file is reference material for interpreting the canonical private Google
@@ -19,7 +34,7 @@ interpret it.
 
 ## Workbook tabs
 
-The canonical workbook schema version is `2.1` and contains exactly these ten tabs:
+The retained legacy workbook schema version is `2.1` and contains exactly these ten tabs:
 
 - `README`: human- and machine-readable interpretation rules for the workbook.
 - `accounts_current`: physical normalized accounts, including retained inactive

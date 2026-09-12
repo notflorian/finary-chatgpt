@@ -7,10 +7,27 @@ portfolio into a stable Google Sheets data model that ChatGPT can analyze.
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-The bridge owns Finary authentication and private-API parsing. n8n consumes the
-normalized `/v2/snapshot` API and synchronizes deterministic current-state,
-history, and telemetry tables. Neither Google Sheets nor ChatGPT receives
-Finary credentials or raw upstream payloads.
+The bridge owns two isolated providers. The default private provider retains
+`/v1/snapshot`, `/v2/snapshot` and workbook 2.1. The official MCP candidate adds
+`/v3/snapshot`, independent OAuth and workbook 3.0, with exact native amounts,
+authoritative overview/allocation and explicit coverage. Neither Google Sheets
+nor ChatGPT receives Finary credentials or raw upstream payloads.
+
+The MCP path has passed independent live authorization, an authorized shadow
+synchronization and workbook readback, plus real Sheets recovery and null-transition
+tests, including natural-expiry renewal in one OAuth session. Production
+acceptance remains open; revocation
+blocks refresh but did not immediately invalidate the retained access token. See the
+[MCP operator runbook](docs/mcp-operations.md),
+[acceptance evidence](docs/mcp-acceptance.md) and
+[nine-action consumer matrix](docs/mcp-consumer.md). The
+[canonical 3.0 schema](docs/google-sheets-schema.json) is distinct from the
+[frozen 2.1 contract](docs/google-sheets-schema-v2.json). Existing installations
+are not migrated or activated automatically. The quick start below remains the
+legacy setup. Existing configurations must set `FINARY_SCHEMA_URL` to
+`http://schema-server/google-sheets-schema-v2.json` before restarting the legacy
+writer; the former unversioned URL now serves 3.0 and is deliberately rejected
+by a 2.1 writer.
 
 ## Requirements
 
@@ -95,12 +112,12 @@ docker compose up -d --force-recreate n8n
 ```
 
 For every tab, copy the ordered headers from
-[`docs/google-sheets-schema.json`](docs/google-sheets-schema.json). For example:
+[`docs/google-sheets-schema-v2.json`](docs/google-sheets-schema-v2.json). For example:
 
 ```bash
 SHEET=accounts_current
 jq -r --arg sheet "$SHEET" '.sheets[$sheet].columns | map(.name) | @tsv' \
-  docs/google-sheets-schema.json
+  docs/google-sheets-schema-v2.json
 ```
 
 Paste the output into row 1. Populate the `README` tab from the JSON
@@ -241,7 +258,7 @@ Live Finary tests are opt-in and require private credentials. See
 | [ChatGPT integration](docs/chatgpt.md) | Private Project setup and safe workbook interpretation |
 | [Development](docs/development.md) | Local checks, CI, fixtures, and opt-in live tests |
 | [ChatGPT knowledge reference](docs/finary-portfolio-data-knowledge.md) | Reference file uploaded to the ChatGPT Project |
-| [Canonical schema](docs/google-sheets-schema.json) | Machine-readable workbook contract |
+| [Retained legacy schema](docs/google-sheets-schema-v2.json) | Machine-readable workbook contract |
 
 ## Consumer state validation
 
