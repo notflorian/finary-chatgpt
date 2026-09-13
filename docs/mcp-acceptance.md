@@ -9,9 +9,18 @@ This matrix tracks implementation and evidence separately. A synthetic test is
 not evidence of authenticated Finary behavior. Production activation, workbook
 migration, release publication and revoking existing connections are excluded.
 
+Current repository status, rechecked 2026-09-13: PR #97 merged at
+`0a3ddf57448d71fbadc4ff28c9d5dc8e321c6db2`, with the identical tree to reviewed
+head `fe0839e29322002ce032b8f1ecd111f168dbaddd`.
+[Main CI run 34751985693](https://github.com/notflorian/finary-chatgpt/actions/runs/34751985693)
+passed. Issues #86 and #88–94 are closed; #85, #87 and #95 remain open, with
+no open PR at the start of this follow-up. The authorization disposition below
+addresses #87 through its permitted documented-limitation path; production
+approval remains in #95.
+
 | Child | Implementation stage | Required evidence | Status / blockers |
 | --- | --- | --- | --- |
-| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Operator reported successful registration, consent and MCP 2025-11-25 discovery; fresh-process renewable-state recovery succeeded; revocation request accepted and subsequent local collection blocked; natural expiry and renewal in the same OAuth session passed; granted scopes remain unverified; dedicated live revocation rejected refresh with invalid_grant while the retained access token remained accepted |
+| #87 | `mcp_client.py`, `mcp_auth.py`, lazy protected injection; SDK 2.2.0 | Native synthetic discovery, errors and OAuth lifecycle in `test_mcp_integration.py` / `test_mcp_auth.py` | Technical acceptance with documented limits: scope provenance/minimum privileges remain unknown; independent-process synthetic regressions support bounded local contention; retained live renewal/revocation evidence and operating constraints are detailed below |
 | #88 | Adapter resource index, bounded all-account pagination, opaque keys, native valuation, ownership and bank freshness | Production-wire pagination, empty/unsupported, duplicate-looking accounts, shared connections, denomination and identity regressions | Offline implementation; semantic qualifiers retained, nonempty loan mapping unavailable |
 | #89 | Typed authoritative `/v3/snapshot`; legacy routes preserved | Real SDK → adapter → service/API; every snapshot fixture checked against production models and exported validator | Offline implementation; first live collection failed response validation, operator-reported source-contract 1.1.0 structural collections passed in separate processes (7.73s and 8.15s) |
 | #90 | Canonical 3.0 schema, frozen 2.1 path, detached/native copy migration, ledger, exact-pair override and rollback checks | Native fake-HTTP migration/replay/lost-response/manual and auxiliary-tab preservation; writer compatibility and same-day histories | Operator-authorized native test-candidate migration validated; independent control/ledger readback confirmed; operator reported live migration replay; authorized manual shadow sync and production-consumer readback passed |
@@ -19,7 +28,7 @@ migration, release publication and revoking existing connections are excluded.
 | #92 | Protected independent budget and explicit-label search | Periods/leap dates, returned filters, legitimate zero, unpriced/history contradictions and unknown target currency | Implemented with explicit history/rate/target limitations; no scheduled budget or cashflow writes |
 | #93 | Protected complete-response goals with typed plans and explicit account references | Empty/reordered/duplicate-name plans, null fields, currencies, unknown cadence, unresolved references and no progress | Implemented as on-demand plans; no stable goal IDs or inferred progress |
 | #94 | Nine-action matrix, versioned source guidance and production reference consumer | Successful membership, mixed-run/provider rejection, duplicate terminals, explicit dated fallback and compatibility tests | Implemented; live reads and retained observations remain separate |
-| #95 | Integrated harness, opt-in isolated structural test and executable operator runbook | Required local and CI gates; distinguish engine, connector, fake Google and live evidence | Authorized isolated shadow sync and fresh production-consumer readback passed; remaining OAuth lifecycle evidence and production acceptance still required |
+| #95 | Integrated harness, opt-in isolated structural test and executable operator runbook | Required local and CI gates; distinguish engine, connector, fake Google and live evidence | Authorized isolated shadow sync and fresh production-consumer readback passed; review the authorization limitations below against the intended release commit; production acceptance and cutover remain operator decisions |
 
 
 Implementation order follows the child dependency graph: client → detail →
@@ -83,10 +92,10 @@ The full local suite and 48-case runtime gate include the consumer correction
 found during integration. Earlier failing iterations are not counted as passing.
 The bootstrap fix passed all five jobs in
 [CI run 34626554172](https://github.com/notflorian/finary-chatgpt/actions/runs/34626554172).
-Collection diagnostics are a subsequent test-only change. Every push also runs
-the full Python 3.12 CI suite, Python 3.14 compatibility checks and mandatory
-runtime gate. CI status belongs to the latest head of
-[PR #97](https://github.com/notflorian/finary-chatgpt/pull/97), not a historical run.
+Collection diagnostics are a subsequent test-only change. Pull-request and main
+CI run the full Python 3.12 suite, Python 3.14 compatibility checks and mandatory
+runtime gate. PR #97 subsequently merged; current acceptance must use the latest
+follow-up commit's CI, separately from these historical results.
 
 ## Acceptance blockers and operator action
 
@@ -118,7 +127,7 @@ failed as expected in 0.01s at `SESSION_INITIALIZATION` with
 blocking after state removal, not a passing portfolio-collection test. The
 operator has not separately reported browser behavior for this invocation.
 
-Current acceptance status: native migration replay, authorized portfolio shadow
+Acceptance status before this follow-up: native migration replay, authorized portfolio shadow
 synchronization, fresh consumer readback and real Sheets interruption/recovery
 and null transitions have passed. Dedicated live revocation proves server-side
 refresh rejection, while the retained access token remains accepted. On 2026-09-13
@@ -128,10 +137,10 @@ Long-term consent validity, granted-scope review and concurrent live refresh
 remain unverified. Production cutover and the first scheduled run have not been
 performed and remain separate operator actions.
 
-PR #97 is ready for review, not a draft, as verified on 2026-09-11. It references
-the roadmap without claiming parent closure. No child issue is automatically
-closed while integrated acceptance remains outstanding. CI results must be
-checked on the latest pushed commit, independently of historical results below.
+On 2026-09-11 PR #97 was ready for review and referenced the roadmap without
+claiming parent closure. Its later merge and child-issue status are recorded
+above. CI must be checked on the latest pushed commit, independently of the
+historical results below.
 
 Read-only inspection of an operator-designated test workbook found an auxiliary
 chart tab alongside the legacy headers. The native migration now preserves
@@ -320,3 +329,132 @@ revoked access token was rejected. Long-term consent behavior, granted-scope
 review, concurrent live refresh and production cutover remain separate limits.
 The prior implementation head c1911a1 had all five CI checks green when inspected
 on 2026-09-13; subsequent documentation-head CI must be evaluated separately.
+
+## Authorization scope disposition (2026-09-13)
+
+The installed package is exactly `mcp==2.2.0`, matching
+[`pyproject.toml`](../finary-bridge/pyproject.toml). Inspection followed
+`mcp.client.auth.oauth2.OAuthClientProvider` and
+`mcp.client.auth.utils.get_client_metadata_scopes` through the production
+[`authorized_http` / `RenewableStorage`](../finary-bridge/app/mcp_auth.py) path.
+The current [Python OAuth guide](https://py.sdk.modelcontextprotocol.io/client/oauth-clients/)
+was checked for context; its discussion of newer protocol revisions does not
+replace the pinned implementation or the observed `2025-11-25` negotiation.
+The [negotiated MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization#scope-selection-strategy)
+prioritizes challenge scopes, then protected-resource declarations.
+
+| Evidence layer | Result | Source and boundary |
+| --- | --- | --- |
+| Protected-resource advertisement | `openid profile email` | Public metadata recorded 2026-09-11 and rechecked 2026-09-13 at the [resource metadata endpoint](https://public-api.finary.com/.well-known/oauth-protected-resource/mcp); declaration only |
+| Authorization-server advertisement | Allowlisted subset: `openid profile email offline_access`; other advertised names present but withheld | New unauthenticated 2026-09-13 read of [issuer metadata](https://clerk.finary.com/.well-known/oauth-authorization-server); exact case-sensitive membership, fixed four-name output allowlist, no raw response retained |
+| Constructor preferences | `openid profile email offline_access` | Production `OAuthClientMetadata`; a preference, not a wire observation or grant receipt |
+| Initial SDK authorization request | Challenge scope replaces the preference; otherwise resource scopes, otherwise issuer scopes, otherwise omission. SDK adds exact `offline_access` when advertised and refresh grants are enabled | Installed selector and new synthetic authorization-URL assertions through the actual SDK. With the recorded resource scopes and no overriding challenge, the inferred request is `openid profile email offline_access`. The historical bridge request itself was not retained |
+| Explicit issuer token-response scope | Unknown for the historical independent grant | Historical structural reports did not distinguish presence of the raw token-response `scope`. Neither the constructor nor persisted scope proves an explicit issuer return |
+| Effective scope with omission | Initial response omission inherits the effective request; refresh response omission carries prior scope forward | SDK `_handle_token_response` / `_handle_refresh_response`, exercised synthetically; standards-based inference, not a new live receipt. Refresh requests omit `scope` |
+| Previously stored scope | SDK-effective value, with unrecoverable explicit-versus-inferred provenance; its actual historical value is not present in the sanitized record | `RenewableStorage.set_tokens()` persists `tokens.scope` in format 1. A null prior scope remains unknown on an omitted refresh response; a later explicit response supplies a current value but cannot reconstruct history. No live state file was inspected |
+| Independent-grant capabilities exercised | Native initialization/catalog discovery, `get_portfolio_overview`, `accounts`, `holdings`, cold-start renewal and natural-expiry renewal | Previously recorded operator-run structural collections and shadow acceptance above. Successful calls establish usability for those observations, not necessity of each scope or validity today |
+
+The public recheck made only two unauthenticated metadata GETs through the
+bounded transport. The initial sandbox attempt failed and is not evidence;
+the permitted network retry succeeded. No token exchange, consent, refresh,
+revocation, identity or portfolio request occurred. Unexpected advertised names
+were represented only by a boolean, never echoed. This is new public evidence,
+not newly obtained authenticated acceptance evidence.
+
+[RFC 6749 §3.3](https://www.rfc-editor.org/rfc/rfc6749.html#section-3.3)
+defines space-separated, case-sensitive scope tokens. A changed grant must be
+reported explicitly; an omitted authorization-request scope instead leaves the
+issuer's documented default or rejection policy in control, not a bridge default.
+[§5.1](https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1) permits response
+omission when the grant matches the request. For
+[§6](https://www.rfc-editor.org/rfc/rfc6749.html#section-6), an omitted refresh
+request scope refers to the original grant, and successful responses follow
+§5.1. The pinned SDK's carry-forward behavior is therefore retained. No
+missing-scope error, case folding, substring comparison or invented default is
+introduced. Without the original request/response evidence, these rules cannot
+recover the historical exact grant.
+
+For a `403 insufficient_scope` challenge the SDK can union previous requested,
+stored and newly challenged scopes for step-up authorization. In unattended
+bridge mode the default redirect handler rejects that flow before consent or
+another authorization-code exchange. The new regression exercises this actual
+SDK path. Constructor preferences are not a hard scope ceiling; changed metadata
+or a future explicitly authorized bootstrap must be reviewed on its own evidence.
+
+**Technical disposition: supported configuration, minimum privileges unknown.**
+Retain the existing constructor preferences, SDK selection, independent public
+client registration/consent and protected renewable state. Usable refresh
+material is required by the bridge for unattended restart/renewal; the SDK's
+conditional `offline_access` request supports that intent. Evidence does not
+establish that this name alone guarantees renewal or is strictly necessary at
+Finary, nor which identity scopes gate any portfolio permission. Do not remove
+scopes based on names. A successful request with a set does not prove every
+member necessary or that a smaller set works.
+
+Core collection requires the three exercised portfolio tools and renewable
+authorization. Optional budget, spending-search and goals remain separate
+on-demand acceptance entries; `get_me` and `profiles` are not core prerequisites.
+Their earlier assistant-connector observations in the source contract cannot
+establish permissions of this independent bridge grant. No identity scope is
+mapped to an assumed portfolio permission. The practical consequence is that
+the supported configuration has no certified least-privilege claim. If #95
+requires that claim, obtain issuer capability-to-scope guidance and separately
+authorize an isolated reduced-scope experiment; a fresh receipt alone would
+establish that request, not necessity. No new diagnostic persistence or live
+probe is needed to adopt this explicit limitation.
+
+## Lifecycle decisions and release handoff (2026-09-13)
+
+| Question | Existing / newly executed evidence | Unverified point | Supported constraint and technical disposition | Decision retained by #95 |
+| --- | --- | --- | --- | --- |
+| Can independent processes safely renew the same local state? | Existing in-process task test; new spawned-interpreter tests use `NativeMcpClient`, `authorized_http`, real leases/storage/CAS and synthetic HTTP. A competing process times out before HTTP while the owner retains a session; after release a fresh process renews the latest rotation. Paused successful and rejected refreshes preserve newer operator replacements; failure releases the lease | Live issuer concurrency, crashes during remote rotation before persistence, multiple hosts/replicas/network filesystems | Accept bounded local contention safety, not guaranteed success of every caller. One supported owner and local filesystem; drain for replacement, then start a fresh process. No live concurrency experiment required under this restriction | Accept single-owner topology and possible failed overlapping collections; no replication approval implied |
+| Does consent remain usable indefinitely? | Operator-run 86,406.46s natural-expiry test and fresh-process renewal; synthetic expired, missing and `invalid_grant` cases plus insufficient-scope challenges fail with fixed errors without browser consent or registration | Future issuer/operator changes, eventual consent expiry and direct reuse of a deliberately expired access token | Accept renewable, interruptible authorization. Bounded failures stop collection; operator recovery is explicit. No arbitrary multi-day soak or indefinite validity promise | Accept interruption/recovery responsibilities and freshness monitoring |
+| Does revocation immediately stop access? | Operator-run disposable-grant refresh rejection (`invalid_grant`) and retained-access discovery success; local removal is separate | Eventual server rejection of that separately revoked access token | Accept refresh revocation with residual-access uncertainty. Stop local users when retiring/replacing a connection; never advertise immediate remote invalidation | Accept residual-access limitation or require separately authorized additional issuer-specific evidence |
+
+The lease starts **before** reading renewable state or fetching metadata and
+lasts through the entire `authorized_http` context, including native discovery
+and calls. POSIX nonblocking `flock` on the stable `.lease` file is attempted
+200 times with 50ms sleeps: approximately 10 seconds of contention waiting,
+subject to scheduling. Storage `.lock` operations fail fast on contention and
+cover short read/CAS/atomic persistence sections, not HTTP. Generations prevent
+an in-flight old refresh from publishing over an operator replacement. The
+SDK context's AnyIO lock coordinates tasks sharing one provider; separate
+sessions/processes rely on the filesystem lease. The earlier `asyncio.gather`
+test alone did not prove process behavior. New process tests retain the real
+wait bound and clean up their spawned children; only synthetic HTTP is replaced.
+
+`authorized_http` bounds HTTP at 30 seconds; the native session's collection
+deadline is 180 seconds with 30-second call bounds. Unattended mode requires
+stored registration and renewable material, excludes registration requests
+from the HTTP allowlist and denies redirect/callback handling. Missing/revoked
+authorization and insufficient scope cannot launch browser consent or switch
+providers. A failed snapshot stops the workflow before portfolio writes;
+sanitized failure telemetry may be written. Prior successful state remains
+dated and becomes operationally stale after 48 hours. Recovery is described in
+the [operator constraints](mcp-operations.md#authorization-operating-constraints).
+
+Engineering conclusion: the remaining authorization items are addressed using
+the documented-limitation option in #87. No production defect was established;
+production OAuth code, dependency pin, persistence format and API/workbook/source
+contracts remain unchanged. #95 must decide release acceptance against the
+intended deployment commit and CI, explicitly acknowledge the scope, consent
+and revocation limits, assess optional capabilities separately, and own any
+authorized production migration, activation, first scheduled run and rollback.
+This conclusion is not operator release approval. No authenticated live test,
+consent, expiry wait, revocation or shadow synchronization was repeated here.
+
+## Authorization follow-up validation (2026-09-13)
+
+| Check | Newly executed result | Boundary |
+| --- | --- | --- |
+| Targeted `test_mcp_auth.py` and `test_mcp_integration.py` | 151 passed | Pinned native SDK and production storage/authentication; synthetic HTTP only |
+| Full `python -m pytest -m "not live" --ignore=tests/live` from `finary-bridge` | 3,698 passed, 49 Docker cases skipped in the sandbox | Includes 35 added scope/status/process cases; the skipped cases passed separately below |
+| Required four-module pinned-n8n runtime command from `docs/development.md` | 49 passed in 191.09s | Real n8n 2.35.5 engine and Sheets connector, synthetic I/O, network-disabled disposable resources; no production volumes |
+| Three inactive workflow imports | Passed | Isolated pinned-n8n import command with `COMPOSE_ENV_FILES=/dev/null` |
+| Ruff, strict mypy, JSON, generated workflow parity, Compose configuration, diff whitespace | Passed | No application, SDK, OAuth format, schema or workflow changes |
+| Changed documentation targets/anchors and credential-pattern review | Passed | Only synthetic OAuth fixtures and fixed public evidence are added |
+
+Local tools were Python 3.14.5, installed MCP 2.2.0 and Node 22.12.0. The
+repository-supported Node 22.23.2 and Python 3.12/3.14 compatibility must also be
+verified by the follow-up PR's CI on its latest pushed commit; the successful
+main baseline above is historical evidence, not that follow-up result.

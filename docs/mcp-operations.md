@@ -43,9 +43,11 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
 3. Do not back up either renewable Finary store. Clerk and MCP have distinct
    bridge-only named volumes. The MCP store persists only client registration
    metadata needed by the SDK (`client_id`, issuer, redirect URIs and public
-   token authentication method), a renewable refresh token, granted scope and a
-   rotation generation. No bearer access token, authorization code, PKCE secret
-   or callback state is persisted. Directory/file permissions are 0700/0600;
+   token authentication method), a renewable refresh token, SDK-effective scope
+   and a rotation generation. That scope can be explicitly returned or inferred
+   by the SDK; format 1 does not retain its provenance. No bearer access token,
+   authorization code, PKCE secret or callback state is persisted.
+   Directory/file permissions are 0700/0600;
    writes are atomic with fsync, CAS generation checks and separate process
    leases. An old or failed refresh cannot delete a newer operator replacement.
 4. For an isolated acceptance connection, use the local development environment
@@ -60,10 +62,12 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
    ```
 
    The explicit bootstrap binds `127.0.0.1:8765/callback` and opens the metadata
-   issuer's consent page. It requests the advertised `openid profile email
-   offline_access` scopes with SDK authorization code + S256 and public-client
-   dynamic registration. Server acceptance of registration/loopback/grants still
-   needs real evidence. If unsupported, the command returns
+   issuer's consent page. Its constructor preference is `openid profile email
+   offline_access`; the SDK selects the effective request from the challenge
+   and metadata, so this string is not proof of the sent or granted scopes.
+   It uses authorization code + S256 and public-client dynamic registration.
+   Independent registration/consent/discovery succeeded in the dated operator
+   evidence; this does not guarantee a future grant. If unsupported, it returns
    `MCP_AUTH_UNAVAILABLE`; do not invent endpoints or borrow assistant tokens.
    Routes and schedules never initiate consent or dynamic registration.
 
@@ -83,12 +87,15 @@ on its original 2.1 workbook; neither writer silently accepts the other's schema
    The transport supplies an honest bridge `User-Agent` when an SDK-generated
    OAuth request has none. Public metadata checks on 2026-09-11 returned HTTP
    403 for SDK requests without this header and HTTP 200 with it, independently
-   of the MCP revision header. This checks public discovery only; registration,
-   consent and authenticated collection still need the operator's live evidence.
+   of the MCP revision header. That probe checks public discovery only; later
+   registration, consent and collection have separate dated evidence.
 5. Status reports local restart-state presence and `live_validity: UNVERIFIED`;
-   it is not a connectivity or consent assertion. Repeat a structural collection
-   in a new process to prove cold restart, then separately exercise token expiry
-   and renewal against isolated state. Never print amounts, IDs or token bodies:
+   it is not a connectivity, granted-scope or consent assertion. It performs no
+   HTTP, refresh, consent, revocation or state replacement. For a separately
+   authorized connection requiring new cold-start evidence, use the structural
+   collection below. Existing cold-start and natural-expiry evidence is already
+   recorded; do not repeat those tests without a concrete new need.
+   Never print amounts, IDs or token bodies:
 
    ```bash
    FINARY_MCP_LIVE_TEST=1 FINARY_MCP_LIVE_ISOLATED_STATE=1 \
@@ -120,6 +127,75 @@ the bridge process UID (the supplied image currently runs as root). Remove the
 staging copy after verifying restart. Never put the state into `.env`, workflow
 exports, n8n or a backup. A host bind mount can be selected in a private Compose
 override instead, with the same single-writer and ownership requirements.
+
+## Authorization operating constraints
+
+The [scope evidence table and lifecycle dispositions](mcp-acceptance.md#authorization-scope-disposition-2026-09-13)
+are the engineering handoff to #95, not production approval. Keep `mcp==2.2.0`
+and the existing constructor preferences/SDK selection. The supported setup is
+the independently consented public client with protected renewable state that
+passed core collection and renewal. It is not a certified minimum-scope set.
+Identity scope names do not establish portfolio permissions. Do not trim scopes
+by name or infer missing scopes from an old state file. Budget, spending-search,
+goals and identity access have separate acceptance; the scheduled core uses
+only overview, accounts and holdings.
+
+Run one bridge owner of one OAuth state on a local filesystem, on one host.
+Do not share it with host probes, extra workers, replicated containers or another
+host. Tasks using one SDK provider share its AnyIO lock; separate sessions use
+the process lease, held for the entire OAuth HTTP session. A competing process
+waits approximately 10 seconds then may fail with `MCP_AUTH_UNAVAILABLE` before
+any HTTP. Short storage-lock contention can fail immediately. This is an
+accepted bounded failure, not evidence that consent has been revoked. Wait for
+the owner to finish and retry a fresh collection; do not loop bootstrap to cure
+contention. Independent-process regressions use synthetic HTTP and do not
+certify concurrent behavior at the live issuer. Network filesystems and manual
+state/lock-file edits or removal are unsupported.
+
+For replacement or recovery, drain users of this state first. The CAS generation
+prevents an old in-flight refresh from overwriting a newer operator replacement,
+but it cannot invalidate an already cached access token. Use a fresh process to
+adopt a replacement immediately. All state writers must obey this protocol;
+keep directory/file modes 0700/0600 and transfer only through the private
+operator procedure. A crash after issuer rotation but before local persistence
+can require explicit recovery; local atomic writes cannot make the remote
+exchange transactional.
+
+Consent remains subject to issuer policy and operator actions. One natural
+expiry/renewal success does not prove indefinite consent or server rejection
+of a deliberately reused expired token. Unavailable/revoked authorization and
+insufficient scope cause bounded, sanitized failure; scheduled routes never
+open a browser, register another client or fall back to the private provider.
+The failed run may record telemetry but cannot overwrite portfolio state. Use
+the last validated successful observation with its date; after 48 hours it is
+operationally stale, even if a later failure row is newer.
+
+On persistent authorization failure, inspect local `status` on the designated
+bridge state and check for an overlapping owner before deciding recovery. If
+renewable authorization is unusable, keep scheduled collection paused and
+obtain explicit authorization for operator bootstrap/replacement. Do not print
+or share state contents. Validate the recovered connection through an authorized
+fresh-process structural collection, then restore scheduling only under the
+applicable operational approval. Transient transport failures do not justify
+new consent or revocation.
+
+Revocation request acceptance, local state removal, refresh rejection, access
+expiry and remote access rejection remain distinct. The disposable live grant
+rejected refresh with `invalid_grant` but still accepted its retained access
+token for discovery. Eventual rejection of that token is unverified. Stop local
+users when retiring a connection; local stopping/removal cannot guarantee remote
+invalidation of another retained copy. General Clerk documentation below is
+context, not Finary-specific evidence. No new revocation or expiry wait is
+required by the engineering disposition.
+
+#95 owns acceptance of these limitations against the intended deployment commit
+and CI, production-specific migration/cutover authorization, the first scheduled
+run and rollback readiness. If release policy requires exact historical scopes,
+least privilege, live concurrency or stronger revocation guarantees, those are
+new evidence requirements. A new test cannot recover the historical grant's
+provenance; prospective evidence needs a separately designated and authorized test.
+Do not reuse assistant/plugin-managed grants or repeat completed shadow tests
+to infer independent bridge permissions.
 
 ## Migration inventory, dry-run and candidate application
 
@@ -294,10 +370,15 @@ The two MCP transport sessions remain separate, as in the production client.
 This proves advertised expiry and renewal in the same OAuth session; it does not
 probe whether the server would reject a deliberately reused expired token.
 
+The operator-run test passed on 2026-09-13 in 86,406.46 seconds; the following
+procedure is retained for a future concrete evidence need and requires current
+authorization for its designated isolated connection. Historical authorization
+does not authorize another execution.
+
 Keep the test workbook PAUSED and n8n unpublished. Stop only the isolated bridge
 before using its renewable state from the host; do not run bootstrap, revoke or
-another collection concurrently. The existing independent test authorization is
-sufficient and no browser consent is initiated. From the repository root:
+another collection concurrently. No browser consent is initiated.
+From the repository root:
 
 ```bash
 docker stop finary-mcp-candidate-finary-bridge-1
