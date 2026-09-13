@@ -9,14 +9,114 @@ This matrix tracks implementation and evidence separately. A synthetic test is
 not evidence of authenticated Finary behavior. Production activation, workbook
 migration, release publication and revoking existing connections are excluded.
 
-Current repository status, rechecked 2026-09-13: PR #97 merged at
-`0a3ddf57448d71fbadc4ff28c9d5dc8e321c6db2`, with the identical tree to reviewed
-head `fe0839e29322002ce032b8f1ecd111f168dbaddd`.
-[Main CI run 34751985693](https://github.com/notflorian/finary-chatgpt/actions/runs/34751985693)
-passed. Issues #86 and #88–94 are closed; #85, #87 and #95 remain open, with
-no open PR at the start of this follow-up. The authorization disposition below
-addresses #87 through its permitted documented-limitation path; production
-approval remains in #95.
+Release-preparation baseline, rechecked 2026-09-13: PR #97 merged at
+`0a3ddf57448d71fbadc4ff28c9d5dc8e321c6db2`; PR #98 subsequently merged at
+`6b2db62d63197144fcfee1f0014551055ca40a00`. The latter tree is exactly
+`2ef74272e5a81d7e04bd4892b57fc503e19893ae`, also the tree of reviewed PR #98
+head `0123e54a76da36ee386ef658183031837cca431a`. Issues #86–94 are closed;
+#85 and #95 remain open. No PR was open and the local tree was clean before
+updating main and creating `codex/issue-95-mcp-release-acceptance`. No nested
+AGENTS.md or HANDOFF.md was found. Current issue bodies/comments and both merged
+PRs were inspected; the older unchecked #87 items in #85/#95 do not override
+#87's closure through the documented-limitation path.
+
+[PR #98 CI 34755653036](https://github.com/notflorian/finary-chatgpt/actions/runs/34755653036)
+passed all five jobs on `0123e54a76da36ee386ef658183031837cca431a`: 3,698
+credential-free tests, 49 runtime skips in that invocation, and a separate
+49-test pinned-n8n/Sheets gate. The separate
+[main push run 34756639770](https://github.com/notflorian/finary-chatgpt/actions/runs/34756639770)
+is **cancelled**, not green: tests/static/contracts passed, Python 3.14 was
+cancelled, and n8n reported 48 passed / 1 failed. The failing
+`test_native_terminal_response_loss_preserves_finalized_identity[True]` could
+not decode complete CLI execution evidence. That result establishes neither a
+production failure nor successful terminal recovery. It must remain visible
+alongside new candidate checks. The earlier
+[main run 34751985693](https://github.com/notflorian/finary-chatgpt/actions/runs/34751985693)
+passed on the PR #97 merge. None of these historical checks is CI for a later
+deployment or documentation commit.
+
+## Release decision and production evidence
+
+**Technical recommendation:** proceed to a reviewed, core-portfolio-only cutover
+once the target register, exact revision CI, backup/recovery checks and bounded
+operator authorization below are satisfied. **Actual operator release decision:
+PENDING.** No production target, mutation, manual acceptance or scheduled-run
+acceptance is established by this preparation. No existing live experiment was
+repeated. This is preparation for #95, not its completion.
+
+Evidence sources used by the decision matrix:
+
+- **E97:** [retained integration evidence at the PR #97 merge](https://github.com/notflorian/finary-chatgpt/blob/0a3ddf57448d71fbadc4ff28c9d5dc8e321c6db2/docs/mcp-acceptance.md).
+  The dated entries distinguish operator reports from offline tests; the merge
+  records them and does not claim that every earlier experiment ran at that SHA.
+- **E98:** [scope/lifecycle disposition at the PR #98 reviewed head](https://github.com/notflorian/finary-chatgpt/blob/0123e54a76da36ee386ef658183031837cca431a/docs/mcp-acceptance.md)
+  and [its regressions](https://github.com/notflorian/finary-chatgpt/blob/0123e54a76da36ee386ef658183031837cca431a/finary-bridge/tests/test_mcp_auth.py).
+- **C98:** exact PR #98 and main CI results above, kept separate from the
+  preparation PR's checks and any eventual deployed revision.
+
+| Decision | Evidence / exact source | Known limitation | Operational consequence | Technical recommendation | Operator decision |
+| --- | --- | --- | --- | --- | --- |
+| Independent core authorization | E97: independent consent, native discovery, fresh-process renewal; E98 scope trace | Historical exact grant and certified minimum privileges unknown; advertised, requested, explicitly returned and SDK-inferred scopes differ | Preserve supported SDK selection; no least-privilege claim or inferred permission from scope names | Accept documented limitation; #87 is technically resolved | PENDING |
+| Renewable local operation | E97: natural expiry/renewal in the same OAuth HTTP session after 86,406.46s; E98: real process leases/CAS with synthetic HTTP | Live multi-process issuer concurrency, multi-host sharing and indefinite consent not certified; bounded contention can fail | One owner, one host/local filesystem; serialize access, monitor freshness and explicitly recover unavailable consent | Accept single-owner topology and interruption/recovery duty | PENDING |
+| Connection retirement | E97: disposable refresh rejected with `invalid_grant`; retained access still allowed native discovery | Immediate or eventual remote rejection of that retained access token not established | Stop local users; state removal, refresh revocation and access expiry are separate; revocation needs its own decision | Accept residual-access limitation | PENDING |
+| Core semantics and source quality | E97: native collection, manual shadow sync and fresh `app.mcp_consumer.select` readback | Nonempty loans unavailable; ownership/rate semantics qualified; stale/broken bank connections persisted after technical success | Keep official overview/allocation authoritative; no zero-debt inference, loan inactivation or guessed semantics; disclose bank freshness separately from the 48h operational threshold | Accept core with retained warnings, including legitimate `SUCCESS_WITH_WARNINGS` | PENDING |
+| Migration and recovery | E97: native test-copy migration/replay/preservation, real synthetic Sheets interruption/recovery and exact text/null transitions; C98: offline contract/runtime coverage | Test targets do not certify production contents; Sheets has no atomic writer CAS; interruption test was a graph stop | Final inventory after drain, separate native copies, one writer/generation, exact-pair crosswalks only; preserve later edits on rollback | Apply reviewed native plan only after target-specific checks | PENDING |
+| Release and production execution | C98; [bounded production plan](mcp-operations.md#production-target-register-and-approval-stages) | No designated production targets or accepted production executions recorded | Require exact candidate CI/review, target register, backup proof, manual run, then actual 07:30 Paris run | Keep draft with `Refs #95`; no automatic merge/tag/release | PENDING |
+
+| Capability | Implemented evidence | Proposed release scope | Actual readiness / operator disposition |
+| --- | --- | --- | --- |
+| Core portfolio | E97 independent bridge/shadow/consumer evidence; E98 authorization disposition and C98 | Include, subject to the decision matrix and production gates | Production acceptance PENDING |
+| Budget | Offline period, zero/unpriced/history/target-currency regressions in PR #97; earlier assistant-connector observations are a different grant | Defer independent live acceptance; preserve semantic limitations | Independent bridge live acceptance UNVERIFIED; deferral awaits operator decision |
+| Spending-search | Offline explicit-label, returned-filter and zero-value regressions in PR #97 | Defer; any live check requires an explicit user-provided label and authorization | Live acceptance UNVERIFIED; no label supplied or searched |
+| Goals | Offline complete-response/null/currency/reference regressions in PR #97; earlier assistant-connector observations are a different grant | Defer independent live acceptance; no inferred identity or progress | Independent bridge live acceptance UNVERIFIED; deferral awaits operator decision |
+
+Optional readiness does not block core unless the operator deliberately includes
+that capability. No optional invocation is required to fill this table.
+
+| Production acceptance item | Current outcome | Evidence still required |
+| --- | --- | --- |
+| Deployment revision and CI | No deployment; candidate will be pinned in the preparation PR | Full reviewed SHA and its five CI jobs; actual image IDs/digests and installed versions |
+| Private target register | PENDING; repository defaults and historical test targets are not designations | Host/Compose/n8n, original/destination/backup workbooks, writer, Google binding and independent OAuth ownership |
+| Final backup and migration | NOT PERFORMED | Authorized drain, verified restore, final native inventory/plan, ledger and preservation readback |
+| Manual production run | NOT PERFORMED | Actual execution/run/observation identity, write ordering and fresh full-table reference-consumer validation |
+| First scheduled production run | NOT PERFORMED | Genuine Schedule Trigger, actual offset timestamp/Paris date, independent full readback and no competing writer/error delivery |
+| Rollback | Procedure prepared; recoverability UNVERIFIED for production | Preserved MCP workbook and later edits, reconciled separate 2.1 copy, rollback-check and restored manual/scheduled acceptance if used |
+| Final release decision | PENDING | Operator acceptance of limitations, scoped outcomes and optional dispositions |
+
+Store workbook identifiers, inventories, digests tied to private contents,
+execution details, migration requests and backups only in operator-controlled
+storage outside Git. Public updates record fixed outcomes and code/CI references.
+Record the actual deployed SHA separately from later documentation-only evidence
+commits. If the real scheduled run has not happened, leave it pending and resume
+this PR later; do not replace it with another manual run or create an automation.
+
+### Preparation validation (2026-09-13)
+
+This follow-up changes only this record and `mcp-operations.md`. No runtime,
+schema, workflow, OAuth, migration-engine or consumer behavior was changed.
+The native helper's existing interfaces suffice; its 2.1-only inventory CLI,
+3.0 Python reader, request regeneration and replay-check boundaries are now
+explicit in the runbook. No live source or authentication store was inspected.
+
+| Newly executed command / check | Result | Boundary |
+| --- | --- | --- |
+| `python -m pytest -m "not live" --ignore=tests/live` from `finary-bridge` | **3,747 passed**, no skips, 738.14s | Credential-free; Docker was available, so this includes the 49 runtime cases |
+| Exact required four-module `FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 ...` command in `docs/development.md` | **49 passed**, 194.80s | Separate pinned-n8n 2.35.5/Sheets gate, synthetic I/O, network-disabled disposable resources, no production volumes |
+| `ruff check app tests`; `mypy app` | Passed; 18 source files checked by mypy | Local static analysis |
+| `python scripts/validate-json.py`; `python scripts/build-workflow-validation.py --check` | Passed | Canonical JSON, packaged contract and generated workflow parity |
+| `COMPOSE_ENV_FILES=/dev/null docker compose config --quiet`; `COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh` | Passed; all three inactive imports | No production environment or volumes loaded |
+| Both migration CLIs' `--help`; documented readback example exercised against synthetic native HTTP | Interfaces inspected; five scenarios passed | Valid run accepted; wrong run, changing reads and boolean control/terminal generations rejected; no Google request |
+| Documentation targets/anchors, new shell/Python example syntax, added-line credential patterns, final diff and `git diff --check` | Passed | Public evidence contains no private workbook identifiers, payloads or credentials |
+
+Local runtimes: Python 3.14.5, MCP 2.2.0, Node 22.12.0 and Docker 29.7.2.
+The normal suite and separate runtime gate both passed the historical main-run
+failure case without changing its assertions or harness. Its earlier missing
+execution evidence is not erased and its root cause is not established.
+The preparation PR's exact pushed SHA/CI must be recorded separately; local
+passes do not certify CI's Python 3.12/3.14 or supported Node 22.23.2 runtimes,
+operator approval, production migration or an actual schedule trigger.
+
+## Delivered implementation matrix
 
 | Child | Implementation stage | Required evidence | Status / blockers |
 | --- | --- | --- | --- |
