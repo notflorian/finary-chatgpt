@@ -24,3 +24,7 @@ finary-bridge/.venv/
 
 # Local n8n state
 n8n_data/
+
+# Python package build outputs
+/finary-bridge/build/
+/finary-bridge/dist/

@@ -9,7 +9,7 @@ from typing import Any, cast, get_args
 from app.models import Account, AssetClass, Liability, Position
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema.json"
+SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema-v2.json"
 DOCUMENTATION_PATH = REPOSITORY_ROOT / "docs" / "data-model.md"
 
 REQUIRED_SHEETS = (

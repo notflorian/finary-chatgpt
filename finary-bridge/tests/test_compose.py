@@ -23,7 +23,7 @@ _SYNTHETIC_ENV = {
     "FINARY_GOOGLE_SHEET_ID": "synthetic-workbook-id",
     "FINARY_MFA_CODE": "",
     "FINARY_PASSWORD": "synthetic-password",
-    "FINARY_SCHEMA_URL": "http://schema-server/google-sheets-schema.json",
+    "FINARY_SCHEMA_URL": "http://schema-server/google-sheets-schema-v2.json",
     "FINARY_SESSION_PATH": "/var/lib/finary-session/state/session.json",
     "N8N_ENCRYPTION_KEY": "synthetic-encryption-key-with-sufficient-length",
     "N8N_EXECUTIONS_TIMEOUT": "300",
@@ -69,7 +69,7 @@ def test_compose_declares_only_the_canonical_services_and_named_volumes() -> Non
 
     assert set(config["services"]) == {"finary-bridge", "n8n", "schema-server"}
     assert set(config["networks"]) == {"finary-stack"}
-    assert set(config["volumes"]) == {"finary_session_data", "n8n_data"}
+    assert set(config["volumes"]) == {"finary_session_data", "finary_mcp_data", "n8n_data"}
     assert all(
         set(service["networks"]) == {"finary-stack"} for service in config["services"].values()
     )
@@ -82,9 +82,11 @@ def test_state_volumes_are_persistent_and_strictly_isolated() -> None:
     schema = services["schema-server"]
 
     assert _mount(bridge, "/var/lib/finary-session")["source"] == ("finary_session_data")
+    assert _mount(bridge, "/var/lib/finary-mcp")["source"] == "finary_mcp_data"
     assert _mount(n8n, "/home/node/.n8n")["source"] == "n8n_data"
     assert all(volume.get("source") != "n8n_data" for volume in bridge["volumes"])
     assert all(volume.get("source") != "finary_session_data" for volume in n8n["volumes"])
+    assert all(volume.get("source") != "finary_mcp_data" for volume in n8n["volumes"])
     assert all(volume["type"] != "volume" for volume in schema["volumes"])
 
 
@@ -106,7 +108,7 @@ def test_compose_exposure_and_internal_urls_are_local_only() -> None:
     assert "ports" not in services["schema-server"]
     assert services["n8n"]["environment"]["FINARY_BRIDGE_URL"] == ("http://finary-bridge:8000")
     assert services["n8n"]["environment"]["FINARY_SCHEMA_URL"] == (
-        "http://schema-server/google-sheets-schema.json"
+        "http://schema-server/google-sheets-schema-v2.json"
     )
 
 
@@ -117,10 +119,10 @@ def test_images_schema_mount_and_operational_controls_are_pinned() -> None:
 
     assert n8n["image"].startswith("n8nio/n8n:2.35.5@sha256:")
     assert schema["image"].startswith("nginx:1.31.4@sha256:")
-    schema_mount = _mount(schema, "/usr/share/nginx/html/google-sheets-schema.json")
+    schema_mount = _mount(schema, "/usr/share/nginx/html/google-sheets-schema-v2.json")
     assert schema_mount["type"] == "bind"
     assert schema_mount["read_only"] is True
-    assert schema_mount["source"] == str((ROOT / "docs" / "google-sheets-schema.json").resolve())
+    assert schema_mount["source"] == str((ROOT / "docs" / "google-sheets-schema-v2.json").resolve())
     assert n8n["restart"] == "unless-stopped"
     assert schema["restart"] == "unless-stopped"
     assert services["finary-bridge"]["restart"] == "unless-stopped"

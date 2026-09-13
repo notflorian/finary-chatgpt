@@ -100,9 +100,23 @@ def _substitute_io(workflow, schema, snapshot, workbook, *, fail_at=None):
     return exported
 
 
-def _execute(tmp_path, image, exported, *, allow_crypto=True, allow_file_io=False):
+def _execute(
+    tmp_path, image, exported, *, allow_crypto=True, allow_file_io=False,
+    environment=None, http_payloads=None,
+):
     fixture = tmp_path / "workflow.json"
     fixture.write_text(json.dumps(exported))
+    server_prefix = ""
+    if http_payloads is not None:
+        server = tmp_path / "http-server.js"
+        server.write_text(
+            "const payloads=" + json.dumps(http_payloads) + ";"
+            "require('http').createServer((req,res)=>{"
+            "res.writeHead(200,{'Content-Type':'application/json'});"
+            "res.end(JSON.stringify(payloads[req.url]));"
+            "}).listen(8766,'127.0.0.1');"
+        )
+        server_prefix = "node /tmp/http-server.js & "
     # n8n persists a genuine execution ID in an ephemeral SQLite database.
     container_name = f"finary-issue58-{uuid4().hex}"
     command = [
@@ -134,9 +148,13 @@ def _execute(tmp_path, image, exported, *, allow_crypto=True, allow_file_io=Fals
         "sh",
         image,
         "-c",
-        "n8n import:workflow --input=/tmp/workflow.json >/tmp/import.log 2>&1 "
+        server_prefix + "n8n import:workflow --input=/tmp/workflow.json >/tmp/import.log 2>&1 "
         f"&& n8n execute --id={exported['id']} --rawOutput",
     ]
+    if http_payloads is not None:
+        command[2:2] = ["--mount", f"type=bind,src={server},dst=/tmp/http-server.js,readonly"]
+    for name, value in (environment or {}).items():
+        command[2:2] = ["-e", f"{name}={value}"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=150)
     finally:

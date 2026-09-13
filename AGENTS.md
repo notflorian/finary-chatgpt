@@ -91,7 +91,7 @@ Do not add new top-level structure without a clear architectural reason.
 - `curl-cffi` inside the Finary adapter
 - pytest, Ruff, mypy
 - self-hosted n8n using standard nodes
-- Google Sheets schema `2.1`
+- Google Sheets schema `2.1` for legacy and `3.0` for the MCP candidate
 - `Europe/Paris` schedules and business dates
 - ISO 8601 timestamps with explicit timezone offsets
 
@@ -106,9 +106,10 @@ behavior, constraint, or rationale directly; issue references become obsolete.
 
 ### Provider boundaries
 
-The implemented provider is the private API. The planned official MCP contract
+The default provider is the private API. The official MCP candidate contract
 is defined in [docs/finary-mcp-contract.md](docs/finary-mcp-contract.md) and its
-linked machine-readable artifact. API/workbook 3.0 are planned, not active.
+linked machine-readable artifact. API/workbook 3.0 have an executable candidate
+path; production acceptance remains an operator gate.
 Select one explicit provider per observation/run and one active writer/provider
 per workbook. Never mix providers, supplement fields or silently fall back.
 Transport, authentication, upstream relationships and error translation stay
@@ -167,7 +168,7 @@ Legacy liability coverage is explicit: `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`. 
 Empty embedded loan arrays do not prove zero liabilities. With incomplete
 coverage, liabilities and net worth remain null.
 
-Planned MCP overview totals and official allocation have separate authority;
+MCP overview totals and official allocation have separate authority;
 account/holding detail never replaces them. Retrieval, debt detail, valuation,
 semantic confidence and source freshness have independent coverage. Follow the
 focused MCP contract for native currency, ownership and provider-isolated IDs.
@@ -194,8 +195,10 @@ breaking downstream contract revision.
 
 ### Google Sheets and n8n
 
-`docs/google-sheets-schema.json` is the single machine-readable workbook
-contract. Preserve its sheet order, headers, types, nullability, ownership,
+`docs/google-sheets-schema.json` is the canonical 3.0 machine-readable workbook
+contract. The retained legacy writer explicitly uses the frozen 2.1
+`docs/google-sheets-schema-v2.json`; never mix these writer/schema bindings.
+Preserve each contract's sheet order, headers, types, nullability, ownership,
 enums, and key formats. Documentation summarizes it but must not become a second
 field-level source of truth.
 
@@ -242,7 +245,7 @@ Never save live responses to repository files and then attempt to redact them.
 
 - The Compose stack owns `finary-bridge`, `schema-server`, and `n8n` on one
   private network; only bridge and n8n bind localhost ports.
-- `finary_session_data` and `n8n_data` are separate named volumes.
+- `finary_session_data`, `finary_mcp_data`, and `n8n_data` are separate named volumes.
 - The schema server exposes the canonical JSON to n8n without credentials.
 - The scheduled workflow runs at 07:30 `Europe/Paris` when published.
 - `SUCCESS` and `SUCCESS_WITH_WARNINGS` are valid completed sync states. A later

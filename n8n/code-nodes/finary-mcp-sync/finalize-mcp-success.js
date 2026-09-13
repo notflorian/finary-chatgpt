@@ -1,0 +1,13 @@
+const prepared=$('Prepare MCP Rows').first().json;
+const {run,snapshot,batches}=prepared;
+mcpRun(run,String($execution.id));
+mcpAssert($('Initialize MCP Run').first().json.run_id===run.run_id);
+const controls=$('Recheck Writer Control').all().map(i=>i.json).filter(r=>Object.keys(r).length).map(r=>mcpDecode('writer_control',r));
+mcpControl(controls,run);
+const terminals=$('Read MCP Terminal Before Success').all().map(i=>i.json).filter(r=>Object.keys(r).length).map(r=>mcpDecode('sync_runs',r));
+mcpTerminal(terminals,run,snapshot.observation_id);
+mcpPrepared(snapshot,run,{batches,permitted:prepared.permitted},prepared.existing,prepared.existing.asset_overrides);
+const completed=new Date();
+const row={...batches.sync_runs[0],completed_at:completed.toISOString(),duration_ms:Math.max(0,completed.getTime()-run.started_epoch_ms)};
+mcpAssert(Number.isSafeInteger(row.duration_ms)&&['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(row.status));
+return mcpItems('sync_runs',[row]);

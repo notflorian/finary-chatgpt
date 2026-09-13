@@ -52,10 +52,11 @@ COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
   finary-bridge/tests/test_n8n_zero_position_runtime.py \
   finary-bridge/tests/test_restore_run_identity_runtime.py \
-  finary-bridge/tests/test_sheets_connector_runtime.py
+  finary-bridge/tests/test_sheets_connector_runtime.py \
+  finary-bridge/tests/test_mcp_runtime.py
 ```
 
-The n8n validator imports both workflow exports into an isolated ephemeral n8n
+The n8n validator imports all three workflow exports into an isolated ephemeral n8n
 instance with no network and no persistent project volumes. The import script pulls the
 image pinned by `docker-compose.yml` before running network-disabled containers.
 Use an otherwise unset/synthetic Compose environment; `COMPOSE_ENV_FILES` avoids
@@ -102,7 +103,7 @@ When `pytest-xdist` runs with `-n auto`, worker count comes from
 capacity (capped at `4`). Set `PYTEST_XDIST_WORKER_COUNT=<N>` to force an exact
 worker count in both local and CI environments.
 The required runtime gate uses CPU-detected `pytest-xdist` worker processes,
-capped at four, on the same runner after the image has been pulled and both
+capped at four, on the same runner after the image has been pulled and all
 exports have been imported. This uses all four CPUs on the public repository's
 standard Ubuntu runner while reducing concurrency on smaller machines. The cap
 also bounds simultaneous n8n containers on larger development machines.
@@ -355,3 +356,31 @@ and migration link. Do not attach `.env`, credential-bearing workflow exports,
 session state, workbook backups, or real portfolio data. Operators can then
 follow the [migration runbook](migration-1.0-to-1.1.md); publishing the release
 does not deploy it or migrate any installation.
+
+## Official MCP evidence boundaries
+
+The bridge pins `mcp==2.2.0` (MIT, Python >=3.10; project >=3.12), using its v2
+`Client`, Streamable HTTP and OAuth provider APIs. No v1 SDK examples are used.
+`test_mcp_integration.py` feeds synthetic upstream responses through real SDK
+initialization, discovery, tools, adapter, service and protected API boundaries.
+`test_mcp_auth.py` exercises supported SDK OAuth with disposable stores and fake
+HTTP, including restart, expiry, revoked refresh, concurrent leases, rotation
+and explicit isolated revocation. These are synthetic authorization proofs.
+
+Model/workbook/workflow generators are included in the existing parity command.
+The packaged `app/mcp-contract.json` must equal the reviewed source contract;
+wheel installation includes it. `test_mcp_workflow.py` validates exported code,
+while `test_mcp_runtime.py` separately runs the actual pinned graph and installed
+Sheets connector with synthetic I/O. It verifies native decimal null/zero/blank
+updates, child tables, terminal sequencing and the production reference consumer.
+`test_mcp_migration.py` exercises native Google request generation, preservation,
+idempotence and lost-response handling against a fake HTTP peer. This does not
+claim a live Google migration.
+
+The normal credential-free suite and explicit required runtime command must both
+pass. Runtime skips in the former are not runtime evidence. CI includes the MCP
+runtime module and Python 3.12/3.14 SDK/auth compatibility. The narrow live module
+requires explicit isolated state and is excluded from ordinary CI; use the
+[operator runbook](mcp-operations.md). Record current execution results in the
+[acceptance matrix](mcp-acceptance.md), separately from public metadata, actual
+consent and shadow-workbook evidence.

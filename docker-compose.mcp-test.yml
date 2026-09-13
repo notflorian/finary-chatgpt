@@ -1,0 +1,79 @@
+# Isolated operator acceptance stack. Never use the production Compose project.
+name: finary-mcp-candidate
+
+services:
+  finary-bridge:
+    build:
+      context: ./finary-bridge
+    restart: "no"
+    environment:
+      FINARY_PROVIDER: finary_official_mcp
+      FINARY_BRIDGE_API_KEY: ${FINARY_MCP_CANDIDATE_API_KEY:?Set an independent test bridge key}
+      FINARY_MCP_STATE_PATH: /var/lib/finary-mcp/state/oauth.json
+      TZ: Europe/Paris
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - type: bind
+        source: ${FINARY_MCP_TEST_DIR:?Set the isolated operator OAuth directory}
+        target: /var/lib/finary-mcp/state
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  schema-server:
+    image: nginx:1.31.4@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
+    restart: "no"
+    volumes:
+      - ./docs/google-sheets-schema.json:/usr/share/nginx/html/google-sheets-schema.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/google-sheets-schema.json"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  n8n:
+    image: n8nio/n8n:2.35.5@sha256:c5861e6016c8f283142584190e3874e6aa6f322eca8771ceead09d08b4766a1e
+    restart: "no"
+    environment:
+      EXECUTIONS_TIMEOUT: "300"
+      EXECUTIONS_TIMEOUT_MAX: "300"
+      FINARY_BRIDGE_API_KEY: ${FINARY_MCP_CANDIDATE_API_KEY:?Set an independent test bridge key}
+      FINARY_BRIDGE_URL: http://finary-bridge:8000
+      FINARY_MCP_SCHEMA_URL: http://schema-server/google-sheets-schema.json
+      FINARY_MCP_GOOGLE_SHEET_ID: ${FINARY_MCP_CANDIDATE_WORKBOOK_ID:?Set the isolated candidate workbook ID}
+      FINARY_MCP_WRITER_ID: mcp-shadow-writer
+      FINARY_MCP_WRITER_GENERATION: "1"
+      N8N_EDITOR_BASE_URL: http://localhost:5679
+      WEBHOOK_URL: http://localhost:5679/
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: "1"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      GENERIC_TIMEZONE: Europe/Paris
+      TZ: Europe/Paris
+    ports:
+      - "127.0.0.1:5679:5678"
+    volumes:
+      - candidate_n8n_data:/home/node/.n8n
+    depends_on:
+      finary-bridge:
+        condition: service_healthy
+      schema-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:5678/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  candidate_n8n_data:

@@ -79,7 +79,7 @@ def test_repository_contract_commands_are_quiet_and_dependency_free() -> None:
 
     assert "python scripts/validate-json.py" in ci
     assert "docker compose config --quiet" in ci
-    assert "google-sheets-schema.json" in validator
+    assert "google-sheets-schema-v2.json" in validator
     assert "finary-daily-sync.json" in validator
     assert "finary-error-handler.json" in validator
     subprocess.run([sys.executable, str(JSON_VALIDATOR_PATH)], cwd=ROOT, check=True)
@@ -131,6 +131,7 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     assert "finary-bridge/tests/test_n8n_zero_position_runtime.py" in job
     assert "finary-bridge/tests/test_restore_run_identity_runtime.py" in job
     assert "finary-bridge/tests/test_sheets_connector_runtime.py" in job
+    assert "finary-bridge/tests/test_mcp_runtime.py" in job
     assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
         "FINARY_REQUIRE_N8N_RUNTIME"
     )

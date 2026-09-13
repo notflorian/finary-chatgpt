@@ -26,6 +26,7 @@ trap 'rm -rf "$log_directory"' EXIT
 workflows=(
   "n8n/workflows/finary-daily-sync.json"
   "n8n/workflows/finary-error-handler.json"
+  "n8n/workflows/finary-mcp-sync.json"
 )
 
 for workflow in "${workflows[@]}"; do

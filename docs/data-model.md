@@ -2,8 +2,18 @@
 
 ## Canonical contract
 
-The workbook is named **Finary Portfolio Data** and uses schema `2.1`.
-[`google-sheets-schema.json`](google-sheets-schema.json) is the single
+The canonical candidate workbook uses [schema 3.0](google-sheets-schema.json).
+It preserves the legacy sheet order and appends normalized ownership,
+connections, rates, official allocation, members, observations, diagnostics,
+crosswalk and migration-control tables. The schema owns all field-level rules.
+Exact native amounts are RAW decimal text and each observation has explicit
+provider, currency, collection window and independent coverage. Current,
+historical, daily and terminal membership must agree before interpretation.
+
+See [migration and rollback](mcp-operations.md) and the
+[executable consumer rules](mcp-consumer.md). The remaining sections document
+the retained legacy workbook, named **Finary Portfolio Data**, using schema `2.1`.
+[`google-sheets-schema-v2.json`](google-sheets-schema-v2.json) is the single
 machine-readable source for ordered sheet names, headers, types, nullability,
 ownership, enums, and key formats. This guide explains how to interpret and
 operate that contract; it does not duplicate every column.
@@ -34,7 +44,7 @@ command prints one tab's ordered, tab-separated header:
 ```bash
 SHEET=positions_current
 jq -r --arg sheet "$SHEET" '.sheets[$sheet].columns | map(.name) | @tsv' \
-  docs/google-sheets-schema.json
+  docs/google-sheets-schema-v2.json
 ```
 
 Paste the output into row 1 and repeat for every sheet. Populate `README` with

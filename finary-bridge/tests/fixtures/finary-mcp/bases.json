@@ -370,7 +370,7 @@
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "1.0.0",
+      "source_contract_version": "1.1.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",
@@ -493,7 +493,7 @@
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "1.0.0",
+      "source_contract_version": "1.1.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",

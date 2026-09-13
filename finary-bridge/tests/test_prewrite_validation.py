@@ -306,7 +306,7 @@ def mutated_preparation(workflow, mutation):
 
 
 def _row_cases():
-    schema = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
+    schema = json.loads((ROOT / "docs/google-sheets-schema-v2.json").read_text())
     for sheet, batch in BATCHES.items():
         for column in schema["sheets"][sheet]["columns"]:
             field = column["name"]

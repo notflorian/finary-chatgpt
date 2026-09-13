@@ -606,7 +606,14 @@ def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
     assert snapshot_error(value) is None
 
 
-@pytest.mark.parametrize("amount", ["0.01", "-0.01", "0.0000000000000000000", "00", "0e0"])
+@pytest.mark.parametrize(
+    "amount",
+    [
+        "0.01", "-0.01",
+        "0." + "0" * (CONTRACT["numeric_policy"]["limits"]["fractional_digits"] + 1),
+        "00", "0e0",
+    ],
+)
 def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
     case = next(
         case for case in MANIFEST["cases"]
@@ -753,7 +760,7 @@ def test_overview_authority_is_not_a_detail_sum_constraint():
 
 
 def test_workbook_delta_and_legacy_versions_remain_separate():
-    active = json.loads((ROOT / "docs" / "google-sheets-schema.json").read_text())
+    active = json.loads((ROOT / "docs" / "google-sheets-schema-v2.json").read_text())
     delta = CONTRACT["workbook_migration"]
     assert active["schema_version"] == delta["from"] == CONTRACT["implemented"]["workbook_schema"]
     assert CONTRACT["planned"] == {
@@ -800,7 +807,7 @@ def schema_leaves(schema, path=""):
 
 
 def test_workbook_column_bindings_cover_each_normalized_leaf_without_collisions():
-    active = json.loads((ROOT / "docs" / "google-sheets-schema.json").read_text())
+    active = json.loads((ROOT / "docs" / "google-sheets-schema-v2.json").read_text())
     for table, definition in CONTRACT["workbook_migration"]["tables"].items():
         if "row_schema" not in definition:
             continue

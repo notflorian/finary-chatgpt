@@ -22,7 +22,7 @@ from test_operations import _run_error_classifier, _trigger
 ROOT = Path(__file__).parents[2]
 V2_WORKFLOW_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
 V2_ERROR_PATH = ROOT / "n8n" / "workflows" / "finary-error-handler.json"
-V2_SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema.json"
+V2_SCHEMA_PATH = ROOT / "docs" / "google-sheets-schema-v2.json"
 
 
 @pytest.fixture(scope="module")
@@ -322,7 +322,7 @@ def test_v2_workflow_is_inactive_and_targets_only_v2_configuration(
     assert workflow["active"] is False
     assert "/v2/snapshot" in serialized
     assert "FINARY_SCHEMA_URL" in serialized
-    assert "google-sheets-schema.json" in serialized
+    assert "google-sheets-schema-v2.json" in serialized
     assert "FINARY_GOOGLE_SHEET_ID" in serialized
     assert '"credentials"' not in serialized
 

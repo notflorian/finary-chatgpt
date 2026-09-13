@@ -6,6 +6,8 @@ from threading import Lock
 from typing import Annotated, Final, Literal, NamedTuple
 
 from fastapi import Depends, FastAPI, Header, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -20,8 +22,20 @@ from app.finary_client import (
     FinaryUpstreamError,
     FinaryUpstreamTimeoutError,
 )
+from app.mcp_client import McpFailure, NativeMcpClient
+from app.mcp_logging import protect_access_logs
+from app.mcp_models import McpSnapshotV3
+from app.mcp_optional import (
+    BudgetResponse,
+    GoalsResponse,
+    OptionalMcpService,
+    PeriodRequest,
+    SearchRequest,
+    SearchResponse,
+)
 from app.models import ErrorDetail, ErrorResponse, PortfolioSnapshot, PortfolioSnapshotV2
 from app.normalizer import SnapshotNormalizationError
+from app.services.mcp_snapshot_service import McpSnapshotService, paris_now
 from app.services.snapshot_service import SnapshotService
 
 
@@ -34,6 +48,8 @@ class HealthResponse(BaseModel):
     service: str = SERVICE_NAME
     version: str = SERVICE_VERSION
 
+
+protect_access_logs()
 
 app = FastAPI(
     title="Finary Bridge",
@@ -253,3 +269,66 @@ def get_snapshot_v2(
     """Return a coverage-aware snapshot without private upstream payloads."""
 
     return service.get_snapshot_v2()
+
+
+def get_authenticated_mcp_client(
+    _: Annotated[None, Depends(require_bridge_api_key)],
+) -> NativeMcpClient:
+    """Freeze explicit provider selection after local authorization, before I/O."""
+    if os.getenv("FINARY_PROVIDER", "private_api") != "finary_official_mcp":
+        raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
+    return NativeMcpClient()
+
+
+@app.exception_handler(McpFailure)
+async def handle_mcp_error(request: Request, exception: McpFailure) -> JSONResponse:
+    del request
+    code = (
+        400
+        if exception.code == "MCP_INVALID_ARGUMENT"
+        else 503
+        if exception.code in {"MCP_AUTH_UNAVAILABLE", "MCP_CAPABILITY_UNAVAILABLE"}
+        else 504
+        if exception.code == "MCP_TIMEOUT"
+        else 502
+    )
+    return _error_response(
+        _ApiErrorSpec(code, exception.code, exception.message, exception.retryable)
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_request_error(request: Request, exception: RequestValidationError) -> JSONResponse:
+    if request.url.path.startswith("/v3/"):
+        return await handle_mcp_error(request, McpFailure("MCP_INVALID_ARGUMENT"))
+    return await request_validation_exception_handler(request, exception)
+
+
+@app.get("/v3/snapshot", response_model=McpSnapshotV3)
+async def get_snapshot_v3(
+    client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
+) -> McpSnapshotV3:
+    return await McpSnapshotService(client).snapshot()
+
+
+@app.get("/v3/budget", response_model=BudgetResponse)
+async def get_budget_v3(
+    client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
+    request: Annotated[PeriodRequest, Depends()],
+) -> BudgetResponse:
+    return await OptionalMcpService(client).budget(request, paris_now())
+
+
+@app.get("/v3/spending-search", response_model=SearchResponse)
+async def get_spending_search_v3(
+    client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
+    request: Annotated[SearchRequest, Depends()],
+) -> SearchResponse:
+    return await OptionalMcpService(client).search(request, paris_now())
+
+
+@app.get("/v3/goals", response_model=GoalsResponse)
+async def get_goals_v3(
+    client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
+) -> GoalsResponse:
+    return await OptionalMcpService(client).goals(paris_now())
