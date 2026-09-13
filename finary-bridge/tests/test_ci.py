@@ -144,7 +144,7 @@ def test_python314_compatibility_job_runs_session_and_upstream_validation() -> N
     ci = CI_PATH.read_text(encoding="utf-8")
     job = ci.split("  session-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
     assert 'python-version: "3.14.6"' in job
-    assert "timeout-minutes: 5" in job
+    assert "timeout-minutes: 10" in job
     assert 'python -m pip install -e ".[dev]"' in job
     assert (
         'python -m pytest -q -m "not live" --ignore=tests/live '
@@ -153,6 +153,10 @@ def test_python314_compatibility_job_runs_session_and_upstream_validation() -> N
     assert (
         'python -m pytest -q -m "not live" --ignore=tests/live '
         'tests/test_upstream_response_recursion.py'
+    ) in job
+    assert (
+        "python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py "
+        "tests/test_mcp_optional.py tests/test_mcp_precision.py"
     ) in job
     assert "docker" not in job
     assert "n8n" not in job

@@ -92,8 +92,9 @@ this PR later; do not replace it with another manual run or create an automation
 
 ### Preparation validation (2026-09-13)
 
-This follow-up changes only this record and `mcp-operations.md`. No runtime,
-schema, workflow, OAuth, migration-engine or consumer behavior was changed.
+Initial preparation at `613dbc765a505ef136406582d08c65d51838af5d` changed only
+this record and `mcp-operations.md`. No runtime, schema, portfolio workflow,
+OAuth, migration-engine or consumer behavior was changed.
 The native helper's existing interfaces suffice; its 2.1-only inventory CLI,
 3.0 Python reader, request regeneration and replay-check boundaries are now
 explicit in the runbook. No live source or authentication store was inspected.
@@ -115,6 +116,24 @@ execution evidence is not erased and its root cause is not established.
 The preparation PR's exact pushed SHA/CI must be recorded separately; local
 passes do not certify CI's Python 3.12/3.14 or supported Node 22.23.2 runtimes,
 operator approval, production migration or an actual schedule trigger.
+
+The first [preparation PR #99 CI run 34758199024](https://github.com/notflorian/finary-chatgpt/actions/runs/34758199024)
+on `613dbc765a505ef136406582d08c65d51838af5d` exposed a concrete CI orchestration
+gap: the Python 3.14 compatibility job exceeded its five-minute job limit while
+the expanded MCP suite was still progressing (144 of 182 cases reported, no
+assertion failure reported before cancellation). GitHub's job annotation confirms
+the timeout; the same annotation explains the historical main job cancellation.
+Neither cancelled job is a compatibility pass.
+
+The focused correction increases only that CI job's finite timeout from five to
+ten minutes and updates `test_ci.py` to retain the timeout check and explicitly
+require all four MCP compatibility modules. Test commands, runtime limits,
+production write gates and application code are unchanged. The eight CI-boundary
+regressions, Ruff and mypy passed after this correction. The full local results
+above precede it and are not presented as rerun. The final candidate SHA and its
+own CI are pinned in the [PR #99 description](https://github.com/notflorian/finary-chatgpt/pull/99);
+the initial preparation SHA is superseded as the deployment proposal. There is
+still no deployment or operator approval.
 
 ## Delivered implementation matrix
 
