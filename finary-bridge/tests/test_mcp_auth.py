@@ -2,8 +2,11 @@
 
 import asyncio
 import json
+import multiprocessing
 import os
+from contextlib import contextmanager
 from pathlib import Path
+from time import monotonic
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2
@@ -32,6 +35,12 @@ class AuthPeer(SyntheticWire):
         self.rotation = 0
         self.reject_refresh = False
         self.expiry = 3600
+        self.resource_scopes = ["openid", "offline_access"]
+        self.server_scopes = ["openid", "offline_access"]
+        self.challenge_scope = None
+        self.response_scope = "openid offline_access"
+        self.authorization_fields = []
+        self.token_fields = []
 
     def respond(self, request):
         url = str(request.url)
@@ -41,7 +50,7 @@ class AuthPeer(SyntheticWire):
                 json={
                     "resource": MCP_URL,
                     "authorization_servers": [ISSUER],
-                    "scopes_supported": ["openid", "offline_access"],
+                    "scopes_supported": self.resource_scopes,
                 },
             )
         if url == ISSUER_METADATA:
@@ -57,7 +66,7 @@ class AuthPeer(SyntheticWire):
                     "grant_types_supported": ["authorization_code", "refresh_token"],
                     "code_challenge_methods_supported": ["S256"],
                     "token_endpoint_auth_methods_supported": ["none"],
-                    "scopes_supported": ["openid", "offline_access"],
+                    "scopes_supported": self.server_scopes,
                 },
             )
         if url == ISSUER + "/oauth/register":
@@ -67,6 +76,7 @@ class AuthPeer(SyntheticWire):
             )
         if url == ISSUER + "/oauth/token":
             fields = parse_qs(request.content.decode())
+            self.token_fields.append(fields)
             self.token_requests.append(fields["grant_type"][0])
             if self.reject_refresh and fields["grant_type"] == ["refresh_token"]:
                 return httpx2.Response(
@@ -79,13 +89,16 @@ class AuthPeer(SyntheticWire):
                     "access_token": "synthetic-access",
                     "token_type": "Bearer",
                     "refresh_token": f"synthetic-renewable-{self.rotation}",
-                    "scope": "openid offline_access",
+                    **({"scope": self.response_scope} if self.response_scope is not None else {}),
                     "expires_in": self.expiry,
                 },
             )
         if url == MCP_URL and request.headers.get("authorization") != "Bearer synthetic-access":
+            challenge = f'Bearer resource_metadata="{RESOURCE_METADATA}"'
+            if self.challenge_scope is not None:
+                challenge += f', scope="{self.challenge_scope}"'
             return httpx2.Response(
-                401, headers={"WWW-Authenticate": f'Bearer resource_metadata="{RESOURCE_METADATA}"'}
+                401, headers={"WWW-Authenticate": challenge}
             )
         return super().respond(request)
 
@@ -96,6 +109,7 @@ async def consent(store, peer, diagnostics=None):
     async def redirect(url):
         nonlocal result
         fields = parse_qs(urlsplit(url).query)
+        peer.authorization_fields.append(fields)
         assert fields["redirect_uri"] == [CALLBACK]
         assert fields["code_challenge_method"] == ["S256"]
         result = AuthorizationCodeResult(
@@ -385,3 +399,292 @@ def test_store_rejects_wrong_format_type_without_modifying_file(tmp_path, format
         before.st_mtime_ns,
         before.st_mode,
     )
+
+
+@pytest.mark.parametrize(
+    "challenge,resource,server,expected",
+    [
+        ("email", ["profile"], ["openid", "offline_access"], "email offline_access"),
+        (None, ["openid", "profile", "email"], ["offline_access"],
+         "openid profile email offline_access"),
+        (None, None, ["profile", "offline_access"], "profile offline_access"),
+        (None, None, None, None),
+        ("email", ["profile"], ["openid"], "email"),
+        ("email offline_access", ["profile"], ["offline_access"], "email offline_access"),
+        ("EMAIL OFFLINE_ACCESS", ["email"], ["offline_access"],
+         "EMAIL OFFLINE_ACCESS offline_access"),
+        ("email offline_access_extra", ["email"], ["offline_access"],
+         "email offline_access_extra offline_access"),
+        ("email", ["profile"], ["OFFLINE_ACCESS"], "email"),
+    ],
+)
+def test_sdk_effective_authorization_scopes_replace_constructor(
+    tmp_path, challenge, resource, server, expected
+):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    peer.challenge_scope = challenge
+    peer.resource_scopes = resource
+    peer.server_scopes = server
+    peer.response_scope = None
+    asyncio.run(consent(store, peer))
+    fields = peer.authorization_fields[0]
+    assert fields.get("scope") == ([expected] if expected else None)
+    assert fields.get("prompt") == (
+        ["consent"] if expected and "offline_access" in expected.split(" ") else None
+    )
+    assert store.read().scope == expected
+    assert "scope" not in peer.token_fields[0]
+
+
+@pytest.mark.parametrize(
+    "initial", [None, "profile offline_access", "EMAIL profile offline_access"]
+)
+@pytest.mark.parametrize("refreshed", [None, "profile", "offline_access"])
+def test_sdk_explicit_and_omitted_scope_evidence_survives_restart(tmp_path, initial, refreshed):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    peer.challenge_scope = "email profile"
+    peer.response_scope = initial
+    asyncio.run(consent(store, peer))
+    effective = "email profile offline_access" if initial is None else initial
+    assert store.read().scope == effective
+    peer.response_scope = refreshed
+    asyncio.run(unattended(store, peer))
+    assert store.read().scope == (effective if refreshed is None else refreshed)
+    assert "scope" not in peer.token_fields[-1]
+    assert peer.registrations == 1 and len(peer.authorization_fields) == 1
+
+
+def test_refresh_cannot_recover_unknown_stored_scope_provenance(tmp_path):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    asyncio.run(consent(store, peer))
+    state = store.read()
+    store.replace(state.generation, OAuthState("", state.client, state.refresh_token, None))
+    peer.response_scope = None
+    asyncio.run(unattended(store, peer))
+    assert store.read().scope is None
+    assert len(peer.authorization_fields) == 1
+
+
+@pytest.mark.parametrize("scope", ["email", "EMAIL offline_access_extra", "synthetic-private"])
+def test_insufficient_scope_fails_without_unattended_consent(tmp_path, caplog, scope):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    peer = AuthPeer()
+    asyncio.run(consent(store, peer))
+    calls = []
+
+    def respond(request):
+        calls.append(str(request.url))
+        if str(request.url) == MCP_URL:
+            return httpx2.Response(
+                403,
+                headers={"WWW-Authenticate": f'Bearer error="insufficient_scope", scope="{scope}"'},
+                text="synthetic-private-response",
+            )
+        return peer.respond(request)
+
+    async def rejected():
+        async with authorized_http(store=store, transport=httpx2.MockTransport(respond)) as http:
+            await http.post(MCP_URL, json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+
+    with pytest.raises(McpFailure) as rejected_scope:
+        asyncio.run(rejected())
+    assert rejected_scope.value.code == "MCP_AUTH_UNAVAILABLE"
+    assert calls.count(MCP_URL) == 1
+    assert peer.registrations == 1 and len(peer.authorization_fields) == 1
+    assert store.read().refresh_token == "synthetic-renewable-2"
+    assert "synthetic-private" not in caplog.text
+
+
+def test_missing_authorization_fails_before_http_or_registration(tmp_path, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Missing authorization reached HTTP construction")
+
+    monkeypatch.setattr(httpx2, "AsyncClient", forbidden)
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    with pytest.raises(McpFailure) as unavailable:
+        asyncio.run(unattended(store, AuthPeer()))
+    assert unavailable.value.code == "MCP_AUTH_UNAVAILABLE"
+    assert not store.path.exists()
+
+
+@pytest.mark.parametrize("scope", [None, "openid email", "EMAIL", "synthetic-private", ["secret"]])
+def test_local_status_keeps_scope_unknown_and_never_uses_network(
+    tmp_path, monkeypatch, capsys, scope
+):
+    import app.mcp_auth as auth
+
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    payload = json.loads(store.path.read_text())
+    payload["scope"] = scope
+    store.path.write_text(json.dumps(payload))
+    before = store.path.read_bytes(), store.path.stat()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Local status attempted network, consent or state replacement")
+
+    monkeypatch.setattr(httpx2, "AsyncClient", forbidden)
+    monkeypatch.setattr(auth, "bootstrap_command", forbidden)
+    monkeypatch.setattr(auth, "revoke_command", forbidden)
+    monkeypatch.setattr(OAuthStore, "replace", forbidden)
+    monkeypatch.setattr("sys.argv", ["mcp_auth", "status", "--state", str(store.path)])
+    if isinstance(scope, list):
+        with pytest.raises(SystemExit) as stopped:
+            auth.main()
+        assert stopped.value.code == 1
+        assert json.loads(capsys.readouterr().out) == {
+            "status": "MCP_AUTH_UNAVAILABLE",
+            "action": "Review the independent OAuth operator runbook",
+        }
+    else:
+        auth.main()
+        assert json.loads(capsys.readouterr().out) == {
+            "status": "RENEWABLE_STATE_PRESENT",
+            "generation": payload["generation"],
+            "live_validity": "UNVERIFIED",
+        }
+    after = store.path.stat()
+    assert store.path.read_bytes() == before[0]
+    assert (after.st_ino, after.st_mtime_ns, after.st_mode) == (
+        before[1].st_ino, before[1].st_mtime_ns, before[1].st_mode
+    )
+
+
+@pytest.mark.parametrize("response_scope", ["synthetic-private-scope", ["synthetic-private-scope"]])
+def test_scope_values_never_enter_bootstrap_diagnostics(tmp_path, capsys, caplog, response_scope):
+    from app.mcp_auth import BootstrapDiagnostics
+
+    peer = AuthPeer()
+    peer.response_scope = response_scope
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    if isinstance(response_scope, list):
+        with pytest.raises(McpFailure):
+            asyncio.run(consent(store, peer, BootstrapDiagnostics()))
+        assert store.read().refresh_token is None
+    else:
+        asyncio.run(consent(store, peer, BootstrapDiagnostics()))
+    output = capsys.readouterr().out
+    assert all(
+        set(json.loads(line)["diagnostic"]) <= {"stage", "http_status"}
+        for line in output.splitlines()
+    )
+    assert "synthetic-private" not in output + caplog.text
+
+
+def oauth_process(path, channel, mode, expected_refresh):
+    """Spawned interpreter uses real OAuth/storage with only HTTP replaced."""
+    peer = AuthPeer()
+    peer.reject_refresh = mode == "reject_refresh"
+    requests = 0
+
+    async def pause(stage):
+        channel.send(stage)
+        if not await asyncio.to_thread(channel.poll, 25):
+            raise RuntimeError("Synthetic process coordination timed out")
+        assert channel.recv() == "CONTINUE"
+
+    async def respond(request):
+        nonlocal requests
+        requests += 1
+        if str(request.url) == ISSUER + "/oauth/token":
+            fields = parse_qs(request.content.decode())
+            assert fields["refresh_token"] == [expected_refresh]
+            peer.rotation = int(expected_refresh.rsplit("-", 1)[1])
+            if mode in {"pause_refresh", "reject_refresh"}:
+                await pause("REFRESH_PENDING")
+        return peer.respond(request)
+
+    async def run():
+        def factory():
+            return authorized_http(
+                store=OAuthStore(Path(path)), transport=httpx2.MockTransport(respond)
+            )
+
+        async with NativeMcpClient(factory).session(("accounts",)) as session:
+            await session.call("accounts", {})
+            if mode == "hold_session":
+                await pause("SESSION_OPEN")
+
+    start = monotonic()
+    try:
+        asyncio.run(run())
+        outcome = "SUCCESS"
+    except McpFailure as error:
+        outcome = error.code
+    channel.send((outcome, requests, monotonic() - start))
+    channel.close()
+
+
+@contextmanager
+def independent_oauth(store, mode="normal", expected_refresh="synthetic-renewable-1"):
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe()
+    process = context.Process(
+        target=oauth_process, args=(str(store.path), child, mode, expected_refresh)
+    )
+    process.start()
+    child.close()
+    try:
+        yield parent
+        process.join(timeout=5)
+        assert process.exitcode == 0
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+        parent.close()
+        process.close()
+
+
+def receive_process(channel):
+    assert channel.poll(20), "Synthetic OAuth process exceeded its wait bound"
+    return channel.recv()
+
+
+def test_process_lease_covers_session_and_contention_is_bounded(tmp_path):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    with independent_oauth(store, "hold_session") as owner:
+        assert receive_process(owner) == "SESSION_OPEN"
+        state = store.path.read_bytes()
+        with independent_oauth(store) as contender:
+            outcome, requests, elapsed = receive_process(contender)
+            assert outcome == "MCP_AUTH_UNAVAILABLE"
+            assert requests == 0 and 9 <= elapsed < 20
+        assert store.path.read_bytes() == state
+        owner.send("CONTINUE")
+        assert receive_process(owner)[0] == "SUCCESS"
+    with independent_oauth(store, expected_refresh="synthetic-renewable-2") as successor:
+        assert receive_process(successor)[0] == "SUCCESS"
+    assert store.read().refresh_token == "synthetic-renewable-3"
+
+
+@pytest.mark.parametrize("replacement", [False, True])
+@pytest.mark.parametrize("mode", ["pause_refresh", "reject_refresh"])
+def test_process_refresh_releases_lease_and_preserves_newer_state(tmp_path, replacement, mode):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    with independent_oauth(store, mode) as owner:
+        assert receive_process(owner) == "REFRESH_PENDING"
+        before = store.read()
+        if replacement:
+            store.replace(
+                before.generation,
+                OAuthState("", before.client, "synthetic-renewable-10", before.scope),
+            )
+        protected = store.path.read_bytes()
+        owner.send("CONTINUE")
+        outcome, _, _ = receive_process(owner)
+        failed = replacement or mode == "reject_refresh"
+        assert outcome == ("MCP_AUTH_UNAVAILABLE" if failed else "SUCCESS")
+        if failed:
+            assert store.path.read_bytes() == protected
+    expected = "synthetic-renewable-10" if replacement else (
+        "synthetic-renewable-1" if failed else "synthetic-renewable-2"
+    )
+    with independent_oauth(store, expected_refresh=expected) as successor:
+        assert receive_process(successor)[0] == "SUCCESS"
+    assert store.read().generation != before.generation
