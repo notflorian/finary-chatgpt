@@ -112,7 +112,8 @@ explicit in the runbook. No live source or authentication store was inspected.
 Local runtimes: Python 3.14.5, MCP 2.2.0, Node 22.12.0 and Docker 29.7.2.
 The normal suite and separate runtime gate both passed the historical main-run
 failure case without changing its assertions or harness. Its earlier missing
-execution evidence is not erased and its root cause is not established.
+execution evidence is not erased; its cause was not established at this stage.
+The later capture regression below supplies separate evidence.
 The preparation PR's exact pushed SHA/CI must be recorded separately; local
 passes do not certify CI's Python 3.12/3.14 or supported Node 22.23.2 runtimes,
 operator approval, production migration or an actual schedule trigger.
@@ -134,6 +135,38 @@ above precede it and are not presented as rerun. The final candidate SHA and its
 own CI are pinned in the [PR #99 description](https://github.com/notflorian/finary-chatgpt/pull/99);
 the initial preparation SHA is superseded as the deployment proposal. There is
 still no deployment or operator approval.
+
+### CLI execution-evidence capture correction
+
+The [next candidate CI run 34758542390](https://github.com/notflorian/finary-chatgpt/actions/runs/34758542390)
+on `af2b52298c0e730c4876d2b834be9d0f4759d10f` passed Python 3.14 but again
+reported 48 passed / 1 failed in the separate n8n gate. The same terminal-loss
+case received incomplete raw CLI JSON. This is a test-evidence transport failure;
+an absent decodable result cannot certify the workflow's success or recovery.
+
+Inspection of the installed pinned n8n CLI found JSON logging followed by an
+explicit `process.exit`. A new synthetic regression runs the real CLI with a
+16 MiB result and a delayed stdout reader to reproduce pipe backpressure. Both
+the successful and deliberately failed execution lost decodable JSON before the
+fix (two failures in 25.99s); both passed after it (28.23s). Volume alone passed
+locally and was not treated as a reproduction. The regression also checks the
+complete payload and actual terminal success/error, not merely process exit.
+
+The shared `_execute` test helper now directs CLI output to a temporary file
+inside its disposable network-disabled container, then drains that file with
+`cat` while retaining the CLI status. It still rejects missing/incomplete JSON;
+no assertion, production graph, write/retry/terminal behavior, process timeout or
+cleanup rule is relaxed. No project volume or live data is involved. The two
+new cases belong to the existing required runtime module, extending that gate
+from 49 to 51 cases. The unchanged terminal-loss regression remains required.
+The complete required local runtime command passed **51 cases in 217.27s**.
+The final success/error-terminal assertion refinement passed both focused cases
+again in 30.21s. Ruff, mypy, JSON/generated parity, synthetic Compose configuration,
+all three inactive imports, documentation links and diff checks passed again.
+The serial full suite was also launched again; its completed result and final
+exact-commit CI are recorded in the
+[same preparation PR](https://github.com/notflorian/finary-chatgpt/pull/99);
+neither earlier candidate is a deployment or final acceptance claim.
 
 ## Delivered implementation matrix
 
