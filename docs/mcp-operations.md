@@ -30,6 +30,133 @@ must match all three version/provider/writer-generation constraints and be
 `ACTIVE` before writes. A migrated copy starts `PAUSED`. Leave the legacy writer
 on its original 2.1 workbook; neither writer silently accepts the other's schema.
 
+## Production target register and approval stages
+
+This is the bounded production plan for #95. The
+[release decision matrix](mcp-acceptance.md#release-decision-and-production-evidence)
+records the recommendation and the still-pending operator decisions. Existing
+test-workbook permissions do not authorize any production stage below. Complete
+repository preparation and publish its draft PR before requesting production
+authorization. Keep `Refs #95` until actual cutover and scheduled acceptance are
+supported; merge, tag and release publication follow their own authorization.
+
+On 2026-09-13 no production target register or HANDOFF.md was supplied in this
+checkout. Do not derive designations from `.env` defaults, accessible connectors,
+worksheet names, or historical test IDs. Resolve the following in an
+operator-controlled private record outside Git before requesting stage A:
+
+| Private record entry | Required reviewed value / current preparation |
+| --- | --- |
+| Code | Full proposed deployment SHA, review and five matching CI job URLs; actual deployed SHA stays unset until deployment. Pin the preparation commit in the PR; later evidence-only commits are separate |
+| Host and deployment | Designated host, checkout/artifact, Compose project and exact files, n8n instance URL/identity, local ports, volumes and current image IDs; current live configuration is UNVERIFIED |
+| Current binding | Confirm actual provider, bridge route, schema URL, workbook and legacy/error workflow revisions; expected legacy path is `private_api`, `/v2/snapshot`, API 2.0, frozen workbook 2.1 |
+| Intended binding | `finary_official_mcp`, `/v3/snapshot`, API/workbook 3.0, source contract 1.1.0, canonical schema URL and reviewed inactive MCP export |
+| Workbook targets | Exact original legacy ID; exact IDs for existing targets, or approved folder/name/access for new native backup and MCP copies. Record newly created IDs in stage A before authorizing B. Designate a separate rollback 2.1 copy; never overwrite/relabel the sole original |
+| Writer | Unique designated `FINARY_MCP_WRITER_ID`, migration ID and initial generation **1** (the helper creates it; there is no generation CLI flag). Confirm `FINARY_MCP_WRITER_GENERATION=1` and one matching singleton control |
+| Execution exclusion | All schedules, published versions, error-handler links/deliveries, running/waiting/queued/retrying executions, other writer integrations and manual launch paths; designated person holding the maintenance window |
+| Google access | Approved credential selected inside the designated n8n instance for every Sheets node; independently operator-supplied in-memory Google access for native migration/readback, never extracted from n8n/plugin |
+| Independent OAuth | Bridge-owned grant/state path, local filesystem/host, process owner and sole mount; existing status is only local presence, not live validity. New consent/transfer/recovery needs explicit scope in the authorization |
+| Backups and manual state | Separate private n8n archive and encryption-key locations, restore workspace, native workbook copies, inventories/plans and reconciliation record; manual/auxiliary editors agree on the freeze |
+| Release decision | Named operator, offset timestamp, accepted limitations, core/optional dispositions, approved stages/targets, maintenance window, stop conditions and rollback scope |
+
+Version pins come from the reviewed files, not contract-number arithmetic:
+
+| Component | Repository value | Deployment verification |
+| --- | --- | --- |
+| Bridge service | `1.1.0` in `pyproject.toml` and service metadata | Record Git SHA and built image ID; no new tag/version is implied |
+| Bridge runtime | Dockerfile `python:3.12-slim`; `mcp==2.2.0` | Base tag and other dependency ranges are not immutable. Record resolved base/image digest, Python version and installed package versions privately at build time |
+| n8n | `2.35.5`, digest `sha256:c5861e6016c8f283142584190e3874e6aa6f322eca8771ceead09d08b4766a1e` | Match designated runtime to `docker-compose.yml` |
+| Schema server | `nginx:1.31.4`, digest `sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913` | Serve both reviewed JSON artifacts with their exact bindings |
+| Validation runtimes | CI Python 3.12.14 / compatibility 3.14.6 and Node 22.23.2 | Require the candidate's own CI; these are not claims about the running host |
+
+The service version `1.1.0`, source contract `1.1.0`, API/workbook `3.0` and
+retained workbook `2.1` are independent version domains. Compare deployed schema,
+workflow and packaged contract bytes to the exact approved checkout. Do not
+deploy moving `main`, a newly merged SHA, or an unreviewed helper correction
+under approval for a different revision. Repository workflows remain inactive
+and contain no runtime credential IDs.
+
+Approval can cover multiple stages and their conditional steps together. Within
+that scope, continue without another question for each node or command. A
+material target/revision change, failed guard or action outside scope stops the
+stage; elapsed time is never authorization.
+
+1. **Stage A — final production preparation.** After explicit authorization for
+   the registered targets, pause legacy schedules and relevant error delivery;
+   drain all execution/retry paths and exclude manual launches. Freeze human
+   edits, establish consistent backups and native copies, verify recoverability,
+   regenerate the final inventory/plan/requests and review them. No portfolio
+   synchronization or migration batch is included in stage A. Its native-copy
+   writes and service stopping must be named in the approval.
+2. **Stage B — migration and manual cutover.** Requires review/authorization of
+   the final plan and requests, exact deployment revision, targets and recovery
+   scope. Recheck exclusion and source/destination state; apply only the reviewed
+   native migration, validate preservation/ledger/PAUSED control, deploy matching
+   bridge/schema/workflow bindings and approved credentials, then authorize the
+   control and execute one full new manual production run. Expected writes are
+   appended migration cells/tables in the separate destination, configured
+   control, normalized current/history/child tables and sanitized terminal
+   telemetry. Manual sheets and auxiliary content remain user-owned.
+3. **Stage C — schedule acceptance.** May be approved with B, conditional on
+   manual acceptance. Publish only the reviewed MCP schedule at 07:30
+   `Europe/Paris`, retaining serial execution and manual exclusion. Independently
+   validate its first actual trigger as below. If not yet due, record PENDING
+   and resume this PR after it occurs; do not change the schedule, rename a
+   manual run or create an automation.
+4. **Recovery scope.** Approve pausing/draining and evidence preservation on a
+   failed guard. A fallback may use only the reviewed reconciled 2.1 destination
+   and complete legacy bindings described under [rollback](#rollback). If those
+   targets or manual reconciliation are not ready, remain paused. New OAuth
+   bootstrap or revocation is never implied by rollback.
+
+## Consistent backup and migration baseline
+
+A preliminary read while writers are active is planning evidence only. Native
+`inventory` and detached `plan` can help prepare the review, but never pass
+`--writers-drained` for a live source that has not been drained. Both native
+`requests` and `apply`, and detached `apply`, require that assertion. The flag
+does not inspect n8n or prevent humans from editing Sheets.
+
+After stage A draining, verify no running, waiting, queued, saved retry or
+delayed error delivery can resume. Keep schedules unpublished across restarts;
+record the last validated legacy run and its business date. Stop the designated
+stack cleanly before archiving its database. Follow
+[backup and restore](operations.md#backup-and-restore), with these cutover checks:
+
+- Archive only the designated `n8n_data`, never either `finary_session_data`
+  **or** `finary_mcp_data`; do not archive all Compose volumes or the project
+  directory wholesale. Keep the matching encryption key in a separate secure
+  location. If n8n generated a key in its settings file, ensure the recovery
+  archive excludes that key material and the separate secure copy is usable;
+  do not alter the live settings file or print its contents.
+- Record archive checksums privately, verify the archive can be read and restore
+  it to a fresh disposable volume with no Finary mounts. Check SQLite integrity
+  on the restored database. In a network-isolated unpublished recovery instance,
+  verify workflow/execution metadata and practical credential decryption with
+  the separately supplied key without displaying/exporting credential values.
+  Do not start restored schedules or replay saved executions into Google. Record
+  fixed pass/fail outcomes; a checksum alone is not a restore test.
+- Keep the original legacy workbook untouched. Create separate native backup
+  and destination copies; verify original tab order, headers/keys, complete
+  history, manual rows, auxiliary grid tabs, formulas, notes, formats, charts,
+  protections and sharing restrictions. JSON/CSV alone is not a native backup.
+  Preserve the complete native grid alongside typed inventories in a private
+  directory (0700; files 0600), outside the repository.
+- Reread source and destination after the freeze and use the final source for
+  the commands below. Verify both native copies against that baseline. Renew
+  the plan if rows/manual content changed since preliminary review; obtain
+  review of changed requests before B. Digests do not prove absence of a writer.
+  Stop on unsupported layout, duplicate keys, inconsistent canonical state,
+  auxiliary/reserved-name conflicts, oversized requests or unresolved edits.
+  Reconcile explicitly; do not weaken the helper or invent a crosswalk.
+
+Names, tickers, ISINs and row order cannot verify identifiers. Unresolved mappings
+and legacy overrides stay unapplied. The existing `verified_override` function
+requires an enabled override, exact legacy/MCP pair, `VERIFIED` state, dated
+review and evidence reference. No automatic override transfer is in this plan.
+Migration JSON is private Google workbook data; never commit it or raw upstream
+Finary payloads. No backup/recovery step uses `docker compose down -v`.
+
 ## Backups and independent OAuth
 
 1. Record deployed versions, workflow revisions, candidate/legacy workbook IDs,
@@ -244,7 +371,26 @@ repository for every inventory and plan.
    legacy overrides automatically. The native planner compares the candidate
    against the source backup and emits only appended cell/column/table changes.
 4. After candidate-write authorization, substitute `apply` for `requests` in the
-   final command. This sends one bounded Google batch. A lost response triggers
+   final command, using a separate `--output "$MIGRATION_DIR/applied.json"` so
+   the reviewed requests remain intact. Immediately beforehand, reread the
+   original source into a separate file and compare it with the final source
+   and native backup; the helper checks the destination but does not reread the
+   live source for you. Any change stops application. Rerun `requests` into
+   `revalidated-requests.json` and require
+   `cmp -s "$MIGRATION_DIR/requests.json" "$MIGRATION_DIR/revalidated-requests.json"`
+   to succeed before proceeding. The apply interface reconstructs requests from
+   the plan/current destination; it does not accept the reviewed requests file.
+   Maintain exclusion throughout this check and application. Then run:
+
+   ```bash
+   python scripts/migrate-google-workbook.py apply \
+     --source "$MIGRATION_DIR/source.json" \
+     --native-backup "$MIGRATION_DIR/source.native.json" \
+     --plan "$MIGRATION_DIR/plan.json" --writers-drained \
+     --output "$MIGRATION_DIR/applied.json"
+   ```
+
+   This sends one bounded Google batch. A lost response triggers
    ledger re-reading, never blind re-addition of columns or sheets. Repeating
    the same validated plan is a no-op that preserves later manual changes;
    conflicting/interrupted ledgers require explicit reconciliation. Partial
@@ -264,7 +410,11 @@ repository for every inventory and plan.
    ```
 
    The native apply command also re-reads Google and checks the preserved cells,
-   typed rows and validated ledger. No MCP observations are deleted on reruns.
+   typed rows and validated ledger on initial application. Before retrying an
+   uncertain result, inspect the ledger/current native state. The ledger replay
+   path does not repeat every native cell/format comparison: independently
+   revalidate preservation and later edits; never blindly resend `addSheet` or
+   column requests. No MCP observations are deleted on reruns.
    Same-day daily and holding-history rows include observation UUIDs; historical
    provenance absent in 2.1 remains blank/unknown in `legacy_observations`.
 
@@ -273,10 +423,12 @@ repository for every inventory and plan.
 Import the inactive candidate workflow and bind only its operator-approved
 Google credential. Do not attach the legacy error handler. Execute the complete
 local gates in [development](development.md#required-local-checks), then use only
-a separately authorized test workbook for shadow acceptance. Compare structure,
-coverage, explicit currency and official figures; differences from account sums
-are legitimate. Exercise empty holdings, unknown values, a failed write and
-manual preservation. Review every child table and terminal count with the
+a separately authorized test workbook if a new shadow evidence need arises.
+Existing shadow, recovery and exact-value/null acceptance is already recorded;
+do not repeat it to satisfy production acceptance. Compare structure, coverage,
+explicit currency and official figures; differences from account sums are
+legitimate. Never inject synthetic holdings, null transitions or deliberate write
+failures into production. Review every child table and terminal count with the
 [reference consumer](mcp-consumer.md). Do not treat offline mocks as live evidence.
 
 After release acceptance and explicit cutover authorization, drain old executions
@@ -297,6 +449,134 @@ can leave no terminal at all. Preserve evidence and retry a fresh observation
 only after assessing the failed run. A lost successful terminal response never
 authorizes overwriting that success with failure.
 
+## Fresh production run acceptance
+
+Keep the MCP workflow unpublished until the manual run passes. Bind every Sheets
+read/write/failure node to the approved Google credential inside the designated
+n8n instance; keep its legacy error workflow unattached. Verify the actual
+`FINARY_MCP_SCHEMA_URL`, workbook, writer/generation and bridge provider, plus
+`N8N_CONCURRENCY_PRODUCTION_LIMIT=1`. Exclude overlapping manual launches and
+all other users of the OAuth state, including host probes. Set `writer_control`
+ACTIVE only for this exact migrated destination/writer/generation. Its singleton
+row supplements operational exclusion; Google Sheets supplies no atomic CAS lock.
+
+For each accepted manual or scheduled run:
+
+1. Inspect the fresh **full execution**, not a green node or cached partial
+   inputs. Privately record workflow revision, actual execution/run/observation
+   IDs, start/completion timestamps with offsets and Paris business date. Check
+   terminal finalization happened after all required write branches and that
+   there is exactly one valid successful terminal for that observation/run.
+2. After writes settle, keep competing writers and human edits excluded. Reread
+   every canonical table with full headers and complete physical membership,
+   including inactive/foreign rows and all terminals; never prefilter or
+   deduplicate. Verify native exact decimal strings, actual blank cells and
+   genuine zero. Reject truncated ranges and changed/inconsistent reads.
+3. Call the actual reference consumer for the **expected run**, then select the
+   newest accepted state. A dated fallback or an older success is useful for
+   recovery, but cannot accept this new run. The example below reads native
+   Sheets directly twice in memory and invokes production functions; there is
+   no `python -m app.mcp_consumer` CLI. The native migration CLI's `inventory`
+   command assumes 2.1; use its `native_inventory(..., "3.0")` Python interface
+   for MCP reads. Do not invent a `--schema-version` flag.
+
+From the repository root with the development virtualenv active, set
+`CUTOVER_EXPECTATION_FILE` to a private JSON record populated from the registered
+target and actual n8n execution. It contains `workbook_id`, `run_id`,
+`observation_id`, `writer_id`, integer `writer_generation`, `migration_id`,
+`control_state` (`ACTIVE` or deliberately `PAUSED`) and `snapshot_date`.
+It contains no credentials. Run only within the approved readback scope:
+
+```bash
+python - <<'PY'
+import getpass
+import importlib.util
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+from app.mcp_consumer import observation, require, select
+
+spec = importlib.util.spec_from_file_location("native", "scripts/migrate-google-workbook.py")
+native = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(native)
+try:
+    expected = json.loads(Path(os.environ["CUTOVER_EXPECTATION_FILE"]).read_text())
+    client = native.GoogleCandidate(getpass.getpass("Independent Google access token: "))
+    try:
+        first = native.native_inventory(client.read(expected["workbook_id"]), "3.0")
+        second = native.native_inventory(client.read(expected["workbook_id"]), "3.0")
+    finally:
+        client.http.close()
+    require(first == second)
+    book = {name: sheet["rows"] for name, sheet in second["sheets"].items()}
+    require(type(expected["writer_generation"]) is int and expected["writer_generation"] > 0)
+    require(expected["control_state"] in {"ACTIVE", "PAUSED"})
+    require(len(book["writer_control"]) == 1)
+    require(type(book["writer_control"][0]["generation"]) in {int, float})
+    require(book["writer_control"] == [{
+        "row_key": "singleton", "workbook_schema": "3.0",
+        "provider": "finary_official_mcp", "generation": expected["writer_generation"],
+        "writer_id": expected["writer_id"], "migration_id": expected["migration_id"],
+        "state": expected["control_state"],
+    }])
+    terminals = [r for r in book["sync_runs"] if r["run_id"] == expected["run_id"]]
+    require(len(terminals) == 1)
+    terminal = terminals[0]
+    require(type(terminal["writer_generation"]) in {int, float})
+    for field in ("observation_id", "writer_id", "writer_generation"):
+        require(terminal[field] == expected[field])
+    now = datetime.now(timezone.utc)
+    result = observation(book, terminal, now=now)
+    latest = select(book, now=now)
+    require(result["current_complete"] and not result["dated_fallback"] and not result["stale"])
+    require(latest["context"]["run_id"] == expected["run_id"] and not latest["dated_fallback"])
+    require(result["context"]["snapshot_date"] == expected["snapshot_date"])
+    print(json.dumps({
+        "status": "WORKBOOK_READBACK_VALIDATED", "current_complete": True,
+        "series_break": latest["series_break"], "operationally_stale": result["stale"],
+        "warning_codes": sorted({r["code"] for r in result["detail"]["source_warnings"] or []}),
+    }))
+except Exception:
+    raise SystemExit("WORKBOOK_READBACK_REVIEW_REQUIRED") from None
+PY
+```
+
+This checks exact run identity, versions, unique membership/counts and production
+semantics using fresh native cells, with fixed structural output. It neither
+proves n8n write ordering nor compares backups, certifies trigger origin or makes
+sequential reads atomic. Inspect those separate evidence boundaries explicitly:
+
+- Compare legacy history, manual/auxiliary content and native formats against
+  the final baseline; account for any approved human edits. Inactive rows keep
+  their last actual observation identity. Preserve every later MCP observation.
+- Official overview totals/allocation remain authoritative, even when detail
+  sums differ. Unknown loan detail does not become zero debt or authorize loan
+  inactivation. Verify no liability rows were written/inactivated. Preserve null
+  membership counts as unavailable, and zero as verified empty membership.
+- Confirm a provider/view/currency-incompatible baseline produces a series
+  break. Retain ownership/rate/detail warnings; `SUCCESS_WITH_WARNINGS` can pass
+  with explicit operator acceptance. Never suppress warnings to obtain SUCCESS.
+  Record operational freshness and bank-source freshness independently.
+
+Only after manual acceptance and stage C approval publish the existing 07:30
+`Europe/Paris` schedule. For the first real scheduled execution, require n8n's
+actual trigger/execution metadata and executed Schedule Trigger node, not the
+workflow title. Resolve the actual timestamp/offset and Paris business date;
+repeat all the checks above with that execution's own expected identity. Confirm
+legacy schedules, delayed error handlers and competing manual paths remained
+excluded throughout. Do not infer scheduled acceptance from manual output.
+
+On failure, preserve private execution/native evidence and pause/drain further
+writes under the approved recovery scope. A partial observation or absent
+terminal is unaccepted. Inspect a possibly committed successful terminal before
+retrying; never replace it with FAILED on response loss. A full new observation
+may recover only after the cause and scope are reviewed. Record pending scheduled
+evidence without adding an unrequested automation. Publish only sanitized
+outcomes in the same draft PR, tied to the actual deployed code SHA and separate
+later documentation revision.
+
 ## Rollback
 
 Pause and drain the MCP writer and manual launches. Preserve the entire 3.0
@@ -307,11 +587,49 @@ digest and run `scripts/migrate-workbook.py rollback-check` with `--source` set
 to that 2.1 inventory, `--target` to the preserved paused MCP inventory,
 `--reconciled-manual-digest`, and a private `--output`. Review the returned IDs.
 
+Record explicit reconciliation decisions for later manual edits and auxiliary
+content; MCP-only overrides stay unresolved unless their reverse mapping has
+independent exact-pair evidence. Never automatically reverse-convert MCP
+observations. Verify the preserved control is exactly one PAUSED row; the helper
+does not prove operational draining or completeness of the human reconciliation.
+Its source must be the separate reconciled 2.1 copy, never the sole original:
+
+```bash
+python scripts/migrate-workbook.py inventory \
+  --source "$MIGRATION_DIR/reconciled-legacy.json" \
+  --output "$MIGRATION_DIR/reconciled-inventory.json"
+python scripts/migrate-workbook.py rollback-check \
+  --source "$MIGRATION_DIR/reconciled-legacy.json" \
+  --target "$MIGRATION_DIR/preserved-mcp.json" \
+  --reconciled-manual-digest "$RECONCILED_MANUAL_DIGEST" \
+  --output "$MIGRATION_DIR/rollback-validation.json"
+```
+
+Set the digest from the reviewed `manual_digest` in `reconciled-inventory.json`.
+Obtain `preserved-mcp.json` from the existing native Python reader above using
+`native_inventory(..., "3.0")` and `native.migration.private_write`, together
+with a separate full native copy/backup; do not use the 2.1-only inventory CLI
+on a migrated workbook. Keep all these artifacts outside Git.
+
 Restore only the legacy provider, schema URL, workbook and legacy workflows.
 Its first manual successful run and subsequent 07:30 run require independent
 verification. Rollback does not delete MCP observations, reverse-map IDs by
 appearance or overwrite unresolved mappings. OAuth revocation remains a separate
 explicit operator decision.
+
+Rollback criteria include a mismatched revision/binding, failed migration or
+preservation guard, overlapping writer, unavailable authorization preventing
+approved recovery, or failed manual/scheduled membership or semantic acceptance.
+Pause first and preserve evidence; execute rollback only within approved targets
+and reconciliation scope. Restore `FINARY_PROVIDER=private_api`, `/v2/snapshot`,
+`FINARY_GOOGLE_SHEET_ID` for the reconciled copy and
+`FINARY_SCHEMA_URL=http://schema-server/google-sheets-schema-v2.json` together.
+Restore both reviewed inactive legacy workflows and their Google/local n8n API
+bindings, then their error-workflow relationship. Keep MCP unpublished/PAUSED.
+Use [legacy first-run checks](operations.md#first-run-verification) and independent
+scheduled verification before accepting recovery. Existing legacy authorization
+is not guaranteed usable; if new consent is needed, remain paused until its
+separate authorization and successful recovery.
 
 Source contract 1.1.0 preserves up to 64 fractional digits as exact decimal text
 (24 integer digits). This is a bounded project policy, not an upstream maximum.
