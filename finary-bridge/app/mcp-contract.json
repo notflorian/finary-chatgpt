@@ -374,7 +374,7 @@
       "dependencies": "n8n sees normalized HTTP only; get_me optional connection check, profiles optional enrichment; missing either must not redefine ownership"
     },
     "routing": {
-      "v3": "canonical portfolio route; construct only the official MCP client after local bridge authorization; no provider selector",
+      "v1": "canonical portfolio route; construct only the official MCP client after local bridge authorization; no provider selector",
       "health": "metadata only, no client/auth-state access",
       "bridge_auth": "check local API key before constructing the MCP client or accessing OAuth state",
       "fallback": "FORBIDDEN"
