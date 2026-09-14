@@ -28,3 +28,6 @@ n8n_data/
 # Python package build outputs
 /finary-bridge/build/
 /finary-bridge/dist/
+
+# Generated from the authoritative root notice during packaging
+/finary-bridge/LICENSE

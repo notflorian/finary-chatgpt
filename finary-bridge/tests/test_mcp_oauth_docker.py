@@ -82,7 +82,10 @@ def test_rootful_linux_host_container_host_handoff(tmp_path):
     image = project + ":test"
     container = project + "-bridge"
     try:
-        run(["docker", "build", "-t", image, service["build"]["context"]], timeout=300)
+        build = service["build"]
+        run(["docker", "build", "-t", image, "-f",
+             str(Path(build["context"]) / build.get("dockerfile", "Dockerfile")),
+             build["context"]], timeout=300)
 
         default_user = run(["docker", "image", "inspect", image,
                             "--format", "{{.Config.User}}"]).stdout.strip()

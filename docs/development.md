@@ -39,7 +39,6 @@ python -m pytest --collect-only -q
 python -m pytest -m "not live" --ignore=tests/live -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
 python -m ruff check .
 python -m mypy app
-python -m build
 ```
 
 Run repository contracts from the repository root:
@@ -288,10 +287,11 @@ control to PAUSED afterwards. Offline generation alone is not live verification.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main` with
-read-only repository permissions. It has six bounded jobs:
+read-only repository permissions. It has seven bounded jobs:
 
 | Job | Checks |
 | --- | --- |
+| `release-artifacts` | required fresh wheel/sdist installs, archive inventories, negative controls and actual bridge image smoke |
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
 | `mcp-validation-python314` | Python 3.14 contract/model, MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
@@ -338,3 +338,60 @@ the checkout. The pinned `mcp==2.2.0` SDK, protocol revision, storage format and
 writer generation are unrelated version domains; do not change them as part of
 an application/schema update. CI success does not authorize publication,
 deployment, workflow activation or changes to operator data.
+
+### Installed release artifacts
+
+From the repository root, with Git, Python 3.12+ (including venv/pip), Docker Engine
+and Compose available, run exactly:
+
+```bash
+python scripts/validate-release-artifacts.py
+```
+
+The command requires package-index access for fresh build/runtime dependency
+resolution and base-image access. It uses a temporary directory outside the
+checkout and no operator environment, state or production mounts. Docker is
+required: unavailable Docker or any failed build/install/check exits nonzero,
+including locally. Obtain missing platform evidence from the required
+`release-artifacts` CI job; a local partial run is not a passing gate.
+
+One wheel and one sdist are built with the declared minimum setuptools 77.0.3
+in a separate builder environment. `MANIFEST.in` explicitly excludes tests even
+with backends that automatically include test modules in sdists. Both archive
+inventories, application files,
+canonical JSON bytes and MIT metadata/notice are checked. Each exact archive is
+installed with fresh runtime dependencies only in its own venv. The sdist build
+uses pip isolation after the staging source has been removed. Python `-I`, clean
+environments and explicit module/distribution path checks reject editable,
+user-site, PYTHONPATH and checkout contamination. No dev extra is installed in
+the tested environments. Controlled mutations of the wheel installation prove
+missing contracts, license metadata/notice and checkout-only imports fail; a
+restored installation passes again.
+
+The same runtime-only smoke starts the real app with Uvicorn outside source
+folders, checks health, exact OpenAPI routes, authentication, unsupported majors,
+versions and offline PAUSED workbook/Google-create output. Profile and audit
+sentinels are installed before app import to reject and persist attempted MCP
+client construction, OAuth-store calls/state-file reads and outgoing socket/DNS
+operations, including caught exceptions. Only the separate HTTP probe makes
+loopback requests. Focused tests exercise the sentinels themselves.
+
+The image check resolves the production Compose build configuration and builds
+the actual Dockerfile. It runs the same smoke in `/tmp` with `--network none`,
+then independently verifies health using the unmodified image startup command.
+The image contains its installed application and notice; build sources are
+removed to prevent import shadowing. Containers/images have unique names,
+bounded execution and cleanup on success or failure. The separate Linux
+`oauth-ownership` gate retains the candidate UID/GID host–container–host check.
+
+For standalone packaging, `python -m build finary-bridge` from the root remains
+supported (install the `build` frontend first), as does `python -m build` inside
+`finary-bridge`. `setup.py` stages `finary-bridge/LICENSE` from the authoritative
+root `LICENSE`; the generated copy is ignored by Git and included in the sdist.
+An extracted sdist uses its own notice without the original parent directory.
+SPDX metadata requires the declared setuptools minimum; no license change is made.
+Both Compose files now build from the repository root with an explicit
+`finary-bridge/Dockerfile`. The root `.dockerignore` allowlists only that Dockerfile,
+root notice, package configuration and application Python/JSON inputs, excluding
+`.env`, OAuth state, Git history, tests and unrelated workspace files. Direct
+image builds use `docker build -f finary-bridge/Dockerfile .` from the root.

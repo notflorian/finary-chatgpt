@@ -1,0 +1,13 @@
+# Explicit bridge build inputs only; exclude operator state and workspace contents.
+**
+!LICENSE
+!finary-bridge/
+!finary-bridge/Dockerfile
+!finary-bridge/pyproject.toml
+!finary-bridge/setup.py
+!finary-bridge/MANIFEST.in
+!finary-bridge/app/
+!finary-bridge/app/*.py
+!finary-bridge/app/*.json
+!finary-bridge/app/services/
+!finary-bridge/app/services/*.py
