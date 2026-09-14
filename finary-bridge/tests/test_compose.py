@@ -163,3 +163,80 @@ def test_canonical_daily_workflow_export_remains_inactive() -> None:
     assert workflow["name"] == "Finary MCP Portfolio Sync"
     assert workflow["active"] is False
     assert "30 7 * * *" in DAILY_PATH.read_text(encoding="utf-8")
+
+
+def test_candidate_identity_is_explicit_and_scoped(tmp_path):
+    if shutil.which("docker") is None:
+        pytest.skip("Docker Compose is required")
+    environment = {
+        "PATH": os.environ.get("PATH", os.defpath), "COMPOSE_ENV_FILES": "/dev/null",
+        "FINARY_MCP_TEST_DIR": str(tmp_path / "operator state"),
+        "FINARY_MCP_CANDIDATE_API_KEY": "synthetic-key",
+        "FINARY_MCP_CANDIDATE_WORKBOOK_ID": "synthetic-book",
+        "FINARY_MCP_CANDIDATE_UID": "12345",
+        "FINARY_MCP_CANDIDATE_GID": "23456",
+    }
+    command = ["docker", "compose", "--env-file", "/dev/null", "-p", "candidate-test",
+               "-f", str(ROOT / "docker-compose.mcp-test.yml"), "config", "--format", "json"]
+    result = subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+    services = json.loads(result.stdout)["services"]
+    assert services["finary-bridge"]["user"] == "12345:23456"
+    assert all("user" not in services[name] for name in ("n8n", "schema-server"))
+    assert _mount(services["finary-bridge"], "/var/lib/finary-mcp/state")["source"] == (
+        str(tmp_path / "operator state")
+    )
+    for name in ("FINARY_MCP_CANDIDATE_UID", "FINARY_MCP_CANDIDATE_GID"):
+        missing = {k: v for k, v in environment.items() if k != name}
+        result = subprocess.run(command, env=missing, capture_output=True, check=False)
+        assert result.returncode != 0
+
+
+@pytest.mark.parametrize("value", ["", "0", "root", "-1", "1:2", " 1001", "01", "4294967295"])
+@pytest.mark.parametrize("suffix", ["UID", "GID"])
+def test_candidate_preflight_rejects_invalid_identity_without_mutation(tmp_path, value, suffix):
+    import sys
+
+    directory = tmp_path / "operator state"
+    directory.mkdir(mode=0o700)
+    before = directory.stat()
+    environment = {
+        "FINARY_MCP_TEST_DIR": str(directory),
+        "FINARY_MCP_CANDIDATE_UID": str(os.getuid()),
+        "FINARY_MCP_CANDIDATE_GID": str(os.getgid()),
+        f"FINARY_MCP_CANDIDATE_{suffix}": value,
+    }
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/validate-mcp-candidate.py")],
+        env=environment, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "Invalid isolated ownership configuration" in result.stderr
+    assert list(directory.iterdir()) == []
+    assert directory.stat() == before
+
+
+@pytest.mark.parametrize("fault", ["permissions", "symlink", "missing"])
+def test_candidate_preflight_preserves_unsafe_directory(tmp_path, fault):
+    import sys
+
+    directory = tmp_path / "operator state"
+    directory.mkdir(mode=0o700)
+    if fault == "permissions":
+        directory.chmod(0o755)
+    elif fault == "symlink":
+        target = tmp_path / "target"
+        directory.rename(target)
+        directory.symlink_to(target, target_is_directory=True)
+    else:
+        directory.rmdir()
+    before = directory.lstat() if directory.exists() else None
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/validate-mcp-candidate.py")],
+        env={"FINARY_MCP_TEST_DIR": str(directory),
+             "FINARY_MCP_CANDIDATE_UID": str(os.getuid()),
+             "FINARY_MCP_CANDIDATE_GID": str(os.getgid())},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode != 0 and result.stdout == ""
+    assert (directory.lstat() if directory.exists() else None) == before

@@ -5,6 +5,7 @@ services:
   finary-bridge:
     build:
       context: ./finary-bridge
+    user: "${FINARY_MCP_CANDIDATE_UID:?Set the operator UID}:${FINARY_MCP_CANDIDATE_GID:?Set the operator GID}"
     restart: "no"
     environment:
       FINARY_BRIDGE_API_KEY: ${FINARY_MCP_CANDIDATE_API_KEY:?Set an independent test bridge key}

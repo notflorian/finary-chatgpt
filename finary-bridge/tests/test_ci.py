@@ -35,10 +35,11 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
         "static-analysis",
         "repository-contracts",
         "n8n-import",
+        "oauth-ownership",
     ):
         assert f"  {job}:\n" in ci
         assert f"    name: {job}\n" in ci
-    assert ci.count("timeout-minutes:") == 5
+    assert ci.count("timeout-minutes:") == 6
 
 
 def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
@@ -49,7 +50,7 @@ def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
     assert all(ACTION_REFERENCE.fullmatch(line) for line in action_lines)
     assert 'python-version: "3.12.14"' in ci
     assert 'node-version: "22.23.2"' in ci
-    assert ci.count("persist-credentials: false") == 5
+    assert ci.count("persist-credentials: false") == 6
 
 
 def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
@@ -156,3 +157,12 @@ def test_python314_compatibility_job_runs_mcp_validation() -> None:
     assert all((ROOT / "finary-bridge" / path).is_file() for path in selected)
     assert "docker" not in job
     assert "n8n" not in job
+
+
+def test_ci_requires_actual_oauth_ownership_runtime():
+    ci = CI_PATH.read_text(encoding="utf-8")
+    job = ci.split("  oauth-ownership:", 1)[1]
+    assert 'FINARY_REQUIRE_OAUTH_DOCKER: "1"' in job
+    assert "python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py" in job
+    assert "continue-on-error" not in job
+    assert "timeout-minutes: 10" in job

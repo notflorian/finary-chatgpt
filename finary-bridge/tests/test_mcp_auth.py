@@ -571,3 +571,95 @@ def test_process_refresh_releases_lease_and_preserves_newer_state(tmp_path, repl
     with independent_oauth(store, expected_refresh=expected) as successor:
         assert receive_process(successor)[0] == "SUCCESS"
     assert store.read().generation != before.generation
+
+
+@pytest.mark.parametrize("target", ["directory", "state", "lock", "lease"])
+@pytest.mark.parametrize("fault", ["owner", "permissions", "symlink"])
+def test_private_state_rejection_precedes_http_and_preserves_files(
+    tmp_path, monkeypatch, target, fault
+):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    paths = {
+        "directory": store.path.parent,
+        "state": store.path,
+        "lock": Path(str(store.path) + ".lock"),
+        "lease": Path(str(store.path) + ".lease"),
+    }
+    path = paths[target]
+    if fault == "permissions":
+        path.chmod(0o755 if target == "directory" else 0o644)
+    elif fault == "symlink":
+        saved = path.with_name(path.name + ".saved")
+        path.rename(saved)
+        path.symlink_to(saved, target_is_directory=target == "directory")
+    else:
+        import app.mcp_auth as auth
+
+        original = auth.private_stat
+        inode = path.stat().st_ino
+
+        def wrong_owner(info, mode):
+            if info.st_ino == inode:
+                values = list(info)
+                values[4] = os.getuid() + 1
+                info = os.stat_result(values)
+            original(info, mode)
+
+        monkeypatch.setattr(auth, "private_stat", wrong_owner)
+
+    before = {name: (p.lstat(), p.read_bytes() if name != "directory" else None)
+              for name, p in paths.items()}
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unsafe state reached HTTP construction")
+
+    monkeypatch.setattr(httpx2, "AsyncClient", forbidden)
+    with pytest.raises(McpFailure) as unavailable:
+        asyncio.run(unattended(store, AuthPeer()))
+    assert unavailable.value.code == "MCP_AUTH_UNAVAILABLE"
+    for name, p in paths.items():
+        info, contents = before[name]
+        after = p.lstat()
+        assert (after.st_ino, after.st_mode, after.st_uid, after.st_mtime_ns) == (
+            info.st_ino, info.st_mode, info.st_uid, info.st_mtime_ns
+        )
+        if contents is not None:
+            assert p.read_bytes() == contents
+
+
+def test_malformed_state_is_preserved_before_http(tmp_path, monkeypatch):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    store.path.write_bytes(b'{"malformed":"synthetic"}')
+    before = store.path.read_bytes(), store.path.stat().st_ino
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Malformed state reached HTTP construction")
+
+    monkeypatch.setattr(httpx2, "AsyncClient", forbidden)
+    with pytest.raises(McpFailure):
+        asyncio.run(unattended(store, AuthPeer()))
+    assert (store.path.read_bytes(), store.path.stat().st_ino) == before
+
+
+def test_inaccessible_state_is_not_repaired_or_sent_to_http(tmp_path, monkeypatch):
+    store = OAuthStore(tmp_path / "oauth/state.json")
+    asyncio.run(consent(store, AuthPeer()))
+    before = store.path.read_bytes(), store.path.stat().st_ino
+    original_open = os.open
+
+    def inaccessible(path, *args, **kwargs):
+        if Path(path) == store.path:
+            raise PermissionError("Synthetic inaccessible state")
+        return original_open(path, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Inaccessible state reached HTTP construction")
+
+    monkeypatch.setattr(os, "open", inaccessible)
+    monkeypatch.setattr(httpx2, "AsyncClient", forbidden)
+    with pytest.raises(McpFailure) as error:
+        asyncio.run(unattended(store, AuthPeer()))
+    assert error.value.code == "MCP_AUTH_UNAVAILABLE"
+    assert (store.path.read_bytes(), store.path.stat().st_ino) == before

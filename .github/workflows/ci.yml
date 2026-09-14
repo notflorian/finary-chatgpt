@@ -120,6 +120,8 @@ jobs:
       - name: Validate isolated MCP configuration
         env:
           COMPOSE_ENV_FILES: /dev/null
+          FINARY_MCP_CANDIDATE_UID: "1001"
+          FINARY_MCP_CANDIDATE_GID: "1001"
           FINARY_MCP_TEST_DIR: /tmp
           FINARY_MCP_CANDIDATE_API_KEY: synthetic-ci-key
           FINARY_MCP_CANDIDATE_WORKBOOK_ID: synthetic-candidate
@@ -163,3 +165,23 @@ jobs:
           python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
           finary-bridge/tests/test_n8n_runtime_support.py
           finary-bridge/tests/test_mcp_runtime.py
+
+  oauth-ownership:
+    name: oauth-ownership
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+      - name: Install synthetic test dependencies
+        run: python -m pip install -e "./finary-bridge[dev]"
+      - name: Verify actual bridge ownership handoff
+        env:
+          FINARY_REQUIRE_OAUTH_DOCKER: "1"
+        run: python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py

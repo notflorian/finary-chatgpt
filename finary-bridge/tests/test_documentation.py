@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,8 +30,10 @@ def test_isolated_compose_commands_preserve_their_environment_boundary(tmp_path,
     ]
     assert len(blocks) == 1, "Expected one explicit isolated Compose command block"
     state = tmp_path / "synthetic operator state"
-    state.mkdir()
+    state.mkdir(mode=0o700)
     operator = {
+        "FINARY_MCP_CANDIDATE_UID": str(os.getuid()),
+        "FINARY_MCP_CANDIDATE_GID": str(os.getgid()),
         "FINARY_MCP_TEST_DIR": str(state),
         "FINARY_MCP_CANDIDATE_API_KEY": "synthetic-operator-key",
         "FINARY_MCP_CANDIDATE_WORKBOOK_ID": "synthetic-operator-book",
@@ -40,6 +43,7 @@ def test_isolated_compose_commands_preserve_their_environment_boundary(tmp_path,
     # Only the substitute executable is on PATH; no inherited shell hooks or secrets.
     binary = tmp_path / "bin"
     binary.mkdir()
+    (binary / "python").symlink_to(sys.executable)
     docker = binary / "docker"
     docker.write_text(
         f"#!{sys.executable}\n"
@@ -64,6 +68,8 @@ def test_isolated_compose_commands_preserve_their_environment_boundary(tmp_path,
     actions = [["config", "--quiet"]]
     if section == "Required local checks":
         expected.update(
+            FINARY_MCP_CANDIDATE_UID="1001",
+            FINARY_MCP_CANDIDATE_GID="1001",
             FINARY_MCP_TEST_DIR="/tmp",
             FINARY_MCP_CANDIDATE_API_KEY="synthetic-key",
             FINARY_MCP_CANDIDATE_WORKBOOK_ID="synthetic-book",
@@ -236,3 +242,16 @@ def test_readback_cli_completion_ambiguity_with_fixed_clock(tmp_path, ambiguous)
                 "stale": False, "series_break": False,
             }
         book["sync_runs"].reverse()
+
+
+def test_documented_identity_exports_use_id_not_shell_uid(tmp_path):
+    document = (ROOT / "docs/development.md").read_text()
+    block = next(block for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
+                 if 'export FINARY_MCP_CANDIDATE_UID="$(id -u)"' in block)
+    result = subprocess.run(
+        ["/bin/bash", "--noprofile", "--norc", "-eu", "-c",
+         block + '\nprintf "%s:%s" "$FINARY_MCP_CANDIDATE_UID" "$FINARY_MCP_CANDIDATE_GID"'],
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+        capture_output=True, text=True, timeout=5, check=True,
+    )
+    assert result.stdout == f"{os.getuid()}:{os.getgid()}"
