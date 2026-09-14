@@ -301,24 +301,7 @@ def test_lookup_transport_failure_has_explicit_sanitized_diagnostic(status):
     assert failure.value.stderr == "SOURCE_RUN_IDENTITY_UNAVAILABLE"
 
 
-def test_all_generated_error_copies_match_shared_source():
-    import importlib.util
-
-    from test_operations import ROOT
-
-    spec = importlib.util.spec_from_file_location(
-        "build_validation", ROOT / "scripts/build-workflow-validation.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    for node in _load(ERROR_PATH)["nodes"]:
-        if node["type"] != "n8n-nodes-base.code":
-            continue
-        path = module.code_node_source_path("finary-error-handler.json", node["name"])
-        assert path.is_file()
-        assert node["parameters"]["jsCode"] == module.expected_code(
-            "finary-error-handler.json", node["name"]
-        )
+def test_error_lookup_preserves_bounded_runtime_authentication():
     fetch = next(n for n in _load(ERROR_PATH)["nodes"] if n["name"] == "Fetch Source Execution")
     assert fetch["executeOnce"] and fetch["maxTries"] == 3
     assert fetch["parameters"]["options"]["timeout"] == 10000

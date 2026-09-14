@@ -1,24 +1,16 @@
-"""Execute both exported contract boundaries with synthetic data.
+"""Execute frozen workbook boundaries and all-batch output mutations."""
 
-Pydantic is the API field oracle. Output mutations run after valid preparation,
-before its real all-batch gate; they cannot be caught by the input validator.
-"""
-
-import importlib.util
 import json
 import subprocess
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 from test_n8n_workflow import _headers, _prepare_named_rows, _run_code_node, _run_context, _snapshot
 from test_n8n_workflow_v2 import _node, _run_validation
 from test_n8n_workflow_v2 import schema as schema
 from test_n8n_workflow_v2 import workflow as workflow
 from test_sync_completion import _finalize, _prepare
-
-from app.models import Account, Liability, PortfolioSnapshotV2, Position, SnapshotCoverage
 
 ROOT = Path(__file__).parents[2]
 MISSING = object()
@@ -30,13 +22,6 @@ BATCHES = {
     "portfolio_daily": "daily_rows",
     "sync_runs": "sync_run_rows",
 }
-MODELS = [
-    ((), PortfolioSnapshotV2),
-    (("coverage",), SnapshotCoverage),
-    (("accounts", 0), Account),
-    (("positions", 0), Position),
-    (("liabilities", 0), Liability),
-]
 
 
 def _mutate(snapshot, path, field, value):
@@ -47,64 +32,6 @@ def _mutate(snapshot, path, field, value):
         parent.pop(field, None)
     else:
         parent[field] = value
-
-
-def _api_field_cases(rejected):
-    """Select cases with the real model, not a parallel validator implementation."""
-    values = [
-        MISSING,
-        None,
-        "",
-        True,
-        False,
-        123,
-        -1,
-        [],
-        {},
-        "invalid",
-        float("nan"),
-        float("inf"),
-    ]
-    for path, model in MODELS:
-        for field in model.model_fields:
-            for index, value in enumerate(values):
-                snapshot = _snapshot()
-                # Preserve the independent known-account-total safety gate when
-                # testing omission of a nullable account valuation.
-                snapshot["gross_assets_eur"] = 0
-                snapshot["net_worth_eur"] = -10
-                _mutate(snapshot, path, field, value)
-                try:
-                    PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
-                    invalid = False
-                except ValidationError:
-                    invalid = True
-                # Positive default/null boundaries only; arbitrary valid key
-                # strings still have the workflow's canonical-key safety rules.
-                if invalid == rejected and (rejected or value is MISSING or value is None):
-                    yield pytest.param(snapshot, id=f"{'.'.join(map(str, path))}.{field}-{index}")
-
-
-@pytest.mark.parametrize("snapshot", list(_api_field_cases(True)))
-def test_api_field_matrix_rejects_model_invalid_values(workflow, schema, snapshot):
-    with pytest.raises(ValidationError):
-        PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
-    result = _run_validation(workflow, schema, snapshot)
-    assert result["can_write"] is False
-    assert "snapshot" not in result
-    assert result["failure"]["code"] == "SNAPSHOT_VALIDATION_FAILED"
-    assert len(result["failure"]["message"]) < 180
-
-
-@pytest.mark.parametrize("snapshot", list(_api_field_cases(False)))
-def test_api_defaults_and_nullable_fields_match_model(workflow, schema, snapshot):
-    expected = PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot)).model_dump(mode="json")
-    result = _run_validation(workflow, schema, snapshot)
-    assert result["can_write"] is True
-    assert result["snapshot"] == expected
-    named = _prepare_named_rows(schema, result["snapshot"])
-    prepared = _run_code_node(workflow, "Prepare Validated Rows", named_rows=named, input_rows=[{}])
-    assert prepared[0]["json"]["sync_run_rows"][0]["status"].startswith("SUCCESS")
 
 
 ISSUE_CASES = [
@@ -119,8 +46,6 @@ ISSUE_CASES = [
 def test_four_issue_reproductions_fail_before_overrides(workflow, schema, group, field, value):
     snapshot = _snapshot()
     _mutate(snapshot, (group, 0), field, value)
-    with pytest.raises(ValidationError):
-        PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
     assert _run_validation(workflow, schema, snapshot)["can_write"] is False
     # Also guard preparation against a malformed saved input. The default
     # matching override would otherwise hide the absent position asset_class.
@@ -165,25 +90,6 @@ def test_sparse_api_arrays_fail_before_property_access(workflow, schema, collect
     )[0]["json"]
     assert result["can_write"] is False
     assert result["failure"]["message"] == f"CONTRACT_VALIDATION_FAILED:snapshot.{collection}[]"
-
-
-@pytest.mark.parametrize("path,model", MODELS)
-def test_extra_fields_and_explicit_undefined_never_disappear(workflow, schema, path, model):
-    access = "inputRows[0].body" + "".join(f"[{json.dumps(part)}]" for part in path)
-    for field in [*model.model_fields, "private-extra-field"]:
-        setup = f"{access}[{json.dumps(field)}] = undefined;"
-        result = _run_code_node(
-            workflow,
-            "Validate Snapshot",
-            named_rows={
-                "Initialize Run": [_run_context()],
-                "Fetch Canonical Schema": [{"body": schema}],
-            },
-            input_rows=[{"body": _snapshot()}],
-            setup_js=setup,
-        )[0]["json"]
-        assert result["can_write"] is False
-        assert "private-extra-field" not in result["failure"]["message"]
 
 
 @pytest.mark.parametrize("currency", ["EU", "EURO", "eur", "E1R", "EUR\n", " EUR", "€€€"])
@@ -243,7 +149,6 @@ def test_valid_offsets_signed_values_unrestricted_strings_and_metadata(workflow,
     snapshot["liabilities"][0].update(
         interest_rate=-2, monthly_payment_eur=0, end_date="2028-02-29"
     )
-    PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
     result = _run_validation(workflow, schema, snapshot)
     assert result["can_write"] is True
     assert result["snapshot"]["positions"][0]["metadata"] == {}
@@ -270,7 +175,6 @@ def test_identifiers_have_no_speculative_character_allowlist(workflow, schema):
         position["position_key"] = (
             f"finary:{account['source_account_id']}:asset:{position['source_asset_id']}"
         )
-    PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
     assert _run_validation(workflow, schema, snapshot)["can_write"] is True
     _run_code_node(
         workflow,
@@ -394,37 +298,6 @@ def test_api_string_end_date_fails_only_at_sheet_date_boundary(workflow, schema,
             input_rows=[{}],
         )
     assert error.value.stderr == "CONTRACT_VALIDATION_FAILED:liabilities_current.end_date"
-
-
-def test_generated_contract_and_all_embedded_copies_are_current(workflow, schema):
-    spec = importlib.util.spec_from_file_location(
-        "build_validation", ROOT / "scripts/build-workflow-validation.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    for node in workflow["nodes"]:
-        if node["type"] != "n8n-nodes-base.code":
-            continue
-        path = module.code_node_source_path("finary-daily-sync.json", node["name"])
-        assert path.is_file()
-        assert node["parameters"]["jsCode"] == module.expected_code(
-            "finary-daily-sync.json", node["name"]
-        )
-    assert module.api_contract()["$defs"]["AssetClass"]["enum"] == schema["enums"]["asset_class"]
-    assert (
-        module.api_contract()["$defs"]["LiabilityCoverage"]["enum"]
-        == schema["enums"]["liability_coverage"]
-    )
-    # Every emitted enum resolves explicitly; no duplicated enum value lists.
-    bindings = {
-        "asset_class": "asset_class",
-        "status": "sync_status",
-        "liability_coverage": "liability_coverage",
-    }
-    for sheet in BATCHES:
-        for column in schema["sheets"][sheet]["columns"]:
-            if column["type"] == "ENUM":
-                assert bindings[column["name"]] in schema["enums"]
 
 
 def test_valid_failed_telemetry_preserves_nullable_unavailable_values(workflow, schema):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from copy import deepcopy
 from datetime import datetime
 from typing import Any
@@ -31,8 +30,6 @@ from workbook_consumer import (
     unique_keys,
     validated_history,
 )
-
-from app.models import PortfolioSnapshotV2
 
 NOW = datetime.fromisoformat("2026-08-20T12:00:00+02:00")
 A, B, C = "n8n-execution:900", "n8n-execution:10", "n8n-execution:2"
@@ -98,8 +95,7 @@ def _identifier_snapshot(component, identifier):
 
 
 def _write_identifier_snapshot(workflow, schema, book, snapshot):
-    # Exercise the actual model and exported Code nodes before consumer selection.
-    PortfolioSnapshotV2.model_validate_json(json.dumps(snapshot))
+    # Exercise the frozen exported Code nodes before consumer selection.
     assert _run_validation(workflow, schema, snapshot)["can_write"] is True
     prepared = _prepare_for_run(workflow, schema, snapshot, book, "identifier-regression")
     _apply_prepared_writes(schema, book, prepared)
@@ -928,46 +924,6 @@ def test_missing_liability_observation_time_is_not_invented(workbook, time):
     assert not select_liabilities(workbook).complete
 
 
-@pytest.mark.parametrize("missing", ["scpis", "cryptos", None])
-@pytest.mark.parametrize("membership, classification", [(True, True), (False, True), (True, False)])
-def test_combined_exposure_requires_values_and_scope_evidence(
-    workflow, schema, verified_position_payloads, valuation_snapshot,
-    missing, membership, classification,
-):
-    from workbook_consumer import scpi_crypto_exposure
-
-    payloads = verified_position_payloads
-    for kind, envelope in payloads.items():
-        if kind not in {"securities", "cryptos", "scpis"}:
-            envelope["result"] = []
-    payloads["securities"]["result"][0]["current_value"] = 600
-    payloads["scpis"]["result"][0]["current_value"] = 100
-    if missing:
-        payloads[missing]["result"][0]["type"] = "unverified"
-    snapshot = valuation_snapshot(now="2026-08-20T07:30:00+02:00")
-    book = _empty_workbook()
-    prepared = _prepare_snapshot(workflow, schema, book, A, snapshot)
-    _apply_prepared_writes(schema, book, prepared)
-    state = select_assets(book, now=NOW)
-    assert state.current_complete
-    result = scpi_crypto_exposure(
-        state.positions, scope="three retrieved positions",
-        membership_complete=membership, classification_complete=classification,
-    )
-    assert result["scope"] == "three retrieved positions"
-    if missing or not membership or not classification:
-        assert result["fraction"] is None
-        assert result["denominator_eur"] is None
-    else:
-        assert result["combined_value_eur"] == 160
-        assert result["denominator_eur"] == 760
-        assert float(result["fraction"]) == pytest.approx(160 / 760)
-    if missing:
-        prefix = "scpi" if missing == "scpis" else "crypto"
-        daily = prepared["daily_rows"][0]
-        assert daily[prefix + "_eur"] is None
-        assert daily[prefix + "_pct"] == 0
-    assert book["portfolio_daily"][0]["gross_assets_eur"] == 150
 
 
 def test_combined_exposure_zero_denominator_is_indeterminate():

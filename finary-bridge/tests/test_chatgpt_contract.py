@@ -206,14 +206,14 @@ def test_independent_liability_provenance_and_read_limits_are_published() -> Non
         "description"
     ]
     for filename in (
-        "README.md", "docs/architecture.md", "docs/data-model.md", "docs/chatgpt.md",
+        "docs/architecture.md", "docs/data-model.md", "docs/chatgpt.md",
         "docs/operations.md", "docs/finary-portfolio-data-knowledge.md",
     ):
         text = " ".join((REPOSITORY_ROOT / filename).read_text().split())
         assert "test-only" in text
         assert "transaction" in text.lower()
         assert "latest known valid normalized" not in text
-    for filename in ("docs/chatgpt.md", "docs/operations.md", "README.md"):
+    for filename in ("docs/chatgpt.md", "docs/operations.md"):
         text = " ".join((REPOSITORY_ROOT / filename).read_text().split())
         assert "not automatically rewrit" in text
         assert "knowledge" in text

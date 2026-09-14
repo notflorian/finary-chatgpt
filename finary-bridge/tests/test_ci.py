@@ -30,7 +30,7 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
     assert "id-token: write" not in ci
     assert "runs-on: ubuntu-latest" in ci
     for job in (
-        "tests", "session-validation-python314", "static-analysis",
+        "tests", "mcp-validation-python314", "static-analysis",
         "repository-contracts", "n8n-import",
     ):
         assert f"  {job}:\n" in ci
@@ -140,23 +140,16 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     )
 
 
-def test_python314_compatibility_job_runs_session_and_upstream_validation() -> None:
+def test_python314_compatibility_job_runs_mcp_validation() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
-    job = ci.split("  session-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
+    job = ci.split("  mcp-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
     assert 'python-version: "3.14.6"' in job
     assert "timeout-minutes: 10" in job
     assert 'python -m pip install -e ".[dev]"' in job
     assert (
-        'python -m pytest -q -m "not live" --ignore=tests/live '
-        'tests/test_session_state_validation.py'
-    ) in job
-    assert (
-        'python -m pytest -q -m "not live" --ignore=tests/live '
-        'tests/test_upstream_response_recursion.py'
-    ) in job
-    assert (
         "python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py "
-        "tests/test_mcp_optional.py tests/test_mcp_precision.py"
+        "tests/test_mcp_optional.py tests/test_mcp_precision.py "
+        "tests/test_http_boundary.py tests/test_health.py"
     ) in job
     assert "docker" not in job
     assert "n8n" not in job

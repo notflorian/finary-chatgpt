@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Finary Portfolio Data supports the existing private provider and an official
-MCP candidate through isolated adapters. The [MCP contract](finary-mcp-contract.md)
+Finary Portfolio Data supports official Finary MCP exclusively.
+The [MCP contract](finary-mcp-contract.md)
 is the semantic foundation for implemented API/workbook 3.0. Its fixture oracle
 is test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
 production validators, adapter, service and protected routes. Independent
@@ -52,28 +52,17 @@ checks the writer generation, preserves exact decimal text and publishes termina
 membership after required writes. Loan detail remains unavailable. Migration is
 append-only against a distinct candidate workbook; the legacy writer explicitly
 fetches the frozen 2.1 contract. See [operations](mcp-operations.md) and
-[consumer interpretation](mcp-consumer.md). The detailed legacy design below
-continues to describe `/v1`, `/v2` and the retained 2.1 writer.
+[consumer interpretation](mcp-consumer.md). The frozen 2.1 workflow design below
+remains for workbook cleanup; it cannot synchronize against the MCP-only bridge.
 
 ## Trust boundaries
 
 ### Finary boundary
 
-The implemented legacy provider uses Finary's private, unsupported API. All
-endpoint knowledge, Clerk authentication, raw response parsing, and upstream
-exception translation are isolated in the bridge adapter. Downstream modules do
-not import Finary client packages or inspect private payloads.
-
-The adapter returns bridge-owned raw entities. The normalizer then extracts only
-verified fields through category-specific handlers and constructs strict
-Pydantic models. Raw dictionaries and private nested objects are not exposed in
-API metadata.
-
-The MCP provider owns its own transport/authentication and resource
-relationships. One provider is frozen per observation/run and one active
-writer/provider owns a workbook. No fallback, mixed-provider snapshot or field
-supplementation is allowed. MCP selection must not initialize the private
-adapter or require its credentials; legacy routes keep their existing binding.
+The official adapter owns MCP transport, independently authorized OAuth,
+resource relationships and sanitized errors. Its fixed `finary_official_mcp`
+provenance identifies each observation; it is not a configurable source switch.
+There is no private adapter, fallback, mixed snapshot or field supplementation.
 
 ### Automation boundary
 
@@ -96,263 +85,64 @@ Project Google Drive source. The
 Project receives the workbook semantics as a separate knowledge file, but it
 never connects to the bridge or Finary directly.
 
-## Implemented legacy bridge layers
+## HTTP boundary
 
-```text
-FastAPI routes (main.py)
-        |
-snapshot orchestration (services/snapshot_service.py)
-        |
-pure normalization (normalizer.py) ---- stable models (models.py)
-        |
-Finary adapter (finary_client.py) ---- protected session store
-```
-
-- `main.py` handles dependency injection, route declarations, and sanitized
-  HTTP errors.
-- `snapshot_service.py` authenticates, retrieves each entity collection once,
-  validates references, calculates authoritative totals, and builds a snapshot.
-- `normalizer.py` owns stable IDs, category-specific extraction, currency
-  provenance, and conservative classification.
-- `finary_client.py` and `finary_session_store.py` own all private upstream and
-  Clerk behavior.
-
-The adapter is initialized lazily once per process. A thread lock covers the
-instance lookup, construction, and publication; construction failures publish
-nothing and release the lock so a later caller can retry. The lock is released
-before authentication and snapshot work, which share the adapter's existing
-renewal lock. Bridge authorization precedes initialization, including waiting
-for it. This does not coordinate separate processes.
-
-Normal endpoint tests inject deterministic fake clients. `GET /health` does not
-instantiate the Finary client or inspect session state.
+`main.py` authorizes MCP requests before constructing `NativeMcpClient`.
+`mcp_auth.py` then opens protected renewable state and the bounded HTTP transport.
+`mcp_adapter.py` validates source relationships and `mcp_snapshot_service.py`
+assembles a qualified observation. `errors.py` defines the shared error envelope.
+No private-client cache, reset hook, raw model graph or legacy serializer remains.
 
 ## API contracts
 
-### `GET /health`
+`GET /health` returns `status: ok`, `service: finary-bridge`, and application
+`version: 2.0.0` without constructing a client, reading OAuth state or using
+network I/O. OpenAPI is similarly local.
 
-Returns HTTP 200 without contacting Finary:
+`GET /v3/snapshot` is canonical and returns `McpSnapshotV3`, API schema `3.0`.
+`GET /v3/budget`, `GET /v3/spending-search` and `GET /v3/goals` preserve their
+independent supported response contracts. They never run as part of snapshot
+collection. Removed `/v1/snapshot` and `/v2/snapshot` return 404 with no aliases,
+redirects or OpenAPI entries.
 
-```json
-{
-  "status": "ok",
-  "service": "finary-bridge",
-  "version": "1.1.0"
-}
-```
-
-### `GET /v2/snapshot`
-
-This is the canonical downstream API. Its top-level schema is:
-
-```json
-{
-  "schema_version": "2.0",
-  "generated_at": "2026-08-24T07:30:12+02:00",
-  "reference_currency": "EUR",
-  "coverage": {"liabilities": "UNAVAILABLE", "position_collections": "COMPLETE"},
-  "gross_assets_eur": 12345.67,
-  "liabilities_eur": null,
-  "net_worth_eur": null,
-  "accounts": [],
-  "positions": [],
-  "liabilities": []
-}
-```
-
-The entity shapes are defined by the strict `Account`, `Position`, and
-`Liability` Pydantic models. Unknown optional fields are JSON `null`; extra
-fields, non-finite numbers, duplicate keys, and broken position-account
-references are rejected.
-
-`coverage.liabilities` has three values:
-
-- `COMPLETE`: liability records and totals are complete; `liabilities_eur` and
-  `net_worth_eur` are numeric;
-- `PARTIAL`: some liability state is known but completeness is not established;
-- `UNAVAILABLE`: no callable, complete liability representation is available.
-
-For `PARTIAL` and `UNAVAILABLE`, liability-dependent totals are null. Empty
-liability arrays never imply zero debt.
-
-`coverage.position_collections` is additive evidence with values `COMPLETE`
-and `UNAVAILABLE` (the default when absent in an older payload). The service
-publishes `COMPLETE` only after the adapter successfully retrieves and validates
-every required dedicated collection, exact collection membership and uniqueness
-are verified, and every returned record normalizes successfully. Present empty
-collections count; missing groups, malformed envelopes, failed reads and
-unsupported nonempty records abort snapshot construction.
-
-Completeness is limited to the adapter's verified collection surface. It does
-not prove global upstream coverage, undiscovered collections, pagination beyond
-the verified responses, or an atomic observation across sequential requests.
-Private endpoint names and raw records remain inside the adapter boundary.
-
-The updated n8n gate accepts zero positions only with this explicit `COMPLETE`
-evidence and at least one valid account. Older nonempty payloads without the
-field retain their existing behavior; older empty payloads remain representable
-by the API model for compatibility but cannot authorize synchronization. A model
-instance alone is not proof that upstream collection retrieval occurred. The new
-service never emits incomplete collection success, even for nonempty positions.
-Clients with closed response-field allowlists must accept the additive coverage
-field before adopting the updated bridge. API schema stays `2.0`; workbook
-schema stays `2.1` without new columns.
-
-### `GET /v1/snapshot`
-
-The legacy schema `1.0` route remains available for clients that require a
-complete snapshot. It has no coverage field and requires numeric liability and
-net-worth totals. It therefore returns a structured unavailable-feature error
-when complete liability coverage cannot be established. New consumers must use
-`/v2/snapshot`.
-
-### Errors
-
-All application failures use:
-
-```json
-{
-  "error": {
-    "code": "FINARY_AUTH_FAILED",
-    "message": "Unable to authenticate with Finary",
-    "retryable": false
-  }
-}
-```
-
-Stable error codes include `FINARY_AUTH_FAILED`, `FINARY_TIMEOUT`,
-`FINARY_MALFORMED_RESPONSE`, `FINARY_FEATURE_UNAVAILABLE`,
-`FINARY_UPSTREAM_ERROR`, and `SNAPSHOT_VALIDATION_FAILED`. Raw upstream messages
-and exception chains are never returned.
-
-When `FINARY_BRIDGE_API_KEY` is non-empty, both snapshot routes require an exact
-`X-API-Key` match before the Finary client is constructed. Missing or invalid
-keys return HTTP 401 with `BRIDGE_AUTH_FAILED`; `/health` remains unauthenticated.
-
-## Legacy private-provider identity and normalization
-
-All upstream IDs are canonical strings. A position ID is only unique within its
-Finary collection, so every asset identity includes the position kind:
-
-```text
-account_key     = finary:account:{account_id}
-source_asset_id = {position_kind}:{asset_id}
-position_key    = finary:{account_id}:asset:{position_kind}:{asset_id}
-```
-
-Positions link to accounts through `holdings_account_id`. Nested `account` and
-`bank_account` objects are not authoritative. Dedicated position collections
-are the only position source; nested account assets are ignored to prevent
-double counting.
-
-Explicit handlers support the structurally verified collections: securities,
-cryptos, fonds euro, generic assets, real estate, and SCPIs. Empty or
-unverified collections are not assigned speculative schemas. Asset
-classification is conservative; uncertain securities and generic assets remain
-`OTHER`. User-managed `asset_overrides` can apply deterministic corrections in
-n8n.
-
-The downstream metadata allowlist is empty. Useful stable fields must be added
-to the versioned models and workbook schema rather than copied into a raw
-metadata column.
+A nonempty `FINARY_BRIDGE_API_KEY` requires an exact `X-API-Key` match using
+constant-time comparison before client construction. Missing/invalid keys return
+401 `BRIDGE_AUTH_FAILED`; an unset/empty configured key leaves local protection
+optional. Errors use `{error: {code, message, retryable}}` with fixed sanitized
+messages. MCP invalid arguments return 400, unavailable authorization/capability
+503, timeouts 504 and other supported MCP failures 502. Request validation and
+access logging must not expose search labels or upstream payloads.
 
 ## Money and coverage
 
-An EUR field is populated only when the corresponding amount has verified EUR
-currency provenance or a verified conversion. `display_*` fields are never
-treated as proof of EUR. Normalization does not perform speculative FX
-conversion.
+Official overview totals and allocation have independent authority. Account or
+holding details never replace them. Preserve exact decimal text, native currency,
+verified EUR provenance, ownership and separate retrieval/valuation/semantic/
+freshness coverage. Unknown amounts remain null; no speculative conversion is
+performed. See the [focused contract](finary-mcp-contract.md).
 
-For the implemented private provider, non-collection account balances with
-verified EUR provenance are the sole
-source of `gross_assets_eur`. Position values provide analytical detail and are
-never added to account balances. If the authoritative total cannot be proved,
-snapshot construction fails rather than producing a partial total.
+## Independent OAuth
 
-Position allocation totals and weights use only active positions with known EUR
-values. They describe the known-EUR position subset and may not reconcile to
-gross assets. The workflow records a partial-coverage warning when appropriate.
+The verified official OAuth issuer remains `https://clerk.finary.com`.
+Issuer validation and OAuth endpoint allowlisting are mandatory. This legitimate
+Clerk hostname does not retain the removed private password, session-cookie,
+bearer-renewal or MFA implementation. No assistant/plugin authorization is reused.
 
-The MCP provider preserves authoritative overview totals and
-official allocation, native currencies and direct-owner account values at their
-respective grains. Its independent retrieval, debt-detail, valuation, semantic
-and freshness states do not broaden legacy COMPLETE evidence. See the
-[focused contract](finary-mcp-contract.md) for identity and migration boundaries.
+Explicit operator consent bootstraps protected renewable state. The MCP store
+persists registration metadata, refresh token, effective scope and rotation
+generation in a 0700 directory/0600 file. Access tokens remain memory-only.
+Atomic writes, CAS generation checks, bounded renewal and process leases prevent
+stale replacement and concurrent refresh. Routes and schedules remain
+noninteractive. `finary_mcp_data` is bridge-only and separate from `n8n_data`.
+The repository no longer mounts or declares the old private session volume;
+existing operator volumes must not be read, converted or deleted by cleanup.
+See [OAuth operations](mcp-operations.md#backups-and-independent-oauth).
 
-## Legacy private-provider authentication and session lifecycle
+## Retained workbook design
 
-The adapter implements Clerk password authentication followed by the supported
-TOTP or email-code challenge. An explicit interactive command bootstraps the
-session; HTTP requests never prompt.
-
-Outside Compose, an absent or empty `FINARY_SESSION_PATH` disables file storage.
-The adapter retains verified renewable state in memory after sign-in and each
-successful refresh, including rotated cookies. Aging tokens and subsequent
-`authenticate()` calls use this state without repeating password/MFA sign-in.
-This state lasts only for the process lifetime; it cannot survive a restart.
-A fresh access token can remain usable without renewable material, but an entity
-read requiring renewal then fails safely. Compose supplies persistent storage
-by default.
-
-The protected file store persists only:
-
-- the Clerk session identifier;
-- the production `__client` cookie needed to refresh that session.
-
-Access and refresh bearer JWTs remain in memory. The session file uses mode
-`0600`, its directory is bridge-only, and rejected state is cleared only if
-its persisted revision still belongs to the rejecting adapter. A stable sibling
-lock file contains a non-secret random revision; it never contains authentication
-material. All participating processes use this file for bounded POSIX locking. The
-`finary_session_data` volume is separate from `n8n_data` and is intentionally
-excluded from backups. Session expiry or revocation requires another human MFA
-bootstrap.
-
-Before every entity GET, including each position collection, the adapter checks
-access-token age against its configured refresh interval using a monotonic
-clock. An aging token is renewed non-interactively. An entity HTTP 401 permits
-at most one recovery renewal and one replay of that GET; it does not establish
-that the token expired. HTTP 403 is not replayed. Previously completed
-collections are not fetched again, and any unrecovered failure aborts the
-snapshot with the existing sanitized error contract.
-
-The process-scoped authentication lock serializes renewal and individual entity
-GETs so the transport, cookies, authorization header, and freshness metadata
-remain coherent during HTTP session replacement. This trades concurrent network
-reads for a small synchronization boundary; it does not lock the entire
-snapshot. Recovery tracks the token generation and reuses a newer generation
-if another caller has already renewed it. A repeated 401 disables only the
-rejected access generation; entity rejection does not erase renewable state.
-Refresh endpoint rejection conditionally clears only its own stored revision,
-while transient or malformed refresh failures preserve stored state but leave
-the adapter unauthenticated. Unreadable stored state is not automatically erased.
-Renewal publication and rejection cleanup compare both the observed revision
-and full session state atomically with their mutation under a stable sibling
-file lock. The lock inode survives atomic replacement of the session JSON.
-Every explicit save or clear advances the non-secret revision, including equal
-state and absence; this prevents old ownership from becoming valid again.
-Version `1` session files remain compatible and unchanged on load.
-
-The operator-only `bootstrap_session()` verifies a fresh password/MFA sign-in
-with an accounts GET before publishing an explicit replacement. Interactive MFA
-and all network calls hold no storage lock. Adapter lock ordering is always
-process-local authentication lock, then storage lock, without recursion. Storage
-lock waits default to two seconds and errors remain sanitized. Storage mutation
-failures invalidate old ownership conservatively, even if the payload was not
-changed. A failure after atomic replacement may have published the new state.
-
-Hot replacement affects persistence at publication. In-flight GETs may finish
-and cached tokens may remain usable until the next renewal boundary. An old
-renewal can neither delete nor overwrite the replacement, even when its Clerk
-session ID is unchanged. On conflict it invalidates access state; the following
-snapshot authentication reloads the replacement and renews it. Explicit clearing
-is not instantaneous token revocation. The [operations procedure](operations.md)
-defines rollout, verification, and immediate adoption through a fresh process.
-All writers must use the protocol and the same local volume; old writers,
-manual file edits, lock-file removal, and network filesystems are unsupported.
-
-Entity renewal never replays password sign-in or invokes MFA when renewable state is
-missing. Bearer tokens remain memory-only.
+The following frozen legacy-workbook material awaits the workbook and broader
+documentation cleanup. It does not describe supported HTTP routes or a runnable
+private provider in application 2.0.0.
 
 ## Synchronization topology
 
@@ -444,29 +234,15 @@ prevent quota amplification.
 
 ## Versioning
 
-Application release version and data schema version are independent:
-
-- bridge application: `1.1.0`;
-- normalized API schema: `2.0`;
-- workbook schema: `2.1`;
-- canonical route: `/v2/snapshot`.
-
-A patch or minor application release may leave API schema `2.0` unchanged.
-Workbook schema `2.1` adds nullable historical run membership without changing
-the stable snapshot API. A breaking downstream API contract change requires a
-new API major version and coordinated models, workflows, schema, tests, and
-consumer documentation.
+Application `2.0.0`, API `3.0`, workbook `3.0` and source-contract `1.1.0` are
+distinct versions. `/v3/snapshot` is the canonical route. The application bump
+reflects removal of private support and V1/V2 routes; it does not change MCP
+financial semantics. Workbook self-containment and final release documentation
+remain separate release requirements.
 
 ## Deliberate limitations
 
-- The legacy provider relies on a private API. Official MCP connector
-  access, independent bridge authorization and natural-expiry renewal have live
-  evidence. Production acceptance remains open; unverified source semantics
-  retain explicit qualifiers in the implemented contract.
-- Liability coverage is not guaranteed complete by the verified upstream
-  surface.
-- No speculative FX conversion is performed.
-- The system is single-user, local-first, and not hardened for public network
-  exposure.
-- It does not calculate investment performance, ingest bank transactions,
-  recommend trades, or execute trades.
+Production acceptance remains an operator gate. Unverified source semantics
+retain explicit qualifiers. Debt detail remains unavailable; overview debt
+valuation has separate coverage. The system is local and single-user, performs
+no speculative FX conversion, and does not execute trades.

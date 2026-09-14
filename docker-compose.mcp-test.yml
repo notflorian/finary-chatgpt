@@ -7,7 +7,6 @@ services:
       context: ./finary-bridge
     restart: "no"
     environment:
-      FINARY_PROVIDER: finary_official_mcp
       FINARY_BRIDGE_API_KEY: ${FINARY_MCP_CANDIDATE_API_KEY:?Set an independent test bridge key}
       FINARY_MCP_STATE_PATH: /var/lib/finary-mcp/state/oauth.json
       TZ: Europe/Paris

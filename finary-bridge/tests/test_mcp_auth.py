@@ -14,6 +14,7 @@ import pytest
 from mcp.client.auth import AuthorizationCodeResult
 from mcp_wire import SyntheticWire
 
+from app.config import SERVICE_VERSION
 from app.mcp_auth import (
     CALLBACK,
     ISSUER,
@@ -377,7 +378,7 @@ def test_sdk_oauth_requests_supply_http_client_identification(tmp_path):
     asyncio.run(consent(store, peer))
     asyncio.run(unattended(store, peer))
     assert peer.token_requests == ["authorization_code", "refresh_token"]
-    assert "finary-bridge/1.1.0" in peer.identification
+    assert f"finary-bridge/{SERVICE_VERSION}" in peer.identification
     assert any(agent.startswith("python-httpx") for agent in peer.identification)
 
 

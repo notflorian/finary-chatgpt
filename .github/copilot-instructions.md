@@ -31,15 +31,16 @@ narrow fix may leave unhandled.
 - Treat partial or unavailable upstream data conservatively. A failed collection
   must not be reported as complete, silently converted to an empty success, or
   used to publish a partially valid snapshot.
-- Check that authentication, token refresh, persisted-session ownership, CAS,
+- Check that independent OAuth, token refresh, renewable-state ownership, CAS,
   replay/freshness protections, and replacement semantics are not weakened by
   unrelated changes.
 - Preserve canonical identifiers, EUR provenance rules, liability coverage
   semantics, deterministic workbook behavior, historical-row preservation, and
   manual-sheet ownership.
-- Verify `/v1/snapshot` remains fail-safe and `/v2/snapshot` remains backward
-  compatible within schema major version 2 unless a coordinated breaking change
-  is explicitly intended.
+- Verify only MCP routes are exposed: `/v3/snapshot` is canonical, with
+  optional budget/search/goals reads. Removed V1/V2 routes return 404.
+- Preserve official OAuth issuer checks on `clerk.finary.com`; the removed
+  private password/cookie/MFA flow must never return as a fallback.
 - Treat `docs/google-sheets-schema.json` as the machine-readable workbook
   contract when reviewing workflow or schema changes.
 - Reject changes that weaken validation, safety limits, credential isolation, or

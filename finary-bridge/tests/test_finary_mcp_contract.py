@@ -762,11 +762,12 @@ def test_overview_authority_is_not_a_detail_sum_constraint():
 def test_workbook_delta_and_legacy_versions_remain_separate():
     active = json.loads((ROOT / "docs" / "google-sheets-schema-v2.json").read_text())
     delta = CONTRACT["workbook_migration"]
-    assert active["schema_version"] == delta["from"] == CONTRACT["implemented"]["workbook_schema"]
-    assert CONTRACT["planned"] == {
+    assert active["schema_version"] == delta["from"] == "2.1"
+    assert CONTRACT["implemented"] == {
         "api_schema": "3.0",
-        "route": "/v3/snapshot",
+        "canonical_route": "/v3/snapshot",
         "workbook_schema": "3.0",
+        "application_version": "2.0.0",
     }
     assert delta["to"] == "3.0" and delta["status"] == "PLANNED_DELTA_ONLY"
     assert delta["manual_sheets"] == ["allocation_targets", "asset_overrides", "cashflows"]

@@ -7,48 +7,28 @@ portfolio into a stable Google Sheets data model that ChatGPT can analyze.
 Finary -> finary-bridge -> n8n -> Google Sheets -> ChatGPT
 ```
 
-The bridge owns two isolated providers. The default private provider retains
-`/v1/snapshot`, `/v2/snapshot` and workbook 2.1. The official MCP candidate adds
-`/v3/snapshot`, independent OAuth and workbook 3.0, with exact native amounts,
-authoritative overview/allocation and explicit coverage. Neither Google Sheets
-nor ChatGPT receives Finary credentials or raw upstream payloads.
+Application **2.0.0** supports official Finary MCP only. `/v3/snapshot` supplies
+exact native amounts, authoritative overview/allocation and explicit coverage.
+The private API adapter, password/session/MFA configuration and V1/V2 snapshot
+routes have been removed. Neither Sheets nor ChatGPT receives Finary credentials
+or raw upstream payloads.
 
-The MCP path has passed independent live authorization, an authorized shadow
-synchronization and workbook readback, plus real Sheets recovery and null-transition
-tests, including natural-expiry renewal in one OAuth session. Production
-acceptance remains open; revocation
-blocks refresh but did not immediately invalidate the retained access token. See the
-[MCP operator runbook](docs/mcp-operations.md),
-[acceptance evidence](docs/mcp-acceptance.md) and
-[nine-action consumer matrix](docs/mcp-consumer.md). The
-[canonical 3.0 schema](docs/google-sheets-schema.json) is distinct from the
-[frozen 2.1 contract](docs/google-sheets-schema-v2.json). Existing installations
-are not migrated or activated automatically. The quick start below remains the
-legacy setup. Existing configurations must set `FINARY_SCHEMA_URL` to
-`http://schema-server/google-sheets-schema-v2.json` before restarting the legacy
-writer; the former unversioned URL now serves 3.0 and is deliberately rejected
-by a 2.1 writer.
+This branch is part of the [next-major release preparation](https://github.com/notflorian/finary-chatgpt/issues/100).
+Workbook self-containment and migration/legacy-writer removal remain under
+[#102](https://github.com/notflorian/finary-chatgpt/issues/102); broader test and
+documentation cleanup remain under #103 and #104. The retained legacy workflow
+exports are frozen and cannot synchronize against this bridge. Do not activate
+them. Existing operator data is untouched; the final major release requires a
+fresh supported workbook, without conversion from workbook 2.1.
 
 ## Requirements
 
-- Docker Engine with Docker Compose v2
-- a Finary account and access to its current MFA method
-- a Google account that can create a spreadsheet and an OAuth credential in n8n
-- a ChatGPT account with Projects and Google Drive sources, if you want the
-  ChatGPT integration
-- `git` and `jq`; Python 3.12+ is needed only for local development
+- Python 3.12+ for local bridge setup and independent MCP OAuth consent
+- Docker Engine and Compose v2 for the local stack
+- Finary access with independently authorized official MCP OAuth
+- Google Sheets OAuth in n8n for workbook synchronization
 
-## Upgrading from 1.0
-
-Follow the [1.0.0 to 1.1.0 migration guide](docs/migration-1.0-to-1.1.md)
-before restarting an existing installation. The workbook moves from schema
-`2.0` to `2.1`; both n8n workflows and the ChatGPT knowledge reference must also
-be updated. A container rebuild alone is not a complete migration. See the
-[1.1.0 release notes](docs/release-1.1.0.md) for the changes and limitations.
-
-## Quick start
-
-### 1. Configure the local stack
+## Bridge setup
 
 ```bash
 git clone https://github.com/notflorian/finary-chatgpt.git
@@ -57,20 +37,18 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Edit `.env` and set at least:
+Configure an optional `FINARY_BRIDGE_API_KEY`, a strong stable
+`N8N_ENCRYPTION_KEY`, and the MCP workbook/writer variables from `.env.example`.
+No provider selector or private Finary credentials are required.
 
-```dotenv
-FINARY_EMAIL=you@example.com
-FINARY_PASSWORD=
-FINARY_GOOGLE_SHEET_ID=
-N8N_ENCRYPTION_KEY=
-```
-
-Use a strong, stable `N8N_ENCRYPTION_KEY`; losing or changing it prevents n8n
-from decrypting stored credentials. Do not store a TOTP secret or backup code in
-this file. `.env` is ignored by Git, but verify that before entering secrets.
-
-Start the stack:
+The supported OAuth bootstrap uses a browser on the host. Install the bridge
+with the [development setup](docs/development.md#local-environment), then follow
+[independent OAuth setup](docs/mcp-operations.md#backups-and-independent-oauth).
+The verified issuer is `https://clerk.finary.com`. Its OAuth endpoints remain
+allowlisted; the removed private Clerk password/cookie/MFA flow is unrelated.
+Do not reuse an assistant or plugin connection. Keep renewable state bridge-only,
+with directory/file modes 0700/0600; access tokens remain in memory. For Compose,
+follow the runbook's protected transfer or bind-mount procedure.
 
 ```bash
 docker compose up -d --build
@@ -78,231 +56,60 @@ docker compose ps
 curl --fail http://127.0.0.1:8000/health
 ```
 
-Expected health response:
+Expected response: `{"status":"ok","service":"finary-bridge","version":"2.0.0"}`.
+Health requires no OAuth or network access. The bridge and n8n bind localhost.
+An authorized snapshot without usable OAuth returns `503 MCP_AUTH_UNAVAILABLE`.
 
-```json
-{"status":"ok","service":"finary-bridge","version":"1.1.0"}
-```
-
-The bridge and n8n listen only on `127.0.0.1` by default. The canonical Sheets
-schema `2.1` is served only on the internal Compose network.
-
-### 2. Create the workbook
-
-Create one Google spreadsheet named **Finary Portfolio Data** with these tabs in
-this order:
-
-```text
-README
-accounts_current
-positions_current
-liabilities_current
-positions_history
-portfolio_daily
-allocation_targets
-asset_overrides
-cashflows
-sync_runs
-```
-
-Copy its spreadsheet ID into `FINARY_GOOGLE_SHEET_ID`, then restart n8n:
-
-```bash
-docker compose up -d --force-recreate n8n
-```
-
-For every tab, copy the ordered headers from
-[`docs/google-sheets-schema-v2.json`](docs/google-sheets-schema-v2.json). For example:
-
-```bash
-SHEET=accounts_current
-jq -r --arg sheet "$SHEET" '.sheets[$sheet].columns | map(.name) | @tsv' \
-  docs/google-sheets-schema-v2.json
-```
-
-Paste the output into row 1. Populate the `README` tab from the JSON
-`readme_entries` array. Synchronization does not automatically rewrite this
-initialized tab. Existing installations must apply the
-[consumer-validation adoption steps](docs/operations.md#consumer-validation-adoption),
-including replacement of the uploaded knowledge reference. The workbook rules
-and ownership boundaries are
-summarized in [the data-model guide](docs/data-model.md).
-
-### 3. Configure n8n
-
-Open [http://127.0.0.1:5678](http://127.0.0.1:5678), complete the local owner
-setup, and create a Google Sheets OAuth2 credential with access to the workbook.
-
-Import both repository exports:
-
-- `n8n/workflows/finary-error-handler.json`
-- `n8n/workflows/finary-daily-sync.json`
-
-Assign the Google credential to **every** Google Sheets node in both workflows.
-
-Create an **n8n API** credential for the local instance with base URL
-`http://127.0.0.1:5678/api/v1` and access to the daily execution data
-(`execution:read` scope where available). Assign it to **Fetch Source Execution**
-in the error workflow so the handler can retrieve the originating run and record
-its failure. Store the API key only in n8n's credential store. See the
-[detailed credential setup](docs/operations.md#adopting-restore-safe-run-identities).
-
-Publish the error handler, then select it as the daily workflow's error
-workflow. Keep the daily workflow unpublished until its manual run passes.
-
-### 4. Bootstrap the Finary session
-
-The HTTP API never prompts for MFA. Bootstrap the bridge's protected session in
-an interactive terminal after the stack starts:
-
-```bash
-docker compose exec -e FINARY_MFA_CODE= finary-bridge python -c '
-import getpass
-from app.finary_client import FinaryApiClient
-
-client = FinaryApiClient.from_environment(
-    second_factor_code_provider=lambda strategy: getpass.getpass(
-        f"Enter the one-time Finary {strategy} code: "
-    )
-)
-client.bootstrap_session()
-print("Verified session replacement published")
-'
-```
-
-The bridge stores only the minimum Clerk restart state in a private Docker
-volume. It does not persist passwords, TOTP secrets, backup codes, or bearer
-JWTs. Repeat the bootstrap after session expiry, revocation, credential change,
-or loss of the session volume. The command verifies a fresh session before
-publishing its replacement; do not pre-clear a usable session. All writers must
-use the coordinated store and share its stable lock file. Before upgrading from
-an older version, stop all old bridge/bootstrap processes. Follow the
-[replacement and verification procedure](docs/operations.md#replacement-protocol-and-rollout)
-before resuming synchronization: cached tokens can survive until the next
-renewal, so restart the bridge when immediate adoption is required.
-
-### 5. Run and verify the first synchronization
-
-Click **Execute workflow** in **Finary - Daily Sync**. Confirm that:
-
-- the execution reaches `Record Successful Sync`;
-- `sync_runs` ends with `SUCCESS` or `SUCCESS_WITH_WARNINGS`;
-- full `accounts_current` and `positions_current` tables have unique canonical
-  keys and valid activity flags; every active `last_seen_run_id` matches the
-  selected success and active counts equal its `accounts_count`/`positions_count`;
-- active positions reference validated active accounts and their key set matches
-  validated same-run history; inactive retained rows do not count;
-- rerunning on the same day creates no duplicate current, history, or daily
-  rows;
-- `positions_history` rows for the successful `run_id` equal
-  `sync_runs.positions_count` and match `portfolio_daily.run_id`;
-- manual tabs remain unchanged.
-
-Warnings are meaningful. In particular, `UNAVAILABLE` liability coverage means
-liabilities and net worth are unknown, not zero. Publish the daily workflow only
-after the checks pass. It runs at 07:30 in `Europe/Paris`.
-
-See [Operations](docs/operations.md) for recovery, rotation, backup, and
-schedule controls.
+Use the [canonical workbook schema](docs/google-sheets-schema.json) and
+`n8n/workflows/finary-mcp-sync.json` for the retained MCP writer. Keep imports
+inactive; its writer ID/generation/control row must agree before a manual sync.
+Workbook initialization is being simplified under #102; the existing
+[operator runbook](docs/mcp-operations.md) contains transitional workbook
+procedures, not a finished 2.0.0 installation guide. Release readiness also
+requires the operator acceptance described there.
 
 ## ChatGPT
 
-Use a private ChatGPT Project. Add the workbook as a Google Drive source and
-upload these repository references:
-
-- your personal investment policy;
-- [`docs/finary-portfolio-data-knowledge.md`](docs/finary-portfolio-data-knowledge.md).
-
-The complete setup and safe interpretation rules are in
-[ChatGPT integration](docs/chatgpt.md).
+Use a private workbook connection and the [MCP consumer rules](docs/mcp-consumer.md).
+The older workbook 2.1 knowledge reference is not the MCP contract. A newer failed
+sync does not replace the latest validated success. Qualify detail, ownership,
+currency, freshness and unavailable debt separately from official overview totals.
 
 ## API
 
-- `GET /health` reports service health without contacting Finary.
-- `GET /v2/snapshot` is the canonical normalized contract, schema `2.0`.
-- `GET /v1/snapshot` remains available as a strict legacy contract. It requires
-  complete liability coverage and therefore fails safely when that coverage is
-  unavailable.
+- `GET /health`: local service metadata.
+- `GET /v3/snapshot`: canonical MCP portfolio contract, API schema `3.0`.
+- `GET /v3/budget`, `GET /v3/spending-search`, `GET /v3/goals`: optional reads.
+- `/v1/snapshot` and `/v2/snapshot`: HTTP 404, absent from OpenAPI.
 
-If `FINARY_BRIDGE_API_KEY` is configured, snapshot requests must send it in the
-`X-API-Key` header. Responses never contain private upstream objects.
+When `FINARY_BRIDGE_API_KEY` is nonempty, all MCP routes require an exact
+`X-API-Key` match before client construction, OAuth-state access or network I/O.
+Missing/invalid keys return `401 BRIDGE_AUTH_FAILED`; an unset/empty configured
+key preserves the optional local protection behavior.
 
 ## Development
 
-```bash
-cd finary-bridge
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
-python -m pytest -m "not live" --ignore=tests/live
-python -m ruff check .
-python -m mypy app
-cd ..
-python scripts/validate-json.py
-docker compose config --quiet
-bash scripts/validate-n8n-imports.sh
-```
-
-Live Finary tests are opt-in and require private credentials. See
-[Development](docs/development.md).
+See [Development](docs/development.md) for all credential-free checks, package
+builds and the required isolated pinned n8n/Sheets connector runtime gate.
+Normal tests never contact Finary or Google; live diagnostics remain opt-in.
 
 ## Documentation
 
-| Document | Purpose |
-| --- | --- |
-| [1.1.0 release notes](docs/release-1.1.0.md) | Changes, compatibility, and remaining limitations |
-| [Migration from 1.0 to 1.1](docs/migration-1.0-to-1.1.md) | Ordered upgrade, verification, and recovery procedure for existing installations |
-| [Architecture](docs/architecture.md) | Components, trust boundaries, API contracts, authentication, and versioning |
-| [Data model](docs/data-model.md) | Workbook semantics, keys, nulls, ownership, and update rules |
-| [Operations](docs/operations.md) | Installation follow-through, recovery, rotation, backup, and monitoring |
-| [ChatGPT integration](docs/chatgpt.md) | Private Project setup and safe workbook interpretation |
-| [Development](docs/development.md) | Local checks, CI, fixtures, and opt-in live tests |
-| [ChatGPT knowledge reference](docs/finary-portfolio-data-knowledge.md) | Reference file uploaded to the ChatGPT Project |
-| [Retained legacy schema](docs/google-sheets-schema-v2.json) | Machine-readable workbook contract |
-
-## Consumer state validation
-
-Physical `*_current` tables are nontransactional and can contain unsuccessful
-writes. Select successful executions by parsed timezone-aware `completed_at`,
-never by opaque `run_id`; reject missing or ambiguous terminal evidence. Check
-full-table keys, activity, active run membership and valid counts before using
-current holdings. Filtering to a desired run is not a completeness check.
-
-If current assets fail, use independently validated date/run/count history or
-report detail unavailable. Explicitly date every fallback, disclose freshness,
-and use only retained fields. Never enrich it from invalid current rows or
-reconstruct account balances from positions. Independently validated daily
-aggregates can remain usable, with their own provenance and authoritative gross
-assets. Validate liability details separately against the latest successful
-`COMPLETE` run; newer incomplete assets do not make old debts current and must
-not be combined with them as authoritative net worth.
-
-See the [reading procedure](docs/finary-portfolio-data-knowledge.md#selecting-the-latest-successful-execution).
-Its executable specification is test-only; it does not automatically enforce
-validation inside ChatGPT. Sequential reads can detect observed inconsistencies
-but cannot create a transactional snapshot or exclude unobserved concurrent writes.
-
-Run identities include a fresh random UUID, so replacing an n8n database does
-not reuse retained workbook run identities. Existing IDs and workbook schema
-`2.1` remain valid. Before adopting both updated workflows or restoring n8n,
-follow the [identity adoption and restore procedure](docs/operations.md#adopting-restore-safe-run-identities):
-drain saved/running executions and error handlers, configure local n8n execution
-read access, and enable the built-in crypto module. No live change is performed
-by importing this repository.
+- [Architecture](docs/architecture.md): current bridge and trust boundaries.
+- [MCP operations](docs/mcp-operations.md): OAuth and isolated operator acceptance.
+- [MCP contract](docs/finary-mcp-contract.md): financial and transport semantics.
+- [MCP consumer](docs/mcp-consumer.md): observation interpretation.
+- [Operations](docs/operations.md): local service controls and retained workbook procedures.
 
 ## Security and limitations
 
-- This project uses Finary's private, unsupported API. Upstream changes may
-  require adapter updates.
-- The bridge is local-only by default; do not expose it or n8n publicly without
-  adding an appropriate security boundary.
-- Finary credentials and session state belong only to the bridge. Google OAuth
-  credentials belong only to n8n.
-- Liability coverage may be `PARTIAL` or `UNAVAILABLE`; blank liability and net
-  worth cells must never be interpreted as zero.
-- Position values can have partial verified-EUR coverage. Gross assets use
-  authoritative account balances and must not be recomputed by adding position
-  values.
+Keep the bridge local. Independent OAuth state belongs only to the bridge;
+Google OAuth belongs only to n8n. Do not back up renewable Finary state or delete
+existing operator volumes during an upgrade. Unknown amounts remain null and
+no speculative FX conversion is performed. Official overview totals and allocation
+are authoritative; account and holding detail never replaces them. Optional reads
+do not run during portfolio synchronization. Live production acceptance is a
+separate operator action; this change does not deploy or activate anything.
 
 ## License
 

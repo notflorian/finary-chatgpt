@@ -1,30 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/notflorian/finary-chatgpt/blob/main/docs/finary-mcp-contract.json",
-  "title": "Planned Finary official MCP integration contract",
+  "title": "Finary official MCP integration contract",
   "contract_version": "1.1.0",
-  "status": "PLANNED_NOT_IMPLEMENTED",
+  "status": "IMPLEMENTED",
   "inspection_date": "2026-09-11",
   "implemented": {
-    "api_schema": "2.0",
-    "canonical_route": "/v2/snapshot",
-    "workbook_schema": "2.1",
-    "application_version": "1.1.0"
+    "api_schema": "3.0",
+    "canonical_route": "/v3/snapshot",
+    "workbook_schema": "3.0",
+    "application_version": "2.0.0"
   },
-  "planned": {"api_schema": "3.0", "route": "/v3/snapshot", "workbook_schema": "3.0"},
   "providers": {
-    "finary_private_api": {
-      "status": "IMPLEMENTED",
-      "interface": "app.finary_client.FinaryClient",
-      "source_contract_version": "legacy-api-2.0",
-      "routes": ["/v1/snapshot", "/v2/snapshot"]
-    },
     "finary_official_mcp": {
-      "status": "PLANNED",
+      "status": "IMPLEMENTED",
       "source_contract_version": "1.1.0",
       "route": "/v3/snapshot",
       "schema": "#/$defs/snapshot_v3",
-      "standalone_authorization": "UNVERIFIED"
+      "standalone_authorization": "INDEPENDENT_OPERATOR_CONSENT"
     }
   },
   "evidence": {
@@ -375,14 +368,9 @@
     "allowed_position_semantics": ["SUPPORTED", "UNVERIFIED"]
   },
   "provider_interfaces": {
-    "private_api": {
-      "status": "UNCHANGED_IMPLEMENTED",
-      "input": "Existing FinaryClient.authenticate/get_accounts/get_positions/get_liabilities; legacy credential/session requirements",
-      "output": "Existing FinaryRaw* -> SnapshotService -> PortfolioSnapshot/PortfolioSnapshotV2; gross account sum and complete detailed-liability sum retained"
-    },
     "official_mcp": {
-      "status": "PLANNED",
-      "input": "Typed per-action inputs in capability registry; no analytics prompt in scheduled calls; explicit provider frozen before any I/O",
+      "status": "IMPLEMENTED",
+      "input": "Typed per-action inputs in capability registry; no analytics prompt in scheduled calls; official MCP only",
       "output": "Adapter-owned decoded typed results and collection evidence -> separate MCP snapshot service -> snapshot_v3; no raw relationships outside adapter",
       "owns": [
         "transport",
@@ -396,10 +384,9 @@
       "dependencies": "n8n sees normalized HTTP only; get_me optional connection check, profiles optional enrichment; missing either must not redefine ownership"
     },
     "routing": {
-      "legacy_routes": "pinned to private_api, lazy initialization only if invoked; keep existing behavior",
-      "v3": "requires explicit configured finary_official_mcp; reject mismatch before client creation; never initialize private client or validate FINARY_EMAIL/PASSWORD/MFA for MCP",
+      "v3": "canonical portfolio route; construct only the official MCP client after local bridge authorization; no provider selector",
       "health": "metadata only, no client/auth-state access",
-      "bridge_auth": "check local API key before constructing either provider",
+      "bridge_auth": "check local API key before constructing the MCP client or accessing OAuth state",
       "fallback": "FORBIDDEN"
     }
   },

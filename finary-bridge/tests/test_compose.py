@@ -19,12 +19,8 @@ _SYNTHETIC_ENV = {
     "FINARY_BRIDGE_API_KEY": "test-bridge-key",
     "FINARY_BRIDGE_PORT": "8000",
     "FINARY_BRIDGE_URL": "http://finary-bridge:8000",
-    "FINARY_EMAIL": "test@example.invalid",
     "FINARY_GOOGLE_SHEET_ID": "synthetic-workbook-id",
-    "FINARY_MFA_CODE": "",
-    "FINARY_PASSWORD": "synthetic-password",
     "FINARY_SCHEMA_URL": "http://schema-server/google-sheets-schema-v2.json",
-    "FINARY_SESSION_PATH": "/var/lib/finary-session/state/session.json",
     "N8N_ENCRYPTION_KEY": "synthetic-encryption-key-with-sufficient-length",
     "N8N_EXECUTIONS_TIMEOUT": "300",
     "N8N_EXECUTIONS_TIMEOUT_MAX": "300",
@@ -69,7 +65,7 @@ def test_compose_declares_only_the_canonical_services_and_named_volumes() -> Non
 
     assert set(config["services"]) == {"finary-bridge", "n8n", "schema-server"}
     assert set(config["networks"]) == {"finary-stack"}
-    assert set(config["volumes"]) == {"finary_session_data", "finary_mcp_data", "n8n_data"}
+    assert set(config["volumes"]) == {"finary_mcp_data", "n8n_data"}
     assert all(
         set(service["networks"]) == {"finary-stack"} for service in config["services"].values()
     )
@@ -81,11 +77,9 @@ def test_state_volumes_are_persistent_and_strictly_isolated() -> None:
     n8n = services["n8n"]
     schema = services["schema-server"]
 
-    assert _mount(bridge, "/var/lib/finary-session")["source"] == ("finary_session_data")
     assert _mount(bridge, "/var/lib/finary-mcp")["source"] == "finary_mcp_data"
     assert _mount(n8n, "/home/node/.n8n")["source"] == "n8n_data"
     assert all(volume.get("source") != "n8n_data" for volume in bridge["volumes"])
-    assert all(volume.get("source") != "finary_session_data" for volume in n8n["volumes"])
     assert all(volume.get("source") != "finary_mcp_data" for volume in n8n["volumes"])
     assert all(volume["type"] != "volume" for volume in schema["volumes"])
 
@@ -158,9 +152,7 @@ def test_repository_configuration_contains_no_live_secret_or_credential_binding(
         path.read_text(encoding="utf-8") for path in (ROOT / "n8n" / "workflows").glob("*.json")
     )
 
-    assert "FINARY_PASSWORD: ${FINARY_PASSWORD:-}" in compose
     assert "N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}" in compose
-    assert "FINARY_PASSWORD=\n" in example
     assert "N8N_ENCRYPTION_KEY=\n" in example
     assert '"credentials"' not in workflows
 
