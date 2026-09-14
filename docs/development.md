@@ -113,8 +113,13 @@ python -m pytest -q finary-bridge/tests/test_mcp_contract.py finary-bridge/tests
 ```
 
 It invokes the model/packaged-contract, workbook and workflow generators and
-propagates every failure. MCP Code-node sources live under
-`n8n/code-nodes/finary-mcp-sync`; exports are self-contained for pinned n8n.
+propagates every failure. The five handwritten MCP Code-node sources (Initialize,
+Validate, Prepare, Finalize Success and Finalize Failure) live under
+`n8n/code-nodes/finary-mcp-sync`. Shared validation remains in `n8n/mcp-validation.js`
+and `n8n/mcp-workbook.js`. The workflow generator embeds mechanical Check, Select
+and Continue nodes directly, without intermediate source files. The generated
+`n8n/workflows/finary-mcp-sync.json` export is self-contained for pinned n8n;
+`--check` detects final artifact drift without writing files.
 Test modules import focused support modules, never other test modules:
 
 - `tests/mcp_artifacts.py` loads canonical artifacts and materializes fresh synthetic cases.

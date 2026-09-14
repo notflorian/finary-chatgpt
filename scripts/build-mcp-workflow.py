@@ -54,7 +54,7 @@ def prelude(name):
     return "// Generated contract and shared validation.\n" + binding + library + check
 
 
-def generate(check=False):
+def generate():
     schema = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
     nodes = []
     connections = {}
@@ -86,15 +86,10 @@ def generate(check=False):
         outputs[branch].append({"node": target, "type": "main", "index": 0})
 
     def code(name, source=None):
-        filename = "-".join(name.lower().split()) + ".js"
-        path = DIRECTORY / filename
-        if source is not None:
-            if check:
-                if not path.exists() or path.read_text() != source:
-                    raise SystemExit(f"Stale generated selector: {filename}")
-            else:
-                path.write_text(source)
-        return node(name, "code", {"jsCode": prelude(name) + path.read_text()})
+        if source is None:
+            filename = "-".join(name.lower().split()) + ".js"
+            source = (DIRECTORY / filename).read_text()
+        return node(name, "code", {"jsCode": prelude(name) + source})
 
     def sheet(name, table, write=False, header=False):
         p = {
@@ -335,7 +330,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     path = ROOT / "n8n/workflows/finary-mcp-sync.json"
-    content = json.dumps(generate(args.check), indent=2, ensure_ascii=False) + "\n"
+    content = json.dumps(generate(), indent=2, ensure_ascii=False) + "\n"
     if args.check:
         if not path.exists() or path.read_text() != content:
             raise SystemExit("MCP workflow is stale")
