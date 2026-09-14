@@ -421,6 +421,11 @@ def test_runtime_populated_empty_repeated_and_partial_preserves_manual(
             assert current == original
             assert "Write positions_current" not in data and "Write positions_history" not in data
         if mode == "empty":
+            if index == 3:
+                assert "Write positions_current" not in data
+                assert _output(data, "Continue positions_current") == [
+                    {"completed_table": "positions_current"}
+                ]
             assert current == {**original, "is_active": False}
             assert "Write positions_history" not in data
             accepted = observation(
@@ -463,6 +468,10 @@ def test_runtime_exhausted_retry_then_valid_recovery(runtime_image, connector, t
                 == "The MCP synchronization failed. Validate the workbook before retrying."
             )
             assert book["accounts_current"] and not book["portfolio_members"]
+            assert (
+                book["sync_runs"][-1]["observation_id"]
+                == book["accounts_current"][0]["observation_id"]
+            )
         else:
             assert not result.get("error")
             accepted = observation(
@@ -517,3 +526,30 @@ def test_runtime_invalid_batches_and_control_block_success(runtime_image, tmp_pa
     assert "Record MCP Success" not in data
     if mode in {"later_batch", "paused", "missing_header"}:
         assert not any(name.startswith("Write ") for name in data)
+
+
+@pytest.mark.parametrize("mode", ["orphan", "manual_formula", "manual_duplicate"])
+def test_runtime_inventory_rejection_precedes_first_portfolio_write(
+    runtime_image, connector, tmp_path, mode
+):
+    from test_mcp_consumer import book_for_consumer
+    from test_mcp_inventory import manual_rows
+
+    book = book_for_consumer()
+    if mode == "orphan":
+        book["sync_runs"] = []
+    else:
+        book["cashflows"] = [manual_rows()["cashflows"]]
+        if mode == "manual_formula":
+            book["cashflows"][0]["amount_eur"] = "=1+2"
+        else:
+            book["cashflows"] *= 2
+    original = deepcopy(book)
+    reads = [n for n in WORKFLOW["nodes"] if n["name"].startswith("Read ")]
+    physical = connector(SCHEMA, book, [], reads)["reads"]
+    result = engine_run(runtime_image, tmp_path, snapshot(), physical)
+    data = result["runData"]
+    assert not any(name.startswith("Write ") for name in data)
+    assert "Record MCP Success" not in data
+    assert _output(data, "Record MCP Failure")[0]["status"] == "FAILED"
+    assert book == original

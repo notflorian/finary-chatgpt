@@ -70,6 +70,15 @@ def validate_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
                     {**col["mcp_schema"], "$defs": CONTRACT["$defs"]}, format_checker=FORMATS
                 ).is_valid(value)
             )
+    if table in SCHEMA["manual_sheets"]:
+        require(
+            all(
+                name == "notes" or not isinstance(value, str) or not value.startswith("=")
+                for name, value in result.items()
+            )
+        )
+    if table == "allocation_targets":
+        require(result["min_pct"] <= result["target_pct"] <= result["max_pct"])
     normalized: dict[str, Any] = {}
     for col, pointer in definition["column_bindings"].items():
         parts = pointer.split("/")[1:]
@@ -115,6 +124,23 @@ def records(inventory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     require(result["README"] == SCHEMA["readme_entries"])
     require(len(result["writer_control"]) == 1)
     validate_row("writer_control", result["writer_control"][0])
+    for table in [
+        "sync_runs",
+        *SCHEMA["manual_sheets"],
+        *SCHEMA["mcp_tables"]["sync_runs"]["count_columns"],
+    ]:
+        result[table] = [validate_row(table, row) for row in result[table]]
+        key = SCHEMA["sheets"][table]["unique_key"]
+        keys = [row[key] for row in result[table]]
+        require(len(keys) == len(set(keys)))
+    for table in SCHEMA["mcp_tables"]["sync_runs"]["count_columns"]:
+        for row in result[table]:
+            terminals = [
+                r for r in result["sync_runs"] if r["observation_id"] == row["observation_id"]
+            ]
+            require(len(terminals) == 1)
+            require(terminals[0]["run_id"] == row["run_id"])
+            require(terminals[0]["provider"] == SCHEMA["writer_provider"])
     return result
 
 
@@ -196,7 +222,13 @@ def native_inventory(native: dict[str, Any]) -> dict[str, Any]:
         values = []
         for row in rows[1:]:
             cells = [
-                entered(v, manual=name in SCHEMA["manual_sheets"]) for v in row.get("values", [])
+                entered(
+                    v,
+                    manual=name in SCHEMA["manual_sheets"]
+                    and index < len(header)
+                    and header[index] == "notes",
+                )
+                for index, v in enumerate(row.get("values", []))
             ]
             require(not any(v != "" for v in cells[len(header) :]))
             if any(v != "" for v in cells):

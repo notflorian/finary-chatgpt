@@ -54,14 +54,12 @@ def test_consumer_rejects_corrupted_membership(mode):
         select(readback(book), now=NOW + timedelta(minutes=1))
 
 
-def test_history_fallback_never_borrows_current_account_metadata():
+def test_orphan_current_observation_blocks_readback():
     book = book_for_consumer()
-    book["accounts_current"][0]["observation_id"] = "later-observation"
+    book["accounts_current"][0]["observation_id"] = "8f42a776-80d0-40c0-871f-ef12b16adff6"
     book["accounts_current"][0]["run_id"] = "later-run"
-    result = select(readback(book), now=NOW + timedelta(minutes=1))
-    assert result["dated_fallback"] and not result["current_complete"]
-    assert result["accounts"] is None
-    assert result["positions"]
+    with pytest.raises(ValueError):
+        select(readback(book), now=NOW + timedelta(minutes=1))
 
 
 def test_later_failure_does_not_replace_success():
@@ -79,24 +77,23 @@ def test_current_and_history_values_must_agree():
 
 
 @pytest.mark.parametrize("table", ["accounts_current", "positions_current"])
-def test_extra_foreign_active_row_forces_dated_history(table):
+def test_extra_foreign_active_row_blocks_readback(table):
     book = book_for_consumer()
     row = deepcopy(book[table][0])
     key = "account_key" if table == "accounts_current" else "position_key"
     row[key] += ":extra"
     row.update(run_id="interrupted-run", observation_id="interrupted-observation")
     book[table].append(row)
-    result = select(readback(book), now=NOW + timedelta(minutes=1))
-    assert not result["current_complete"] and result["dated_fallback"]
-    assert result["accounts"] is None
+    with pytest.raises(ValueError):
+        select(readback(book), now=NOW + timedelta(minutes=1))
 
 
 @pytest.mark.parametrize("flag", [0, 1, "true", None])
 def test_malformed_physical_activity_cannot_certify_current(flag):
     book = book_for_consumer()
     book["positions_current"][0]["is_active"] = flag
-    result = select(readback(book), now=NOW + timedelta(minutes=1))
-    assert not result["current_complete"] and result["dated_fallback"]
+    with pytest.raises(ValueError):
+        select(readback(book), now=NOW + timedelta(minutes=1))
 
 
 def test_formatted_membership_counts_keep_integer_semantics():
@@ -131,7 +128,7 @@ def test_current_and_history_compare_by_holding_identity_not_sheet_order():
 @pytest.mark.parametrize("mutation", ["eur_value", "holding_id", "source_asset_id", "account_key"])
 def test_historical_fallback_rejects_standalone_position_semantic_corruption(mutation):
     book = book_for_consumer()
-    book["accounts_current"][0]["observation_id"] = "later-observation"
+    book["accounts_current"] = []
     row = book["positions_history"][0]
     if mutation == "eur_value":
         row["current_value_amount_eur"] = "999999"
@@ -178,8 +175,8 @@ def test_dated_fallback_is_independent_of_later_account_metadata():
 def test_malformed_unprovenanced_current_row_never_counts_as_complete():
     book = book_for_consumer()
     book["positions_current"].append({"position_key": "unrecognized", "is_active": True})
-    result = select(readback(book), now=NOW + timedelta(minutes=1))
-    assert not result["current_complete"] and result["dated_fallback"]
+    with pytest.raises(ValueError):
+        select(readback(book), now=NOW + timedelta(minutes=1))
 
 
 def test_terminal_current_and_history_counts_cannot_conflict():

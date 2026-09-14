@@ -37,6 +37,8 @@ const mcpRow = (table,row) => {
     mcpAssert(valid);
     if(c.mcp_schema)mcpAssert(mcpSchemaValid(value,c.mcp_schema));
   }
+  if(mcpWorkbook.manual_sheets.includes(table))mcpAssert(Object.entries(row).every(([key,value])=>key==='notes'||typeof value!=='string'||!value.startsWith('=')));
+  if(table==='allocation_targets')mcpAssert(row.min_pct<=row.target_pct&&row.target_pct<=row.max_pct);
   const key=mcpWorkbook.sheets[table].unique_key;
   mcpAssert(typeof row[key]==='string'&&row[key].length>0);
   const definition=mcpWorkbook.mcp_tables[table];
@@ -92,7 +94,7 @@ const mcpBuild = (snapshot,run,existing,overrides=[]) => {
     if(!permitted[table])continue;
     const key=mcpWorkbook.sheets[table].unique_key,seen=new Set(batches[table].map(r=>r[key]));
     for(const old of existing[table]||[]){
-      if(!seen.has(old[key])){
+      if(old.is_active===true&&!seen.has(old[key])){
         mcpRow(table,old);batches[table].push({...old,is_active:false});
       }
     }
@@ -137,6 +139,7 @@ const mcpNormalized = (table,row) => {
 };
 const mcpRetained = existing => {
   mcpBatch('sync_runs',existing.sync_runs);
+  for(const table of mcpWorkbook.manual_sheets)mcpBatch(table,existing[table]);
   mcpAssert(mcpStable(existing.README)===mcpStable(mcpWorkbook.readme_entries));
   for(const [table,rows]of Object.entries(existing)){
     if(!mcpTableInputs[table])continue;
@@ -146,8 +149,8 @@ const mcpRetained = existing => {
       if(table==='positions_history')mcpAssert(row.history_key===`mcp:history:${row.snapshot_date}:${row.observation_id}:${row.position_key}`);
       if(table==='portfolio_daily')mcpAssert(row.daily_key===`mcp:daily:${row.snapshot_date}:${row.observation_id}`);
       const terminal=existing.sync_runs.filter(r=>r.observation_id===row.observation_id);
-      mcpAssert(terminal.length<=1);
-      if(terminal.length)mcpAssert(terminal[0].run_id===row.run_id&&terminal[0].provider==='finary_official_mcp');
+      mcpAssert(terminal.length===1);
+      mcpAssert(terminal[0].run_id===row.run_id&&terminal[0].provider==='finary_official_mcp');
     }
   }
   for(const terminal of existing.sync_runs.filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status))){

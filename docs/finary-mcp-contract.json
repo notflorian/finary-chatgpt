@@ -348,7 +348,7 @@
     "preferred_wealth_metric": "display preference only",
     "allocation": "official category/by_type preserved separately from custom AssetClass and overrides; unknown category identifiers retained",
     "debt": "reported totals and independently complete loan retrieval are different; complete with unvalued debt is qualified, assets_only count zero proves nothing; never sum details to correct overview",
-    "currency": "Native storage in workbook 3.0, nullable exact EUR projections. Overview amount_eur only when view.currency=EUR; account EUR fields never imply overview FX. Unsupported view is rejected, valid non-EUR currency preserved. Legacy EUR-only writer rejects v3 entirely.",
+    "currency": "Native storage in workbook 4.0, nullable exact EUR projections. Overview amount_eur only when view.currency=EUR; account EUR fields never imply overview FX. Unsupported view is rejected, valid non-EUR currency preserved. Incompatible workbook layouts are rejected; no legacy writer is supported.",
     "freshness": "ingestion, entity update and bank success are distinct; last_sync_at not success; source last_successful_sync_at >48h stale; broken status remains broken even after recent attempt; manual account no connection is NOT_APPLICABLE, unresolved relationship UNKNOWN; no silent deduplication"
   },
   "write_gates": {

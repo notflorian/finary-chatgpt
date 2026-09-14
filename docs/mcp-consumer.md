@@ -34,7 +34,11 @@ section. Prior layouts are rejected; [fresh initialization](operations.md#fresh-
 is required. The executable reference is
 [`app/mcp_consumer.py`](../finary-bridge/app/mcp_consumer.py). It accepts complete
 physical inventories with actual ordered headers, current README and writer control,
-checks duplicate keys before selecting membership, requires
+validates every automated row against its schema and exactly one matching
+stored terminal (successful or failed) before selecting membership. Orphan or
+malformed rows invalidate the inventory, including rows outside the selected
+observation. Manual sheets have unique keys and typed literal values; only
+notes may contain formulas. Validation never writes to manual sheets. It requires
 one successful terminal for the observation/run, validates per-table expected
 counts, reconstructs typed records and applies the production snapshot rules to
 a complete current selection. Null counts mean unavailable/unwritten; zero

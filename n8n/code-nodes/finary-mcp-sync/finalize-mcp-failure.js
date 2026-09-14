@@ -8,8 +8,9 @@ const terminals=$('Failure Terminal Read').all().map(i=>i.json).filter(r=>Object
 mcpUnique(terminals,['run_id']);
 // A lost terminal response must not overwrite the successful terminal already stored.
 if(terminals.some(r=>r.run_id===run.run_id))return [];
+// Error-branch execution must explicitly read the normal preparation output.
 let observation=null;
-try{const p=$('Prepare MCP Rows').first().json;mcpRun(p.run,String($execution.id));mcpAssert(p.run.run_id===run.run_id);observation=p.snapshot.observation_id;}catch{}
+try{const p=$('Prepare MCP Rows').first(0).json;mcpRun(p.run,String($execution.id));mcpAssert(p.run.run_id===run.run_id);observation=p.snapshot.observation_id;}catch{}
 if(observation!==null)mcpAssert(!terminals.some(r=>r.observation_id===observation));
 const completed=new Date();
 const row=mcpBlankRow('sync_runs');

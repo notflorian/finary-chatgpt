@@ -326,9 +326,7 @@ def observation(
 
 def select(inventory: dict[str, Any], *, now: datetime) -> dict[str, Any]:
     workbook = records(inventory)
-    # Every terminal belongs to this supported layout, including failures.
-    workbook["sync_runs"] = [validate_row("sync_runs", r) for r in workbook["sync_runs"]]
-    unique(workbook["sync_runs"], ("run_id",))
+    # Inventory-wide validation precedes fallback selection, including failed rows.
     candidates = [
         r for r in workbook["sync_runs"] if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
     ]

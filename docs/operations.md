@@ -205,8 +205,13 @@ A lost terminal response must never replace an already stored success with failu
 
 Pause and drain, inspect the failure, restore the correct current headers and
 control without overwriting operator data, then start a full new execution.
-Deterministic current keys repair interrupted writes. Accepted observations remain
-immutable and distinct, including multiple observations on one business date.
+Deterministic current keys repair interrupted writes qualified by a matching
+FAILED terminal. Every automated row must have exactly one matching stored
+terminal and pass its row schema. Orphan rows after hard process loss stop
+synchronization and consumer readback; restarting alone cannot certify them.
+Keep the affected workbook untouched for investigation and initialize a fresh
+workbook when terminal evidence cannot be recovered. Never fabricate a terminal.
+Accepted observations remain immutable and distinct, including multiple observations on one business date.
 Writer-generation changes or changed n8n execution identity block terminal success.
 When replacing the designated writer, drain it first, increment the generation
 and update both configuration and the control row while PAUSED.
