@@ -1,16 +1,44 @@
 """Independent version bindings and semantic dispatch at the supported boundaries."""
 
+import socket
 from copy import deepcopy
 from subprocess import CalledProcessError
 
 import pytest
+from fastapi.testclient import TestClient
 from mcp_artifacts import CONTRACT, SCHEMA, WORKFLOW, validator
 from mcp_snapshots import snapshot
 from mcp_workbooks import empty_book, failure, prepare, writes
 from pydantic import ValidationError
 
+from app import main, mcp_auth
 from app.mcp_models import McpSnapshotV1
 from app.mcp_optional import ReadContext
+
+
+def test_canonical_routing_metadata_agrees_with_supported_api(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unexpected client construction, network or OAuth-state access")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(main, "NativeMcpClient", forbidden)
+    monkeypatch.setattr(mcp_auth, "OAuthStore", forbidden)
+    monkeypatch.setattr(mcp_auth, "authorized_http", forbidden)
+    implemented = CONTRACT["implemented"]
+    major = "v" + implemented["api_schema"].split(".")[0]
+    versioned_routing = {
+        key for key in CONTRACT["provider_interfaces"]["routing"]
+        if key.startswith("v") and key[1:].isdigit()
+    }
+    assert versioned_routing == {major}
+    route = implemented["canonical_route"]
+    assert route == CONTRACT["providers"]["finary_official_mcp"]["route"] == "/v1/snapshot"
+    assert route.split("/")[1] == major
+    with TestClient(main.app) as client:
+        document = client.get("/openapi.json").json()
+    assert document["paths"][route]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/McpSnapshotV1"}
 
 
 def test_distinct_version_bindings_and_renamed_model_dispatch():
