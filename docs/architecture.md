@@ -4,8 +4,8 @@
 
 Finary Portfolio Data supports official Finary MCP exclusively.
 The [MCP contract](finary-mcp-contract.md)
-is the semantic foundation for implemented API 3.0 and workbook 4.0. Its fixture oracle
-is test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
+is the semantic foundation for implemented API 3.0 and workbook 4.0. Its synthetic fixture expectations
+are test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
 production validators, adapter, service and protected routes. Independent
 live acceptance is tracked in [the matrix](mcp-acceptance.md).
 The bridge converts unstable upstream responses into

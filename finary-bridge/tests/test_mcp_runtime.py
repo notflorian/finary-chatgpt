@@ -5,12 +5,13 @@ from copy import deepcopy
 from datetime import timedelta
 
 import pytest
+from mcp_artifacts import SCHEMA, WORKFLOW
+from mcp_snapshots import NOW, snapshot
 from mcp_wire import SyntheticWire
+from mcp_workbooks import empty_book, prepare, readback, writes
 from n8n_runtime import _execute, _output
 from n8n_runtime import runtime_image as runtime_image
 from sheets_connector import connector as connector
-from test_mcp_integration import NOW, snapshot
-from test_mcp_workflow import SCHEMA, WORKFLOW, empty_book, prepare, readback, writes
 
 from app.mcp_consumer import observation
 
@@ -133,7 +134,7 @@ def test_native_fixture_null_known_null_through_installed_connector(connector):
 
 
 def test_native_full_precision_through_installed_connector_and_consumer(connector):
-    from test_mcp_precision import precise_wire
+    from mcp_wire import precise_wire
 
     amount = "123456789012345678901234." + "1" * 64
     value = snapshot(precise_wire(amount))
@@ -532,8 +533,8 @@ def test_runtime_invalid_batches_and_control_block_success(runtime_image, tmp_pa
 def test_runtime_inventory_rejection_precedes_first_portfolio_write(
     runtime_image, connector, tmp_path, mode
 ):
-    from test_mcp_consumer import book_for_consumer
-    from test_mcp_inventory import manual_rows
+    from mcp_inputs import manual_rows
+    from mcp_workbooks import book_for_consumer
 
     book = book_for_consumer()
     if mode == "orphan":

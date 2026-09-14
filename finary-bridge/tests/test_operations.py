@@ -1,6 +1,6 @@
 """Operational safety of the supported inactive writer export."""
 
-from test_mcp_workflow import SCHEMA, WORKFLOW
+from mcp_artifacts import SCHEMA, WORKFLOW
 
 
 def test_read_and_write_boundaries():

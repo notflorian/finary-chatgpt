@@ -4,8 +4,9 @@ from copy import deepcopy
 from subprocess import CalledProcessError
 
 import pytest
+from mcp_artifacts import SCHEMA, WORKFLOW
+from mcp_workbooks import empty_book, prepare
 from n8n_code import _run_code_node
-from test_mcp_workflow import SCHEMA, WORKFLOW, empty_book, prepare
 
 
 def decode(table, row):

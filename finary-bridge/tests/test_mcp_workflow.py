@@ -1,25 +1,13 @@
 """Exported v3 validation, deterministic batches and fresh workbook initialization."""
 
-import json
 import subprocess
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
+from mcp_artifacts import ROOT, WORKFLOW
+from mcp_snapshots import snapshot
+from mcp_workbooks import empty_book, failure, prepare, writes
 from n8n_code import _run_code_node
-from test_mcp_integration import NOW, snapshot
-
-from app.mcp_workbook import initialize
-
-ROOT = Path(__file__).parents[2]
-SCHEMA = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
-WORKFLOW = json.loads((ROOT / "n8n/workflows/finary-mcp-sync.json").read_text())
-
-
-def empty_book():
-    inventory = initialize("synthetic-writer", 1)
-    inventory["sheets"]["writer_control"]["rows"][0]["state"] = "ACTIVE"
-    return {name: sheet["rows"] for name, sheet in inventory["sheets"].items()}
 
 
 def test_exported_series_comparison_requires_known_compatible_dimensions():
@@ -68,90 +56,6 @@ return [{json:{series_break:mcpSeriesBreak({sync_runs:[previous],observations:[r
             input_rows=[{"left": left, "right": right}],
         )[0]["json"]["series_break"]
         assert result is expected and compatible(left, right) is not expected
-
-
-def readback(book):
-    inventory = initialize("synthetic-writer", 1)
-    for name, rows in book.items():
-        inventory["sheets"][name]["rows"] = deepcopy(rows)
-    return inventory
-
-
-def prepare(value=None, book=None, execution="mcp-test", workflow=None):
-    workflow = workflow or WORKFLOW
-    book = book or empty_book()
-    named = {}
-    run = _run_code_node(
-        workflow,
-        "Initialize MCP Run",
-        named_rows={},
-        input_rows=[{}],
-        execution_id=execution,
-        now=NOW.isoformat(),
-        setup_js=(
-            "const $env={FINARY_MCP_WRITER_ID:'synthetic-writer',"
-            "FINARY_MCP_WRITER_GENERATION:'1',"
-            "FINARY_MCP_GOOGLE_SHEET_ID:'synthetic-book'};"
-        ),
-    )[0]["json"]
-    named["Initialize MCP Run"] = [run]
-    named["Fetch MCP Schema"] = [{"statusCode": 200, "body": SCHEMA}]
-    named["Fetch MCP Snapshot"] = [{"statusCode": 200, "body": value or snapshot()}]
-    named["Validate MCP Snapshot"] = [
-        r["json"]
-        for r in _run_code_node(
-            workflow,
-            "Validate MCP Snapshot",
-            named_rows=named,
-            input_rows=[{}],
-            execution_id=execution,
-        )
-    ]
-    for name in SCHEMA["sheets"]:
-        named["Read " + name] = book[name] or [{}]
-        named["Preflight " + name] = [
-            {c["name"]: c["name"] for c in SCHEMA["sheets"][name]["columns"]}
-        ]
-    named["Prepare MCP Rows"] = [
-        r["json"]
-        for r in _run_code_node(
-            workflow, "Prepare MCP Rows", named_rows=named, input_rows=[{}], execution_id=execution
-        )
-    ]
-    named["Recheck Writer Control"] = book["writer_control"]
-    named["Read MCP Terminal Before Success"] = book["sync_runs"] or [{}]
-    return named
-
-
-def writes(named, execution="mcp-test"):
-    result = []
-    for node in WORKFLOW["nodes"]:
-        if node["name"].startswith("Write "):
-            table = node["parameters"]["sheetName"]["value"]
-            rows = _run_code_node(
-                WORKFLOW,
-                "Select " + table,
-                named_rows=named,
-                input_rows=[{}],
-                execution_id=execution,
-            )
-            if rows:
-                result.append({"node": node, "rows": [r["json"] for r in rows]})
-    terminal = _run_code_node(
-        WORKFLOW,
-        "Finalize MCP Success",
-        named_rows=named,
-        input_rows=[{}],
-        execution_id=execution,
-        now=NOW.isoformat(),
-    )
-    result.append(
-        {
-            "node": next(n for n in WORKFLOW["nodes"] if n["name"] == "Record MCP Success"),
-            "rows": [r["json"] for r in terminal],
-        }
-    )
-    return result
 
 
 def test_exported_writer_preserves_totals_and_all_batches():
@@ -257,14 +161,14 @@ def test_retained_history_mixed_run_blocks_new_writes():
 
 
 def test_exported_validator_preserves_every_declared_snapshot_outcome():
-    from test_finary_mcp_contract import MANIFEST, materialize, snapshot_error, validator
+    from mcp_artifacts import MANIFEST, materialize
 
     named = prepare()
     for case in MANIFEST["cases"]:
         if case["schema"] != "#/$defs/snapshot_v3":
             continue
         value = materialize(case)
-        accepted = validator(case["schema"]).is_valid(value) and snapshot_error(value) is None
+        accepted = case["expected"]["schema_valid"] and case["expected"]["contract_error"] is None
         named["Fetch MCP Snapshot"] = [{"statusCode": 200, "body": value}]
         if accepted:
             result = _run_code_node(
@@ -294,26 +198,6 @@ def test_retained_current_source_cannot_disagree_with_observation_provider():
     book["observations"][0]["provenance_provider"] = "unsupported"
     with pytest.raises(subprocess.CalledProcessError):
         prepare(book=book, execution="next-execution")
-
-
-def failure(named, book, execution="mcp-test"):
-    named = deepcopy(named)
-    named["Failure Writer Control"] = book["writer_control"]
-    named["Failure Terminal Header"] = [
-        {c["name"]: c["name"] for c in SCHEMA["sheets"]["sync_runs"]["columns"]}
-    ]
-    named["Failure Terminal Read"] = book["sync_runs"] or [{}]
-    return [
-        item["json"]
-        for item in _run_code_node(
-            WORKFLOW,
-            "Finalize MCP Failure",
-            named_rows=named,
-            input_rows=[{}],
-            execution_id=execution,
-            now=NOW.isoformat(),
-        )
-    ]
 
 
 @pytest.mark.parametrize(

@@ -5,8 +5,9 @@ from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
+from mcp_artifacts import cases, materialize
+from mcp_snapshots import NOW
 from mcp_wire import SyntheticWire
-from test_mcp_integration import NOW
 
 from app.main import app, get_authenticated_mcp_client
 from app.mcp_client import McpFailure
@@ -177,3 +178,24 @@ def test_access_logs_do_not_include_user_search_labels():
     assert McpAccessFilter().filter(record)
     assert "synthetic-secret-label" not in record.getMessage()
     assert "/v3/spending-search" in record.getMessage()
+
+
+@pytest.mark.parametrize(
+    "case", cases("period_input") + cases("search_input"), ids=lambda c: c["id"],
+)
+def test_manifest_periods_use_production_requests(case):
+    value = materialize(case)
+    request_type = SearchRequest if case["schema"] == "#/$defs/search_input" else PeriodRequest
+    expected = case["expected"]
+    if not expected["schema_valid"]:
+        with pytest.raises((ValueError, McpFailure)):
+            request_type.model_validate(value).arguments(NOW.date())
+    elif expected["contract_error"]:
+        request = request_type.model_validate(value)
+        with pytest.raises(McpFailure) as failure:
+            request.arguments(NOW.date())
+        assert failure.value.code == expected["contract_error"]
+    else:
+        assert request_type.model_validate(value).arguments(NOW.date()) == {
+            "period": "this_month", **value,
+        }

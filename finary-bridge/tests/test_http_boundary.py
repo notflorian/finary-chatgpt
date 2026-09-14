@@ -7,8 +7,8 @@ import socket
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
+from mcp_auth_peer import AuthPeer, consent
 from mcp_wire import SyntheticWire
-from test_mcp_auth import AuthPeer, consent
 
 from app import main, mcp_auth
 from app.mcp_auth import OAuthStore

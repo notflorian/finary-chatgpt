@@ -3,19 +3,19 @@
 import json
 from contextlib import asynccontextmanager
 from copy import deepcopy
-from pathlib import Path
 
 import httpx2
+from mcp_artifacts import CONTRACT, base
 
 from app.mcp_client import BoundedTransport, NativeMcpClient
-from app.mcp_validation import CONTRACT
-
-BASES = json.loads((Path(__file__).parent / "fixtures/finary-mcp/bases.json").read_text())
 
 
 class SyntheticWire:
     def __init__(self):
-        self.values = deepcopy(BASES)
+        self.values = {
+            name: base(name)
+            for name in ("overview", "accounts", "holdings", "budget", "search", "goals")
+        }
         self.calls = []
         self.requests = []
         self.mutate = None
@@ -36,7 +36,7 @@ class SyntheticWire:
         for name in self.tools:
             reference = CONTRACT["capabilities"][name]["input_schema"].split("/")[-1]
             schema = deepcopy(CONTRACT["$defs"][reference])
-            schema["$defs"] = CONTRACT["$defs"]
+            schema["$defs"] = deepcopy(CONTRACT["$defs"])
             result.append({"name": name, "inputSchema": schema})
         return result
 
@@ -107,3 +107,11 @@ class SyntheticWire:
 
     def client(self):
         return NativeMcpClient(self.http)
+
+
+def precise_wire(amount):
+    wire = SyntheticWire()
+    account = wire.values["accounts"]["data"][0]["attributes"]
+    account["balance"] = account["full_value_eur"] = amount
+    wire.values["holdings"]["data"][0]["attributes"]["current_value"] = amount
+    return wire

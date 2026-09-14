@@ -100,14 +100,29 @@ The common entry point generates and checks all supported MCP artifacts:
 ```bash
 python scripts/build-workflow-validation.py
 python scripts/build-workflow-validation.py --check
-python -m pytest -q finary-bridge/tests/test_mcp_integration.py finary-bridge/tests/test_mcp_workflow.py
+python -m pytest -q finary-bridge/tests/test_mcp_contract.py finary-bridge/tests/test_mcp_integration.py finary-bridge/tests/test_mcp_workflow.py
 ```
 
 It invokes the model/packaged-contract, workbook and workflow generators and
 propagates every failure. MCP Code-node sources live under
 `n8n/code-nodes/finary-mcp-sync`; exports are self-contained for pinned n8n.
-Shared engine, Code-node and connector helpers live in `tests/n8n_runtime.py`,
-`tests/n8n_code.py` and `tests/sheets_connector.py`; none loads another writer.
+Test modules import focused support modules, never other test modules:
+
+- `tests/mcp_artifacts.py` loads canonical artifacts and materializes fresh synthetic cases.
+- `tests/mcp_wire.py` and `tests/mcp_auth_peer.py` provide native MCP and OAuth peers.
+- `tests/mcp_snapshots.py` supplies a fixed clock and real-service snapshot construction.
+- `tests/mcp_workbooks.py` prepares fresh inventories and executes exported Code nodes;
+  `tests/mcp_inputs.py` supplies independent typed manual inputs.
+- `tests/n8n_runtime.py`, `tests/n8n_code.py` and `tests/sheets_connector.py` retain
+  separate engine, individual Code-node and installed connector execution boundaries.
+
+`test_mcp_contract.py` compares JSON Schema and production model outcomes with
+checked-in expectations. Focused semantic tests call production validators;
+`test_mcp_workflow.py` independently checks exported JavaScript against the same
+literal outcomes. Native pagination/result wrappers and optional date requests
+are exercised at their production boundaries. Declared capability evidence is
+metadata only and does not certify upstream support. Support code is excluded
+from the application package.
 The initializer and packaged schema are verified alongside generated artifacts.
 
 ## Test design
@@ -145,7 +160,7 @@ read-only repository permissions. It has five bounded jobs:
 | Job | Checks |
 | --- | --- |
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
-| `mcp-validation-python314` | Python 3.14 MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
+| `mcp-validation-python314` | Python 3.14 contract/model, MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
@@ -180,7 +195,7 @@ test pass.
 
 Application 2.0.0, API 3.0, workbook 4.0 and source-contract 2.0.0 have distinct
 purposes. The workbook change is breaking and requires fresh installation.
-Broader test consolidation and historical-document cleanup remain release work.
+Historical-document cleanup remains separate release work.
 Require all five CI jobs on the exact release commit. A package build or green
 CI does not authorize deployment, workflow activation or operator data changes.
 
