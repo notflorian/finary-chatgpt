@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from app.mcp_adapter import McpAdapter
 from app.mcp_client import McpFailure, NativeMcpClient
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 from app.mcp_validation import CONTRACT
 
 
@@ -27,7 +27,7 @@ class McpSnapshotService:
     ) -> None:
         self.client, self.clock, self.page_limit = client, clock, page_limit
 
-    async def snapshot(self) -> McpSnapshotV3:
+    async def snapshot(self) -> McpSnapshotV1:
         started = self.clock()
         async with self.client.session(("get_portfolio_overview",)) as session:
             adapter = McpAdapter(session, page_limit=self.page_limit)
@@ -56,7 +56,7 @@ class McpSnapshotService:
             return "COMPLETE" if known == len(rows) else "PARTIAL" if known else "UNAVAILABLE"
 
         try:
-            return McpSnapshotV3.model_validate(
+            return McpSnapshotV1.model_validate(
                 {
                     "schema_version": CONTRACT["implemented"]["api_schema"],
                     "observation_id": str(uuid4()),

@@ -335,10 +335,12 @@ def test_initializer_bridge_engine_connector_consumer_round_trip(
         wire.values["holdings"]["data"] = []
     app.dependency_overrides[get_authenticated_mcp_client] = lambda: wire.client()
     try:
-        response = TestClient(app).get("/v3/snapshot")
+        response = TestClient(app).get("/v1/snapshot")
     finally:
         app.dependency_overrides.clear()
     assert response.status_code == 200
+    assert response.json()["schema_version"] == "1.0"
+    assert response.json()["provenance"]["source_contract_version"] == "1.0.0"
     read_nodes = [n for n in WORKFLOW["nodes"] if n["name"].startswith("Read ")]
     physical = connector(SCHEMA, book, [], read_nodes)["reads"]
     result = engine_run(runtime_image, tmp_path, response.json(), physical)

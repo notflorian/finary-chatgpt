@@ -3,11 +3,11 @@
 ## Canonical contract
 
 [google-sheets-schema.json](google-sheets-schema.json) is the generated current
-workbook layout 4.0. The single field-level source is `current_workbook` in
+workbook layout 1.0. The single field-level source is `current_workbook` in
 [finary-mcp-contract.json](finary-mcp-contract.json), with leaf types from its
 normalized MCP definitions. The generator also packages an identical schema.
 It defines sheet order, ordered headers, keys, nullability, ownership and update
-behavior directly. No previous workbook layout participates in generation.
+behavior directly. The initializer and consumer use this exact structure.
 
 ## Tables and ownership
 
@@ -47,7 +47,8 @@ Manual target percentages are decimal fractions: `0.75` means 75%, with
 `0 <= min_pct <= target_pct <= max_pct <= 1`. Manual cashflows use explicit EUR
 amounts with signed contributions/withdrawals and paired internal transfers.
 An enabled override uses exact MCP `source_asset_id` and changes custom asset
-classification only. Names, tickers and equal numeric IDs do not prove identity.
+classification only. All manual rows require unique keys and typed literal values;
+formulas are allowed only in notes. Names, tickers and equal numeric IDs do not prove identity.
 
 ## Observation membership and recovery
 
@@ -58,6 +59,8 @@ all required batches. Null counts mean unavailable/unwritten; zero means validat
 empty membership. Missing current rows are inactivated only under sufficient
 collection evidence, retaining their original observation and timestamps.
 
+Every automated row must match exactly one valid stored terminal, including
+partial rows from FAILED runs. Orphans and malformed rows invalidate the inventory.
 The consumer validates physical keys, activity, counts, references and financial
 semantics before treating current rows as complete. Accepted dated history can
 supply fallback without later account metadata. Currency, scope, ownership, metric
@@ -70,5 +73,5 @@ Sequential reads/writes are not transactional.
 Use the [executable initializer and setup sequence](operations.md). It creates a
 new blank workbook with current README metadata and a PAUSED writer control row.
 This breaking layout rejects prior schemas and supplies no data conversion.
-Existing operator data is not modified. See [consumer interpretation](mcp-consumer.md)
+Existing operator data is not modified. See [consumer interpretation](chatgpt.md#reading-an-observation)
 for accepted observations and limitations.

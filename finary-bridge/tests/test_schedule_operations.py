@@ -21,7 +21,7 @@ def test_repository_workflow_stays_safe_to_import() -> None:
 
 
 def test_operations_document_preserves_schedule_controls() -> None:
-    operations = (REPOSITORY_ROOT / "docs/operations.md").read_text()
+    operations = " ".join((REPOSITORY_ROOT / "docs/operations.md").read_text().split())
 
     assert "repository workflow exports are inactive for safe import" in operations
     assert "07:30 `Europe/Paris`" in operations

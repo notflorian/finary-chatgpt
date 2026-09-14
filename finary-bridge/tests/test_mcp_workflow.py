@@ -119,7 +119,7 @@ def test_exported_diagnostic_and_currency_regressions(path):
 @pytest.mark.parametrize(
     "stage", ["Validate MCP Snapshot", "Prepare MCP Rows", "Select source_warnings"]
 )
-def test_removed_migration_warning_cannot_reach_sheets(stage):
+def test_unsupported_warning_cannot_reach_sheets(stage):
     named = prepare()
     warnings = {
         "Validate MCP Snapshot": named["Fetch MCP Snapshot"][0]["body"]["warnings"][0],
@@ -165,7 +165,7 @@ def test_exported_validator_preserves_every_declared_snapshot_outcome():
 
     named = prepare()
     for case in MANIFEST["cases"]:
-        if case["schema"] != "#/$defs/snapshot_v3":
+        if case["schema"] != "#/$defs/snapshot_v1":
             continue
         value = materialize(case)
         accepted = case["expected"]["schema_valid"] and case["expected"]["contract_error"] is None

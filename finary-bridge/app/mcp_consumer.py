@@ -183,7 +183,7 @@ def _observation(
 
     implications = [
         rule
-        for rule in CONTRACT["$defs"]["snapshot_v3"]["allOf"]
+        for rule in CONTRACT["$defs"]["snapshot_v1"]["allOf"]
         if "account_valuation" not in json.dumps(rule)
         and "holding_valuation" not in json.dumps(rule)
     ]
@@ -295,9 +295,9 @@ def _observation(
             "unsupported_details": detail["unsupported_details"] or [],
         }
         snapshot.pop("run_id")
-        from app.mcp_models import McpSnapshotV3
+        from app.mcp_models import McpSnapshotV1
 
-        McpSnapshotV3.model_validate(snapshot)
+        McpSnapshotV1.model_validate(snapshot)
         require(
             {row["position_key"]: row for row in current_positions}
             == {row["position_key"]: row for row in positions or []}

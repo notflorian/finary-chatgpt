@@ -45,7 +45,7 @@ services:
       FINARY_BRIDGE_API_KEY: ${FINARY_MCP_CANDIDATE_API_KEY:?Set an independent test bridge key}
       FINARY_BRIDGE_URL: http://finary-bridge:8000
       FINARY_MCP_SCHEMA_URL: http://schema-server/google-sheets-schema.json
-      FINARY_MCP_GOOGLE_SHEET_ID: ${FINARY_MCP_CANDIDATE_WORKBOOK_ID:?Set the isolated candidate workbook ID}
+      FINARY_MCP_GOOGLE_SHEET_ID: ${FINARY_MCP_CANDIDATE_WORKBOOK_ID:?Set the isolated workbook ID}
       FINARY_MCP_WRITER_ID: ${FINARY_MCP_CANDIDATE_WRITER_ID:-mcp-test-writer}
       FINARY_MCP_WRITER_GENERATION: ${FINARY_MCP_CANDIDATE_WRITER_GENERATION:-1}
       N8N_EDITOR_BASE_URL: http://localhost:5679

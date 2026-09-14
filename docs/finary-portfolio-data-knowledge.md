@@ -1,6 +1,6 @@
 # Finary Portfolio Data workbook knowledge
 
-This reference describes workbook layout 4.0, API 3.0 and source contract 2.0.0.
+This reference describes workbook layout 1.0, API 1.0 and source contract 1.0.0.
 It does not replace the ChatGPT Project's behavioral Instructions or the user's
 Personal Investment Policy. The canonical field contract is
 [google-sheets-schema.json](google-sheets-schema.json); the executable reference
@@ -10,7 +10,10 @@ consumer is [mcp_consumer.py](../finary-bridge/app/mcp_consumer.py).
 
 Read complete tables, actual headers, current `README`, and singleton
 `writer_control`. Reject incompatible layouts, missing evidence, duplicate keys
-and conflicting terminals. Select the newest valid `completed_at` for `SUCCESS`
+and conflicting terminals. Validate every automated row against its row schema
+and exactly one matching terminal, including rows outside the selected observation
+and partial rows associated with FAILED terminals. Orphan or malformed rows
+invalidate the inventory; do not silently filter them away. Select the newest valid `completed_at` for `SUCCESS`
 or `SUCCESS_WITH_WARNINGS`, interpreting ISO 8601 with an explicit timezone
 offset. A later FAILED row never replaces a stored success. Tied completion
 instants cannot establish an unambiguous latest state.
@@ -58,7 +61,9 @@ Buying price has its own basis and must not be treated as cost basis.
 never synchronization write targets. Targets use decimal fractions and manual
 cashflows use explicit EUR. Enabled overrides use exact MCP `source_asset_id`
 without name, ticker or cross-provider matching. They affect custom classification
-only; budget/search/goals never populate investment cashflows.
+only; budget/search/goals never populate investment cashflows. Manual rows need
+unique keys and typed literal values; formulas are permitted only in notes.
+Allocation fractions obey `0 <= min_pct <= target_pct <= max_pct <= 1`.
 
 Every exposure calculation must state its scope and denominator. Unknown
 classification, currency or membership makes combined-cap certification

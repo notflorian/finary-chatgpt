@@ -1,178 +1,102 @@
 # Architecture
 
-## Purpose
-
-Finary Portfolio Data supports official Finary MCP exclusively.
-The [MCP contract](finary-mcp-contract.md)
-is the semantic foundation for implemented API 3.0 and workbook 4.0. Its synthetic fixture expectations
-are test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
-production validators, adapter, service and protected routes. Independent
-live acceptance is tracked in [the matrix](mcp-acceptance.md).
-The bridge converts unstable upstream responses into
-a stable versioned API, then synchronizes validated data into a Google workbook
-that ChatGPT can read.
+## Components and trust boundaries
 
 ```text
-                         local Docker Compose network
-                  +-------------------------------------+
-                  |                                     |
-Finary <----------+ finary-bridge <- HTTP <- n8n        |
-                  |                         |            |
-                  | schema-server ----------+            |
-                  +-------------------------|------------+
-                                            v
-                                      Google Sheets
-                                            |
-                                            v
-                                    ChatGPT Project
+Official Finary MCP ← bridge ← n8n → private Google Sheets → ChatGPT
+                                ↑
+                         schema-server
 ```
 
-The Compose project runs three services:
+The local Compose network contains three services. Only the bridge and n8n bind
+host ports, both on localhost. `schema-server` serves the canonical workbook JSON
+internally without credentials.
 
-- `finary-bridge`: FastAPI application and the only Finary-aware component;
-- `schema-server`: credential-free internal delivery of the canonical workbook
-  schema;
-- `n8n`: scheduler, validation layer, Google Sheets synchronization, and
-  operational telemetry.
+The bridge is the only Finary-aware component. `mcp_client.py` owns native SDK
+negotiation, discovery and bounded tool calls. `mcp_auth.py` owns independent
+operator OAuth and protected renewable state. `mcp_adapter.py` validates resource
+relationships, pagination, opaque identifiers, currency and ownership.
+`services/mcp_snapshot_service.py` assembles one observation with a UUID and a
+collection window. `mcp_optional.py` handles budget, spending search and goals
+independently; they are not prerequisites for portfolio collection.
 
-The bridge and n8n bind to localhost. The schema server has no host port.
+n8n receives normalized observations, never Finary credentials, raw payloads or
+OAuth tokens. It owns Google OAuth and writes to one private workbook. Runtime
+credential bindings are absent from the repository export. ChatGPT reads the
+workbook through its own Google connection; neither the bridge URL nor OAuth
+state is a ChatGPT source. Direct Finary MCP questions use a separate connection
+and cannot be combined with older workbook detail as one observation.
 
-## Official MCP implementation
+## HTTP and authorization
 
-`mcp_client.py` owns initialization, capability/schema discovery, pagination of
-the catalog, bounded native results and fixed errors. `mcp_auth.py` owns explicit
-operator consent and separate renewable state. `mcp_adapter.py` owns resource
-relationships, account/holding pagination, currency evidence and ownership.
-`mcp_snapshot_service.py` binds the official overview and detail into one UUID
-and collection window. `mcp_optional.py` isolates budget/search/goals from the
-portfolio critical path. No scheduled call carries an analytics prompt.
+The application reports version `1.0.0` in package, health and OpenAPI metadata.
+`GET /health` is local and requires no upstream client or OAuth-state access.
+`GET /v1/snapshot` returns `McpSnapshotV1`, normalized schema `1.0`.
+`GET /v1/budget`, `/v1/spending-search` and `/v1/goals` provide optional reads.
+Other API majors have no routes or redirects.
 
-The generated inactive MCP workflow validates all rows before portfolio writes,
-checks the writer generation, preserves exact decimal text and publishes terminal
-membership after required writes. Loan detail remains unavailable. Workbook 4.0 is generated directly from
-`current_workbook` in the MCP contract, with no prior layout dependency.
-[Operations](operations.md) initializes new workbooks and defines writer activation.
+If `FINARY_BRIDGE_API_KEY` is nonempty, an exact constant-time `X-API-Key` match is
+required before constructing the native client, opening state or performing I/O.
+Normal routes never bootstrap authorization. Errors use fixed
+`{error: {code, message, retryable}}` envelopes; request errors and access logs
+must not expose query labels, malformed values or upstream responses.
 
-## Trust boundaries
+Official OAuth verifies issuer `https://clerk.finary.com` and allowlisted
+endpoints. Explicit operator consent uses public-client registration and
+S256 authorization code flow through the pinned SDK. One bridge process owns
+one state on a local filesystem. The bridge-only `finary_mcp_data` volume holds
+registration metadata, refresh token, effective scope and rotation generation;
+access tokens stay in memory. Directory/file modes are 0700/0600. Atomic writes,
+CAS checks and session leases prevent stale replacement and overlapping renewal.
+Remote token rotation and local persistence cannot be made transactional. See
+[Operations](operations.md#oauth-lifecycle-and-recovery) for recovery limits.
+`n8n_data` and its encryption key are separate from Finary state.
 
-### Finary boundary
+## Synchronization and reading
 
-The official adapter owns MCP transport, independently authorized OAuth,
-resource relationships and sanitized errors. Its fixed `finary_official_mcp`
-provenance identifies each observation; it is not a configurable source switch.
-There is no private adapter, fallback, mixed snapshot or field supplementation.
+The inactive workflow has manual and 07:30 Europe/Paris triggers. It creates a
+UUID-bearing execution identity, fetches `/v1/snapshot` and the canonical schema,
+validates them, reads all headers and rows, and checks writer control. Every
+retained automated row must pass its schema and match exactly one stored
+terminal. Manual inputs receive read-only key/type validation, with formulas
+allowed only in notes. Every prepared batch is validated before portfolio writes.
 
-### Automation boundary
+Complete collection evidence alone permits current-row inactivation. Inactive
+rows retain their observation/timestamps and are not rewritten again merely
+because they remain absent. Accepted history is immutable, including distinct
+observations on one business date. Empty branches continue once without dummy
+rows. Decimal text is written RAW; empty strings explicitly clear nullable cells.
 
-n8n sees only the normalized bridge contract and the canonical workbook schema.
-It does not receive Finary credentials, session cookies, or bearer tokens. The
-optional `FINARY_BRIDGE_API_KEY` protects snapshot calls from other local
-clients.
+Success is written after required batches and writer/execution/terminal rechecks.
+The same graph owns sanitized failure telemetry. A lost terminal response cannot
+replace stored success. Valid FAILED terminals qualify partial rows for recovery;
+orphan rows block reuse. Reads, writes and rechecks are sequential, not atomic.
+The operating model therefore requires one writer and excludes overlapping
+manual and scheduled executions.
 
-n8n owns Google OAuth credentials. Credential bindings are runtime-only and are
-not present in exported workflow JSON.
+The production consumer validates the complete physical inventory before choosing
+an observation: headers, metadata, schemas, keys, terminal membership, counts,
+references and financial semantics. Dated fallback can use independently valid
+history without borrowing later account metadata. The consumer is executable
+operator tooling; uploading instructions does not install it inside ChatGPT.
 
-### Consumer boundary
+## Contract ownership
 
-Google Sheets contains normalized portfolio state, user-managed analytical
-inputs, and sanitized synchronization telemetry. It does not contain Finary or
-n8n credentials, raw API responses, or generic metadata blobs.
+Application `1.0.0` identifies the installed service. API `1.0` identifies
+normalized HTTP responses. Workbook `1.0` identifies physical sheets and metadata.
+Source contract `1.0.0` identifies project-owned source interpretation. Each
+advances according to its own compatibility impact; matching initial versions
+do not require perpetual lockstep.
 
-In the implemented workbook path, ChatGPT reads the private workbook through a
-Project Google Drive source. The
-Project receives the workbook semantics as a separate knowledge file, but it
-never connects to the bridge or Finary directly.
+`docs/finary-mcp-contract.json` owns normalized definitions and `current_workbook`.
+Generators produce models, the canonical workbook schema, identical packaged
+contracts and the self-contained n8n export. Exact layout validation accompanies
+version validation. Relabeling an incompatible workbook does not make it valid.
+Fresh initialization creates a new workbook; no conversion is implemented.
 
-## HTTP boundary
-
-`main.py` authorizes MCP requests before constructing `NativeMcpClient`.
-`mcp_auth.py` then opens protected renewable state and the bounded HTTP transport.
-`mcp_adapter.py` validates source relationships and `mcp_snapshot_service.py`
-assembles a qualified observation. `errors.py` defines the shared error envelope.
-No private-client cache, reset hook, raw model graph or legacy serializer remains.
-
-## API contracts
-
-`GET /health` returns `status: ok`, `service: finary-bridge`, and application
-`version: 2.0.0` without constructing a client, reading OAuth state or using
-network I/O. OpenAPI is similarly local.
-
-`GET /v3/snapshot` is canonical and returns `McpSnapshotV3`, API schema `3.0`.
-`GET /v3/budget`, `GET /v3/spending-search` and `GET /v3/goals` preserve their
-independent supported response contracts. They never run as part of snapshot
-collection. Removed `/v1/snapshot` and `/v2/snapshot` return 404 with no aliases,
-redirects or OpenAPI entries.
-
-A nonempty `FINARY_BRIDGE_API_KEY` requires an exact `X-API-Key` match using
-constant-time comparison before client construction. Missing/invalid keys return
-401 `BRIDGE_AUTH_FAILED`; an unset/empty configured key leaves local protection
-optional. Errors use `{error: {code, message, retryable}}` with fixed sanitized
-messages. MCP invalid arguments return 400, unavailable authorization/capability
-503, timeouts 504 and other supported MCP failures 502. Request validation and
-access logging must not expose search labels or upstream payloads.
-
-## Money and coverage
-
-Official overview totals and allocation have independent authority. Account or
-holding details never replace them. Preserve exact decimal text, native currency,
-verified EUR provenance, ownership and separate retrieval/valuation/semantic/
-freshness coverage. Unknown amounts remain null; no speculative conversion is
-performed. See the [focused contract](finary-mcp-contract.md).
-
-## Independent OAuth
-
-The verified official OAuth issuer remains `https://clerk.finary.com`.
-Issuer validation and OAuth endpoint allowlisting are mandatory. This legitimate
-Clerk hostname does not retain the removed private password, session-cookie,
-bearer-renewal or MFA implementation. No assistant/plugin authorization is reused.
-
-Explicit operator consent bootstraps protected renewable state. The MCP store
-persists registration metadata, refresh token, effective scope and rotation
-generation in a 0700 directory/0600 file. Access tokens remain memory-only.
-Atomic writes, CAS generation checks, bounded renewal and process leases prevent
-stale replacement and concurrent refresh. Routes and schedules remain
-noninteractive. `finary_mcp_data` is bridge-only and separate from `n8n_data`.
-The repository no longer mounts or declares the old private session volume;
-existing operator volumes must not be read, converted or deleted by cleanup.
-See [OAuth operations](mcp-operations.md#backups-and-independent-oauth).
-
-## Synchronization topology
-
-The inactive MCP export supports manual execution and a 07:30 Europe/Paris
-schedule. It creates a UUID-bearing n8n run identity, fetches the canonical schema
-and `/v3/snapshot`, validates them, reads all required headers and rows, and checks
-writer control before preparing and validating every batch. It then upserts
-current and observation tables, rechecks writer generation and terminal
-collisions, and records success after all required writes.
-
-Only complete collection evidence permits current-row inactivation. Inactive
-rows retain their observation identity and timestamps. History is immutable per
-accepted observation, including multiple observations on the same date. Empty
-batches continue exactly once without dummy rows. Manual inputs are never
-synchronization-owned. Exact decimal text is written RAW and null cells clear
-explicitly with empty strings.
-
-The same graph handles sanitized failures under its own control/header/terminal
-checks. No separate error workflow is required. A lost terminal response cannot
-overwrite a stored success. Sequential Sheets reads/writes and control rechecks
-are not atomic; operational single-writer exclusion remains necessary.
-
-The production consumer validates actual headers, metadata, terminal membership,
-counts, keys, coverage and normalized financial semantics. It can return
-independently validated dated history when current tables are inconsistent,
-without borrowing later account metadata.
-
-## Versioning
-
-Application 2.0.0 and API 3.0 remain unchanged. Workbook 4.0 removes transitional
-columns/tables, so it requires a new layout major. Source contract 2.0.0 reflects
-the breaking workbook definition under its coordinated-major policy; it does
-not claim a new upstream MCP version or new financial evidence. Old and
-transitional workbooks are rejected. No migration or dual-layout reader exists.
-
-## Deliberate limitations
-
-Production acceptance remains an operator gate. Unverified source semantics
-retain explicit qualifiers. Debt detail remains unavailable; overview debt
-valuation has separate coverage. The system is local and single-user, performs
-no speculative FX conversion, and does not execute trades.
+Official overview totals and allocation are independently authoritative. Native
+amounts, proven EUR values, full/direct ownership, buying-price basis and distinct
+retrieval/valuation/debt/semantic/freshness coverage must survive every boundary.
+The [source contract](finary-mcp-contract.md) and [data model](data-model.md)
+describe these rules. Live availability and independent operator verification
+remain separate from synthetic test success.

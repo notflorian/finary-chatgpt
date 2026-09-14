@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0",
+  "schema_version": "1.0",
   "canonical_schema": "google-sheets-schema.json",
   "workbook_name": "Finary Portfolio Data",
   "timezone": "Europe/Paris",
@@ -34,17 +34,17 @@
   "readme_entries": [
     {
       "key": "workbook_schema",
-      "value": "4.0",
+      "value": "1.0",
       "description": "Required physical workbook layout."
     },
     {
       "key": "api_schema",
-      "value": "3.0",
+      "value": "1.0",
       "description": "Normalized bridge snapshot contract."
     },
     {
       "key": "source_contract_version",
-      "value": "2.0.0",
+      "value": "1.0.0",
       "description": "Source interpretation contract."
     },
     {
@@ -98,8 +98,8 @@
       "description": "Configure one writer ID and positive generation, verify setup, then explicitly activate control. No conversion of existing workbooks is supplied."
     }
   ],
-  "source_contract_version": "2.0.0",
-  "api_schema": "3.0",
+  "source_contract_version": "1.0.0",
+  "api_schema": "1.0",
   "writer_provider": "finary_official_mcp",
   "mcp_tables": {
     "README": {
@@ -707,7 +707,6 @@
     "nullable_key_components": "Encode absent optional child-key component as literal ~null and present components as ~value followed by E(value); this discriminates an absent warning entity from any real ID. Fixed table key arity; no delimiter ambiguity."
   },
   "mcp_numeric_policy": {
-    "revision_reason": "Contract 1.1.0 raises the project fractional bound from 18 to 64 after an operator-run native accounts read reported a plain decimal with more than 18 significant fractional digits. Preserve the exact source string; never round. The 64-place cap is a bounded project policy, not a verified upstream maximum.",
     "ingestion": "Decimal constructed directly from bounded strings; no float intermediate; validate lexical length before parsing; preserve exact value; reject malformed/non-finite/out-of-range without truncation or rounding",
     "limits": {
       "integer_digits": 24,
@@ -715,7 +714,7 @@
     },
     "absence": "absent/null unknown, zero is known; reject booleans, blanks and text placeholders as amounts",
     "sheets": "Monetary, quantity and rate columns use exact decimal TEXT written RAW; nullable cells explicitly clear using empty strings. Manual allocation targets use decimal fractions and manual cashflows use EUR.",
-    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and implementation-time bounds before invocation. Never use as ingestion decimals.",
+    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and explicit bounds before invocation. Never use as ingestion decimals.",
     "rate_units": {
       "annual_yield_percent": "PERCENT, ANNUAL",
       "annual_yield": "UNVERIFIED until type-specific source evidence",
@@ -724,7 +723,8 @@
       "ownership_share": "FRACTION; nonnegative, can exceed 1",
       "target_coverage_months": "MONTHS, not money"
     },
-    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds."
+    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds.",
+    "precision": "Preserve exact decimal text up to 24 integer and 64 fractional digits. These are project safety bounds, not a verified upstream maximum; values outside them fail without rounding."
   },
   "mcp_valuation_contracts": {
     "account_valuation": {
@@ -2794,7 +2794,7 @@
           }
         },
         "source_contract_version": {
-          "const": "2.0.0",
+          "const": "1.0.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
@@ -4372,11 +4372,11 @@
       ],
       "additionalProperties": false
     },
-    "snapshot_v3": {
+    "snapshot_v1": {
       "type": "object",
       "properties": {
         "schema_version": {
-          "const": "3.0",
+          "const": "1.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
@@ -5825,7 +5825,7 @@
       "type": "object",
       "properties": {
         "workbook_schema": {
-          "const": "4.0"
+          "const": "1.0"
         },
         "provider": {
           "const": "finary_official_mcp"
@@ -6247,13 +6247,13 @@
           ]
         },
         "api_schema": {
-          "const": "3.0"
+          "const": "1.0"
         },
         "workbook_schema": {
-          "const": "4.0"
+          "const": "1.0"
         },
         "source_contract_version": {
-          "const": "2.0.0"
+          "const": "1.0.0"
         },
         "provider": {
           "const": "finary_official_mcp"
@@ -6643,7 +6643,7 @@
           "nullable": false,
           "ownership": "operator",
           "mcp_schema": {
-            "const": "4.0"
+            "const": "1.0"
           }
         },
         {
@@ -6763,7 +6763,7 @@
           "nullable": false,
           "ownership": "synchronization",
           "mcp_schema": {
-            "const": "3.0"
+            "const": "1.0"
           }
         },
         {
@@ -6772,7 +6772,7 @@
           "nullable": false,
           "ownership": "synchronization",
           "mcp_schema": {
-            "const": "4.0"
+            "const": "1.0"
           }
         },
         {
@@ -6781,7 +6781,7 @@
           "nullable": false,
           "ownership": "synchronization",
           "mcp_schema": {
-            "const": "2.0.0"
+            "const": "1.0.0"
           }
         },
         {
@@ -10184,7 +10184,7 @@
           "nullable": false,
           "ownership": "synchronization",
           "mcp_schema": {
-            "const": "2.0.0",
+            "const": "1.0.0",
             "x-field": {
               "authority": "bridge",
               "grain": "observation",

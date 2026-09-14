@@ -75,7 +75,7 @@ const mcpParisDate = value => {
   return `${parts.year}-${parts.month}-${parts.day}`;
 };
 const mcpSnapshot = snapshot => {
-  mcpSchema(snapshot,'snapshot_v3');
+  mcpSchema(snapshot,'snapshot_v1');
   const p=snapshot.provenance,c=snapshot.coverage;
   const start=Date.parse(p.collection_started_at),end=Date.parse(p.collection_ended_at),generated=Date.parse(snapshot.generated_at);
   mcpAssert(start<=end&&end<=generated&&end-start<=180000&&snapshot.snapshot_date===mcpParisDate(snapshot.generated_at));

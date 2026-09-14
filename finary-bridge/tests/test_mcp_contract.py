@@ -14,12 +14,12 @@ import pytest
 from jsonschema import Draft202012Validator
 from mcp_artifacts import BASE_NAMES, CONTRACT, MANIFEST, base, cases, materialize, validator
 
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 from app.mcp_validation import key as identity
 from app.mcp_validation import validate, validate_money, validate_snapshot
 
 
-def test_removed_migration_warning_is_rejected_by_contract_and_model():
+def test_unsupported_warning_is_rejected_by_contract_and_model():
     from pydantic import ValidationError
 
     from app.mcp_models import McpWarning
@@ -80,7 +80,7 @@ def test_duplicate_warning_keys_fail_schema_and_semantic_validation(entity_key):
     value = base("snapshot")
     warning = {"code": "MISSING_ENRICHMENT", "entity_key": entity_key}
     value["warnings"] = [warning, deepcopy(warning)]
-    assert not validator("#/$defs/snapshot_v3").is_valid(value)
+    assert not validator("#/$defs/snapshot_v1").is_valid(value)
     assert_snapshot_semantics(value, "IDENTITY")
 
 
@@ -95,7 +95,7 @@ def test_duplicate_diagnostic_keys_ignore_count_in_identity(count_delta):
     duplicate = deepcopy(value["unsupported_details"][0])
     duplicate["count"] += count_delta
     value["unsupported_details"].append(duplicate)
-    assert validator("#/$defs/snapshot_v3").is_valid(value) == bool(count_delta)
+    assert validator("#/$defs/snapshot_v1").is_valid(value) == bool(count_delta)
     assert_snapshot_semantics(value, "IDENTITY")
 
 
@@ -120,7 +120,7 @@ def test_every_overview_money_group_requires_provenance_currency(row_path, field
     for key in row_path:
         row = row[key]
     row[field].update(currency=currency, amount_eur=None, eur_basis="UNAVAILABLE")
-    assert validator("#/$defs/snapshot_v3").is_valid(value) == (currency is not None)
+    assert validator("#/$defs/snapshot_v1").is_valid(value) == (currency is not None)
     assert_snapshot_semantics(value, "CURRENCY_EVIDENCE")
 
 
@@ -152,14 +152,14 @@ def test_unknown_native_valuation_fails_schema_and_semantic_checks(dimension, mi
         money[field] = None
     for state in ("COMPLETE", "PARTIAL"):
         value["coverage"][dimension] = state
-        assert not validator("#/$defs/snapshot_v3").is_valid(value)
+        assert not validator("#/$defs/snapshot_v1").is_valid(value)
         assert_snapshot_semantics(value, "VALUATION_COVERAGE")
     value["coverage"][dimension] = "UNAVAILABLE"
     if missing == ("currency",):
-        assert not validator("#/$defs/snapshot_v3").is_valid(value)
+        assert not validator("#/$defs/snapshot_v1").is_valid(value)
         assert_snapshot_semantics(value, "CURRENCY_EVIDENCE")
         return
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value)
 
 
@@ -174,7 +174,7 @@ def test_complete_native_valuation_accepts_zero_and_nullable_eur(dimension, amou
         "amount_eur": eur,
         "eur_basis": "SOURCE_EUR" if currency == "EUR" else "UNAVAILABLE",
     }
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value)
 
 
@@ -200,7 +200,7 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
     value[rule["rows"]].append(second)
     for state in ("COMPLETE", "UNAVAILABLE", "PARTIAL"):
         value["coverage"][dimension] = state
-        assert validator("#/$defs/snapshot_v3").is_valid(value) == (state == "PARTIAL")
+        assert validator("#/$defs/snapshot_v1").is_valid(value) == (state == "PARTIAL")
         assert_snapshot_semantics(value, (None if state == "PARTIAL" else "VALUATION_COVERAGE"))
 
     value[rule["rows"]] = []
@@ -209,15 +209,15 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
     if dimension == "account_valuation":
         value["ownership"] = []
     value["coverage"][dimension] = "COMPLETE"
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value)
     value["coverage"][rule["collection"]] = "PARTIAL"
     if dimension == "account_valuation":
         value["coverage"].update(holdings="UNAVAILABLE", holding_valuation="UNAVAILABLE")
-    assert not validator("#/$defs/snapshot_v3").is_valid(value)
+    assert not validator("#/$defs/snapshot_v1").is_valid(value)
     assert_snapshot_semantics(value, "VALUATION_COVERAGE")
     value["coverage"][dimension] = "UNAVAILABLE"
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value)
 
 
@@ -230,7 +230,7 @@ def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
     )
     value = materialize(case)
     value["overview"]["reported_liabilities"]["amount"] = zero
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value)
 
 
@@ -252,7 +252,7 @@ def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
     )
     value = materialize(case)
     value["overview"]["reported_liabilities"]["amount"] = amount
-    assert not validator("#/$defs/snapshot_v3").is_valid(value)
+    assert not validator("#/$defs/snapshot_v1").is_valid(value)
 
 
 @pytest.mark.parametrize(
@@ -276,7 +276,7 @@ def test_eur_conversion_compares_exact_decimal_values(eur, full, expected):
     value = materialize(case)
     value["accounts"][0]["native_balance"]["amount_eur"] = eur
     value["accounts"][0]["full_value_eur"] = full
-    validator("#/$defs/snapshot_v3").validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
     assert_snapshot_semantics(value, expected)
 
 
@@ -358,7 +358,7 @@ def test_normalized_financial_fields_have_authority_grain_and_units():
                 for key in ("authority", "grain", "unit", "currency", "absence", "evidence")
             )
     assert not CONTRACT["$defs"]["account_observed"]["properties"]["attributes"]["required"]
-    assert CONTRACT["$defs"]["snapshot_v3"]["properties"]["debt_details"]["maxItems"] == 0
+    assert CONTRACT["$defs"]["snapshot_v1"]["properties"]["debt_details"]["maxItems"] == 0
 
 
 def test_identity_encoding_is_injective_and_preserves_opaque_ids():
@@ -378,7 +378,7 @@ def test_identity_encoding_is_injective_and_preserves_opaque_ids():
 
 def test_overview_authority_is_not_a_detail_sum_constraint():
     snapshot = base("snapshot")
-    validator("#/$defs/snapshot_v3").validate(snapshot)
+    validator("#/$defs/snapshot_v1").validate(snapshot)
     gross = Decimal(snapshot["overview"]["gross_assets"]["amount"])
     assert gross != sum(Decimal(a["full_value_eur"]) for a in snapshot["accounts"])
     assert gross != sum(Decimal(p["current_value"]["amount"]) for p in snapshot["positions"])
@@ -429,14 +429,14 @@ def test_workbook_column_bindings_cover_each_normalized_leaf_without_collisions(
 
 @pytest.mark.parametrize(
     "case",
-    cases("snapshot_v3"),
+    cases("snapshot_v1"),
     ids=lambda c: c["id"],
 )
 def test_runtime_model_preserves_declared_snapshot_outcome(case):
     value = materialize(case)
     accepted = case["expected"]["schema_valid"] and case["expected"]["contract_error"] is None
     if accepted:
-        assert McpSnapshotV3.model_validate(value).model_dump() == value
+        assert McpSnapshotV1.model_validate(value).model_dump() == value
     else:
         with pytest.raises(ValueError):
-            McpSnapshotV3.model_validate(value)
+            McpSnapshotV1.model_validate(value)

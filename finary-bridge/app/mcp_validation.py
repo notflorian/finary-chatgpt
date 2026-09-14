@@ -197,7 +197,7 @@ class ContractModel(BaseModel):
         if isinstance(value, cls):
             return value
         validate(cls.contract_name, value)
-        if cls.contract_name == "snapshot_v3":
+        if cls.contract_name == "snapshot_v1":
             validate_snapshot(value)
         elif cls.contract_name == "money":
             validate_money(value)

@@ -151,7 +151,7 @@ def test_python314_compatibility_job_runs_mcp_validation() -> None:
     assert set(selected) == {
         "tests/test_mcp_contract.py", "tests/test_mcp_auth.py", "tests/test_mcp_integration.py",
         "tests/test_mcp_optional.py", "tests/test_mcp_precision.py",
-        "tests/test_http_boundary.py", "tests/test_health.py",
+        "tests/test_http_boundary.py", "tests/test_health.py", "tests/test_product_baseline.py",
     }
     assert all((ROOT / "finary-bridge" / path).is_file() for path in selected)
     assert "docker" not in job

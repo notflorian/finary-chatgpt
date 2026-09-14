@@ -10,7 +10,7 @@ from mcp_workbooks import prepare
 from pydantic import TypeAdapter, ValidationError
 
 from app.mcp_client import McpFailure
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 from app.mcp_optional import DecimalText, ReadContext
 from app.mcp_validation import CONTRACT
 
@@ -42,20 +42,20 @@ def test_python_and_exported_js_compare_every_fractional_digit_exactly():
     value = snapshot(precise_wire(amount))
     # Equivalent source scales stay valid; no decimal context or float rounding.
     value["positions"][0]["current_value"]["amount_eur"] = amount + "0"
-    McpSnapshotV3.model_validate(value)
+    McpSnapshotV1.model_validate(value)
     prepare(value)
     different = deepcopy(value)
     different["positions"][0]["current_value"]["amount_eur"] = amount + "1"
     with pytest.raises(ValidationError):
-        McpSnapshotV3.model_validate(different)
+        McpSnapshotV1.model_validate(different)
     with pytest.raises(CalledProcessError):
         prepare(different)
 
 
-def test_prior_source_contract_is_not_silently_relabelled():
+def test_unsupported_source_contract_is_not_silently_relabelled():
     value = snapshot()
-    value["provenance"]["source_contract_version"] = "1.0.0"
+    value["provenance"]["source_contract_version"] = "9.0.0"
     with pytest.raises(ValidationError):
-        McpSnapshotV3.model_validate(value)
+        McpSnapshotV1.model_validate(value)
     with pytest.raises(CalledProcessError):
         prepare(value)

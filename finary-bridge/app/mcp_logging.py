@@ -8,7 +8,7 @@ class McpAccessFilter(logging.Filter):
         args = record.args
         if isinstance(args, tuple) and len(args) == 5:
             path = args[2]
-            if isinstance(path, str) and path.startswith("/v3/"):
+            if isinstance(path, str) and path.startswith("/v1/"):
                 record.args = (*args[:2], path.split("?", 1)[0], *args[3:])
         return True
 

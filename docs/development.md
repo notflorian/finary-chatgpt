@@ -27,7 +27,7 @@ described in `.env.example` unless a fake adapter is injected in tests.
 
 Set `FINARY_MCP_STATE_PATH` only to independently authorized, protected OAuth
 state. No provider selector or private credentials are used. Follow the
-[OAuth runbook](mcp-operations.md#backups-and-independent-oauth). Health and
+[OAuth runbook](operations.md#independent-mcp-oauth). Health and
 OpenAPI access require no OAuth state; routes never initiate consent.
 
 ## Required local checks
@@ -36,7 +36,7 @@ Run normal tests and static analysis from `finary-bridge`:
 
 ```bash
 python -m pytest --collect-only -q
-python -m pytest -m "not live" --ignore=tests/live
+python -m pytest -m "not live" --ignore=tests/live -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
 python -m ruff check .
 python -m mypy app
 python -m build
@@ -87,19 +87,11 @@ formulas, exact decimal bounds, null → zero → null cells, exhausted retries 
 recovery, invalid later batches, control rechecks, UUID identities, terminal
 response loss and complete stdout evidence under backpressure.
 
-The required runtime gate uses `-n auto --maxprocesses 4 --dist worksteal` with
-`--max-worker-restart 0`. Local worker count defaults to two; CI uses detected
-capacity capped at four. `PYTEST_XDIST_WORKER_COUNT` provides an explicit override.
-The full credential-free CI suite uses the same bounded worker settings and
-unchanged test selection. To reproduce it locally from `finary-bridge`, run:
-
-```bash
-python -m pytest -m "not live" --ignore=tests/live \
-  -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
-```
-
-Each engine execution uses fresh disposable network-disabled containers/databases.
-These are synthetic runtime checks, not live Google or Finary acceptance.
+Both full tests and the required runtime gate use bounded xdist with no worker
+restart. Local worker count defaults to two; CI uses detected capacity capped at
+four. `PYTEST_XDIST_WORKER_COUNT` is an explicit override. Each engine execution
+uses fresh disposable containers/databases; synthetic checks do not establish
+live Google, Finary or Clerk behavior.
 
 ## Workflow validation maintenance
 
@@ -154,11 +146,102 @@ shape is needed, create an anonymized fixture directly: replace IDs, names,
 institutions, values, account details, and correlation data while retaining only
 the necessary structure.
 
-## Opt-in live MCP checks
+## Opt-in diagnostics
 
-Normal CI excludes live diagnostics. They require explicit isolated operator
-OAuth and sanitized structural output. See the [MCP runbook](mcp-operations.md).
-No private password/MFA/session tests or commands remain.
+Live diagnostics require explicit operator authorization for a designated isolated
+connection/workbook. They are not part of setup or ordinary CI. Use the development
+environment above, disposable state outside the checkout, and stop all other
+owners before a host test. [OAuth setup](operations.md#independent-mcp-oauth) and
+[recovery limits](operations.md#oauth-lifecycle-and-recovery) still apply.
+
+From the repository root, authorize a fresh isolated state and retain its path:
+
+```bash
+cd finary-bridge
+umask 077
+export FINARY_MCP_TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/finary-mcp-test.XXXXXX")"
+python -m app.mcp_auth bootstrap --state "$FINARY_MCP_TEST_DIR/oauth.json"
+FINARY_MCP_LIVE_TEST=1 FINARY_MCP_LIVE_ISOLATED_STATE=1 \
+FINARY_MCP_LIVE_STATE_PATH="$FINARY_MCP_TEST_DIR/oauth.json" \
+python -m pytest -q -s --tb=no -m live \
+  tests/live/test_mcp_live.py::test_isolated_native_collection_structure
+```
+
+`STRUCTURAL_COLLECTION_VALIDATED` reports bounded native collection, not workbook
+writes. On failure, an explicitly authorized repeat with
+`FINARY_MCP_LIVE_DIAGNOSTICS=1` prints only allowlisted stage/tool/path/type
+information. It never prints instance values, raw payloads or authentication data.
+
+The standalone `docker-compose.mcp-test.yml` uses project `finary-mcp-candidate`,
+localhost ports 8001/5679, its own network/n8n volume and an existing isolated
+OAuth directory. Use it alone, never as a production override. Set
+`FINARY_MCP_TEST_DIR`, `FINARY_MCP_CANDIDATE_API_KEY`,
+`FINARY_MCP_CANDIDATE_WORKBOOK_ID`, `FINARY_MCP_CANDIDATE_WRITER_ID` and
+`FINARY_MCP_CANDIDATE_WRITER_GENERATION` explicitly for its fresh workbook.
+Stop host state users before container use. From the root, validate configuration
+first using the command above, then an authorized operator can start only this
+stack with the same arguments and `up -d --build --wait` instead of `config --quiet`.
+Create its own Google credential. Keep it unpublished and stop it with the same
+project/file arguments; never mount production volumes or use `down -v`.
+
+Natural-expiry diagnostics retain one OAuth session across the SDK-advertised
+expiry and perform two bounded collections. They neither change tokens/clocks nor
+probe intentional reuse of expired tokens. Stop the isolated bridge and run from
+`finary-bridge` with the isolated state path:
+
+```bash
+FINARY_MCP_LIVE_TEST=1 FINARY_MCP_LIVE_ISOLATED_STATE=1 \
+FINARY_MCP_LIVE_EXPIRY_TEST=1 \
+FINARY_MCP_LIVE_STATE_PATH="$FINARY_MCP_TEST_DIR/oauth.json" \
+python -m pytest -q -s --tb=no -m live \
+  tests/live/test_mcp_live.py::test_isolated_natural_expiry_renewal
+```
+
+The default maximum wait is 7,200 seconds;
+`FINARY_MCP_LIVE_EXPIRY_MAX_WAIT_SECONDS` may explicitly raise it to at most 86,400.
+Missing/already elapsed/out-of-bound expiry fails. A structural countdown occurs
+at most every 30 seconds. Only NATURAL_EXPIRY_RENEWAL_VALIDATED establishes this
+session's advertised expiry/renewal; it does not guarantee indefinite consent.
+
+Revocation is destructive to its **separate disposable grant**. Create and authorize
+a dedicated directory before the test; never use the ordinary isolated bridge's
+state and do not invoke revoke first. Run from `finary-bridge`:
+
+```bash
+export FINARY_MCP_REVOCATION_TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/finary-mcp-revocation.XXXXXX")"
+python -m app.mcp_auth bootstrap --state "$FINARY_MCP_REVOCATION_TEST_DIR/oauth.json"
+FINARY_MCP_LIVE_TEST=1 FINARY_MCP_LIVE_ISOLATED_STATE=1 \
+FINARY_MCP_LIVE_REVOKE_DISPOSABLE=1 \
+python -m pytest -q -s --tb=no -m live \
+  tests/live/test_mcp_revocation_live.py::test_disposable_server_revocation
+```
+
+Only HTTP 400 `invalid_grant` establishes remote refresh rejection. Access-token
+acceptance is reported separately: local deletion or accepted revoke does not
+prove immediate remote access rejection. Failed probes do not authorize new
+consent or automatic retries. No portfolio tools are called by this test.
+
+For opt-in Google Sheets diagnostics, generate inactive synthetic workflows from
+the root with development dependencies installed:
+
+```bash
+python scripts/build-mcp-live-scenarios.py --workbook-id "$DISPOSABLE_SHEET_ID" \
+  --output /tmp/mcp-live-scenarios.json
+```
+
+Use a new schema-1.0 workbook with ACTIVE control for `synthetic-live-writer`,
+generation 1, and an isolated n8n Google credential. There are no Finary HTTP nodes
+or schedule. `interrupt` intentionally stops after the first account write,
+leaving an orphan with no terminal; readback and reuse must be rejected. Preserve
+that workbook as failed diagnostic evidence. Generate a **second set for a new
+blank workbook**, and execute only `null`, `known`, then `clear`, each once.
+Verify null → exact `123.123456789012345678901234` text → blank native amount
+cells, immutable observation history and unique terminal membership through
+[full readback](operations.md#consumer-readback-verification). Do not interpret
+this hard stop as recoverable FAILED telemetry. Handled-error recovery is
+separately tested in the mandatory synthetic runtime gate. Clear cached data
+before reads, regenerate UUIDs for a new diagnostic series and return disposable
+control to PAUSED afterwards. Offline generation alone is not live verification.
 
 ## Continuous integration
 
@@ -199,30 +282,16 @@ Before submitting a change:
 Do not weaken coverage, currency, null, identity, or idempotency rules to make a
 test pass.
 
-## Preparing application 2.0.0
+## Version and package checks
 
-Application 2.0.0, API 3.0, workbook 4.0 and source-contract 2.0.0 have distinct
-purposes. The workbook change is breaking and requires fresh installation.
-Historical-document cleanup remains separate release work.
-Require all five CI jobs on the exact release commit. A package build or green
-CI does not authorize deployment, workflow activation or operator data changes.
+Application and source contract use semantic versions (`1.0.0`); API and workbook
+use schema versions (`1.0`). They are independently versioned. Change source
+contracts and generators first, then regenerate all artifacts. Never edit packaged
+JSON, generated models or embedded workflow code independently.
 
-## Official MCP evidence boundaries
-
-The bridge pins `mcp==2.2.0` (MIT, Python >=3.10; project >=3.12), using its v2
-`Client`, Streamable HTTP and OAuth provider APIs. No v1 SDK examples are used.
-`test_mcp_integration.py` feeds synthetic upstream responses through real SDK
-initialization, discovery, tools, adapter, service and protected API boundaries.
-`test_mcp_auth.py` exercises supported SDK OAuth with disposable stores and fake
-HTTP, including restart, expiry, revoked refresh, concurrent leases, rotation
-and explicit isolated revocation. These are synthetic authorization proofs.
-
-Model/workbook/workflow generators are included in the existing parity command.
-The packaged `app/mcp-contract.json` must equal the reviewed source contract;
-wheel installation includes it. `test_mcp_workflow.py` validates exported code,
-while `test_mcp_runtime.py` separately runs the actual pinned graph and installed
-Sheets connector with synthetic I/O. It verifies native decimal null/zero/blank
-updates, child tables, terminal sequencing and the production reference consumer.
-Fresh creation request generation and current native-cell decoding are tested
-with synthetic inventories. No test in the normal gate contacts Google, Finary
-or Clerk, or mounts production volumes.
+A clean wheel/sdist must contain the current byte-identical contracts and exclude
+tests/support scripts. Smoke-test installed health, OpenAPI and initializer outside
+the checkout. The pinned `mcp==2.2.0` SDK, protocol revision, storage format and
+writer generation are unrelated version domains; do not change them as part of
+an application/schema update. CI success does not authorize publication,
+deployment, workflow activation or changes to operator data.

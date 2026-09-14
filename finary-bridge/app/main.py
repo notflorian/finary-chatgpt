@@ -14,7 +14,7 @@ from app.config import SERVICE_NAME, SERVICE_VERSION
 from app.errors import ErrorDetail, ErrorResponse
 from app.mcp_client import McpFailure, NativeMcpClient
 from app.mcp_logging import protect_access_logs
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 from app.mcp_optional import (
     BudgetResponse,
     GoalsResponse,
@@ -133,36 +133,36 @@ async def handle_mcp_error(request: Request, exception: McpFailure) -> JSONRespo
 
 @app.exception_handler(RequestValidationError)
 async def handle_request_error(request: Request, exception: RequestValidationError) -> JSONResponse:
-    if request.url.path.startswith("/v3/"):
+    if request.url.path.startswith("/v1/"):
         return await handle_mcp_error(request, McpFailure("MCP_INVALID_ARGUMENT"))
     return await request_validation_exception_handler(request, exception)
 
 
-@app.get("/v3/snapshot", response_model=McpSnapshotV3)
-async def get_snapshot_v3(
+@app.get("/v1/snapshot", response_model=McpSnapshotV1)
+async def get_snapshot_v1(
     client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
-) -> McpSnapshotV3:
+) -> McpSnapshotV1:
     return await McpSnapshotService(client).snapshot()
 
 
-@app.get("/v3/budget", response_model=BudgetResponse)
-async def get_budget_v3(
+@app.get("/v1/budget", response_model=BudgetResponse)
+async def get_budget_v1(
     client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
     request: Annotated[PeriodRequest, Depends()],
 ) -> BudgetResponse:
     return await OptionalMcpService(client).budget(request, paris_now())
 
 
-@app.get("/v3/spending-search", response_model=SearchResponse)
-async def get_spending_search_v3(
+@app.get("/v1/spending-search", response_model=SearchResponse)
+async def get_spending_search_v1(
     client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
     request: Annotated[SearchRequest, Depends()],
 ) -> SearchResponse:
     return await OptionalMcpService(client).search(request, paris_now())
 
 
-@app.get("/v3/goals", response_model=GoalsResponse)
-async def get_goals_v3(
+@app.get("/v1/goals", response_model=GoalsResponse)
+async def get_goals_v1(
     client: Annotated[NativeMcpClient, Depends(get_authenticated_mcp_client)],
 ) -> GoalsResponse:
     return await OptionalMcpService(client).goals(paris_now())
