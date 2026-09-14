@@ -52,7 +52,8 @@ Unsupported consent returns `MCP_AUTH_UNAVAILABLE`, without invented endpoints.
 not prove connectivity, consent validity or refresh success. Bootstrap
 `--diagnose` prints fixed stage names/status codes, never tokens or OAuth bodies.
 It remains an explicit consent attempt. See [diagnostics](development.md#opt-in-diagnostics)
-for separately authorized isolated checks.
+for separately authorized isolated checks, including the operator UID/GID
+configuration and exclusive host/container handoff.
 
 ## Place state in the bridge volume
 

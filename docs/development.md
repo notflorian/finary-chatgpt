@@ -52,6 +52,7 @@ COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
   finary-bridge/tests/test_n8n_runtime_support.py \
   finary-bridge/tests/test_mcp_runtime.py
+FINARY_REQUIRE_OAUTH_DOCKER=1 python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py
 ```
 
 The import check loads the single inactive MCP export into a disposable,
@@ -62,8 +63,17 @@ and CI fail instead. Run the isolated Compose check with synthetic configuration
 ```bash
 COMPOSE_ENV_FILES=/dev/null FINARY_MCP_TEST_DIR=/tmp \
 FINARY_MCP_CANDIDATE_API_KEY=synthetic-key FINARY_MCP_CANDIDATE_WORKBOOK_ID=synthetic-book \
+FINARY_MCP_CANDIDATE_UID=1001 FINARY_MCP_CANDIDATE_GID=1001 \
 docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
 ```
+
+The OAuth Docker gate requires a non-root Linux host and a rootful daemon without
+user-namespace remapping. It builds the bridge image, resolves the candidate
+identity/bind mount, rejects the original root identity, rotates fabricated state
+through the existing fake OAuth transport, and verifies host recovery and 0700/0600
+ownership after container exit. Containers have no network and use only a fresh
+synthetic directory. The required gate fails when this runtime is unavailable;
+on other local platforms, obtain that evidence from the `oauth-ownership` CI job.
 
 Keep evidence boundaries distinct:
 
@@ -180,18 +190,37 @@ OAuth directory. Use it alone, never as a production override. Export
 `FINARY_MCP_CANDIDATE_WRITER_GENERATION` explicitly for its fresh isolated workbook
 in the operator's shell. Keep the independently authorized OAuth directory and
 matching writer values. Stop all other users of that state before container use.
+The supported ownership model is a non-root operator on rootful Linux Docker,
+without user-namespace remapping. After host authorization, derive and export:
+
+```bash
+export FINARY_MCP_CANDIDATE_UID="$(id -u)"
+export FINARY_MCP_CANDIDATE_GID="$(id -g)"
+```
+
+Only the candidate bridge uses this numeric UID/GID; no passwd entry is required.
+The preflight rejects missing/non-numeric identities, root, mismatched identities,
+and unsafe directories without repairing them. Keep directory mode 0700 and all
+state, lock and lease files at 0600. Never authorize as root or change production
+volume ownership. Health remains metadata-only: a healthy container does not prove
+OAuth state is usable. Docker Desktop bind mounts and rootless/user-namespace
+mappings have different ownership semantics; this Linux procedure does not certify
+those platforms. Use host diagnostics there unless the complete synthetic handoff
+has independently been verified for that environment.
+
 From the repository root, in that same shell, an explicitly authorized operator
 can validate those settings without printing resolved secrets and then start only
 the isolated stack:
 
 ```bash
+python scripts/validate-mcp-candidate.py && \
 COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
   -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet && \
 COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
   -p finary-mcp-candidate -f docker-compose.mcp-test.yml up -d --build --wait
 ```
 
-Both commands inherit the five exported values; neither loads production `.env`
+The commands inherit all seven exported values; none loads production `.env`
 files. Do not copy the synthetic assignments from Required local checks into this
 operator command. Create its own Google credential. Keep its workflow unpublished
 and stop it with the same environment/project/file arguments and `stop` instead
@@ -259,7 +288,7 @@ control to PAUSED afterwards. Offline generation alone is not live verification.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main` with
-read-only repository permissions. It has five bounded jobs:
+read-only repository permissions. It has six bounded jobs:
 
 | Job | Checks |
 | --- | --- |
@@ -267,6 +296,7 @@ read-only repository permissions. It has five bounded jobs:
 | `mcp-validation-python314` | Python 3.14 contract/model, MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
+| `oauth-ownership` | required synthetic host–container–host handoff on rootful Linux using the actual bridge image |
 | `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
 
 Actions are pinned to immutable revisions, runtime versions are explicit, and
