@@ -38,12 +38,12 @@ def test_fresh_initialization_is_complete_deterministic_and_paused():
     book = initialize("synthetic-writer", 7)
     assert book == initialize("synthetic-writer", 7)
     assert list(book["sheets"]) == EXPECTED_SHEETS
-    assert book["schema_version"] == "4.0"
+    assert book["schema_version"] == "1.0"
     values = records(book)
     assert values["writer_control"] == [
         {
             "row_key": "singleton",
-            "workbook_schema": "4.0",
+            "workbook_schema": "1.0",
             "provider": "finary_official_mcp",
             "generation": 7,
             "writer_id": "synthetic-writer",
@@ -56,7 +56,7 @@ def test_fresh_initialization_is_complete_deterministic_and_paused():
     request = google_create(book)
     assert native_inventory(request) == book
     assert request["sheets"][0]["data"][0]["rowData"][1]["values"][1] == {
-        "userEnteredValue": {"stringValue": "4.0"}
+        "userEnteredValue": {"stringValue": "1.0"}
     }
     assert headers()["asset_overrides"] == [
         "override_key",

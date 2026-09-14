@@ -15,7 +15,7 @@ from mcp_wire import SyntheticWire
 
 from app.main import app, get_authenticated_mcp_client
 from app.mcp_client import McpFailure, decode_result
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 
 
 def test_native_protocol_real_path_and_authority():
@@ -33,8 +33,8 @@ def test_native_protocol_real_path_and_authority():
     assert value["positions"][0]["buying_price"]["amount_eur"] is None
     assert [name for name, _ in wire.calls] == ["get_portfolio_overview", "accounts", "holdings"]
     assert all("prompt" not in args for _, args in wire.calls)
-    McpSnapshotV3.model_validate(value)
-    validator("#/$defs/snapshot_v3").validate(value)
+    McpSnapshotV1.model_validate(value)
+    validator("#/$defs/snapshot_v1").validate(value)
 
 
 def test_inconsistent_pagination_terminal_flag_aborts():
@@ -81,7 +81,7 @@ def test_failures_sanitized_through_api(code, monkeypatch):
         wire.http_status = lambda name, args: 403
     app.dependency_overrides[get_authenticated_mcp_client] = wire.client
     try:
-        response = TestClient(app).get("/v3/snapshot")
+        response = TestClient(app).get("/v1/snapshot")
         assert response.status_code >= 500
         assert "synthetic" not in response.text
         assert set(response.json()["error"]) == {"code", "message", "retryable"}
@@ -94,9 +94,9 @@ def test_auth_precedes_oauth_and_health(monkeypatch):
     monkeypatch.delenv("FINARY_PROVIDER", raising=False)
     monkeypatch.delenv("FINARY_MCP_STATE_PATH", raising=False)
     client = TestClient(app)
-    assert client.get("/v3/snapshot").status_code == 401
+    assert client.get("/v1/snapshot").status_code == 401
     assert client.get("/health").status_code == 200
-    response = client.get("/v3/snapshot", headers={"X-API-Key": "synthetic-bridge-key"})
+    response = client.get("/v1/snapshot", headers={"X-API-Key": "synthetic-bridge-key"})
     assert response.json()["error"]["code"] == "MCP_AUTH_UNAVAILABLE"
 
 

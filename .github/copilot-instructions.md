@@ -37,12 +37,12 @@ narrow fix may leave unhandled.
 - Preserve canonical identifiers, EUR provenance rules, liability coverage
   semantics, deterministic workbook behavior, historical-row preservation, and
   manual-sheet ownership.
-- Verify only MCP routes are exposed: `/v3/snapshot` is canonical, with
-  optional budget/search/goals reads. Removed V1/V2 routes return 404.
+- Verify only MCP routes are exposed: `/v1/snapshot` is canonical, with
+  optional budget/search/goals reads. Unsupported V2/V3 routes return 404.
 - Preserve official OAuth issuer checks on `clerk.finary.com`; the removed
   private password/cookie/MFA flow must never return as a fallback.
 - Treat `docs/google-sheets-schema.json` as the machine-readable workbook
-  generated 4.0 contract when reviewing workflow or schema changes; its field-level
+  generated 1.0 contract when reviewing workflow or schema changes; its field-level
   source is `current_workbook` in `docs/finary-mcp-contract.json`. Reject old layouts
   and preserve the fresh PAUSED initializer; do not reintroduce conversion support.
 - Reject changes that weaken validation, safety limits, credential isolation, or

@@ -25,7 +25,7 @@ MODEL_NAMES = (
     "member",
     "warning",
     "unsupported_detail",
-    "snapshot_v3",
+    "snapshot_v1",
 )
 
 

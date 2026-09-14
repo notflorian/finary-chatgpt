@@ -68,7 +68,7 @@ def test_live_diagnostics_preserve_failure_and_hide_private_values(monkeypatch, 
 def test_live_diagnostics_leave_valid_production_collection_unchanged(monkeypatch, capsys):
     install_diagnostics(monkeypatch)
     result = asyncio.run(McpSnapshotService(SyntheticWire().client()).snapshot())
-    assert result.schema_version == "3.0"
+    assert result.schema_version == "1.0"
     assert capsys.readouterr().out == ""
 
 

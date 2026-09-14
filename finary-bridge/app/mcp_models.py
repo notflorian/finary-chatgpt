@@ -6,8 +6,8 @@ from typing import ClassVar, Literal
 
 from app.mcp_validation import ContractModel
 
-ApiSchemaVersion = Literal["3.0"]
-SourceContractVersion = Literal["2.0.0"]
+ApiSchemaVersion = Literal["1.0"]
+SourceContractVersion = Literal["1.0.0"]
 
 
 class McpMoney(ContractModel):
@@ -21,7 +21,7 @@ class McpMoney(ContractModel):
 class McpProvenance(ContractModel):
     contract_name: ClassVar[str] = "provenance"
     provider: Literal["finary_official_mcp"]
-    source_contract_version: Literal["2.0.0"]
+    source_contract_version: Literal["1.0.0"]
     scope: Literal["household"]
     ownership_basis: Literal["direct"]
     metric: Literal["gross_assets"]
@@ -185,9 +185,9 @@ class McpUnsupportedDetail(ContractModel):
     reason: Literal["UNSUPPORTED_TYPE", "UNVERIFIED_FIELDS", "UNVERIFIED_LOAN"]
 
 
-class McpSnapshotV3(ContractModel):
-    contract_name: ClassVar[str] = "snapshot_v3"
-    schema_version: Literal["3.0"]
+class McpSnapshotV1(ContractModel):
+    contract_name: ClassVar[str] = "snapshot_v1"
+    schema_version: Literal["1.0"]
     observation_id: str
     snapshot_date: str
     generated_at: str

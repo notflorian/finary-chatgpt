@@ -13,14 +13,14 @@ from mcp_wire import SyntheticWire
 from app import main, mcp_auth
 from app.mcp_auth import OAuthStore
 from app.mcp_client import BoundedTransport
-from app.mcp_models import McpSnapshotV3
+from app.mcp_models import McpSnapshotV1
 from app.mcp_optional import BudgetResponse, GoalsResponse, SearchResponse
 
 ROUTES = {
-    "/v3/snapshot": McpSnapshotV3,
-    "/v3/budget": BudgetResponse,
-    "/v3/spending-search": SearchResponse,
-    "/v3/goals": GoalsResponse,
+    "/v1/snapshot": McpSnapshotV1,
+    "/v1/budget": BudgetResponse,
+    "/v1/spending-search": SearchResponse,
+    "/v1/goals": GoalsResponse,
 }
 KEY = "synthetic-local-key"
 
@@ -50,7 +50,11 @@ def test_startup_health_openapi_and_removed_routes_are_local(monkeypatch):
                 "application/json"
             ]["schema"]
             assert schema == {"$ref": f"#/components/schemas/{model.__name__}"}
-        for route in ("/v1/snapshot", "/v2/snapshot"):
+        for route in (
+            f"/v{version}/{endpoint}"
+            for version in (2, 3)
+            for endpoint in ("snapshot", "budget", "spending-search", "goals")
+        ):
             for headers in ({}, {"X-API-Key": KEY}):
                 response = client.get(route, headers=headers, follow_redirects=False)
                 assert response.status_code == 404
@@ -87,18 +91,23 @@ def test_authorized_requests_use_real_client_without_provider_selection(
     monkeypatch.setattr(mcp_auth, "authorized_http", wire.http)
     headers = {"X-API-Key": KEY} if configured_key else {}
     client = TestClient(main.app)
-    response = client.get("/v3/snapshot", headers=headers)
+    response = client.get("/v1/snapshot", headers=headers)
     assert response.status_code == 200
-    value = McpSnapshotV3.model_validate(response.json())
+    value = McpSnapshotV1.model_validate(response.json())
     assert value.provenance.provider == "finary_official_mcp"
+    assert value.schema_version == "1.0"
+    assert value.provenance.source_contract_version == "1.0.0"
     assert [name for name, _ in wire.calls] == ["get_portfolio_overview", "accounts", "holdings"]
     assert "initialize" in wire.requests
     for route, model in ROUTES.items():
-        if route == "/v3/snapshot":
+        if route == "/v1/snapshot":
             continue
         response = client.get(route, params={"query": "synthetic"}, headers=headers)
         assert response.status_code == 200
-        assert model.model_validate(response.json()).provider == "finary_official_mcp"
+        optional = model.model_validate(response.json())
+        assert optional.provider == "finary_official_mcp"
+        assert optional.schema_version == "1.0"
+        assert optional.source_contract_version == "1.0.0"
 
 
 @pytest.mark.parametrize("state", ["absent", "relative", "empty", "malformed"])
@@ -113,7 +122,7 @@ def test_missing_or_invalid_oauth_state_is_sanitized(monkeypatch, tmp_path, capl
             path.write_text('{"synthetic-sensitive-state":true}')
             path.chmod(0o600)
         monkeypatch.setenv("FINARY_MCP_STATE_PATH", str(path))
-    response = TestClient(main.app).get("/v3/snapshot", headers={"X-API-Key": KEY})
+    response = TestClient(main.app).get("/v1/snapshot", headers={"X-API-Key": KEY})
     assert response.status_code == 503
     assert response.json()["error"] == {
         "code": "MCP_AUTH_UNAVAILABLE",
@@ -136,15 +145,17 @@ def test_real_oauth_renewal_sdk_adapter_service_and_http(monkeypatch, tmp_path, 
         ),
     )
     client = TestClient(main.app)
-    response = client.get("/v3/snapshot", headers={"X-API-Key": KEY})
+    response = client.get("/v1/snapshot", headers={"X-API-Key": KEY})
     assert response.status_code == 200
     assert peer.token_requests == ["authorization_code", "refresh_token"]
     assert [name for name, _ in peer.calls] == ["get_portfolio_overview", "accounts", "holdings"]
-    value = McpSnapshotV3.model_validate(response.json())
+    value = McpSnapshotV1.model_validate(response.json())
     assert value.provenance.provider == "finary_official_mcp"
+    assert value.schema_version == "1.0"
+    assert value.provenance.source_contract_version == "1.0.0"
     peer.reject_refresh = True
     with caplog.at_level(logging.DEBUG):
-        response = client.get("/v3/snapshot", headers={"X-API-Key": KEY})
+        response = client.get("/v1/snapshot", headers={"X-API-Key": KEY})
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "MCP_AUTH_UNAVAILABLE"
     for marker in ("synthetic-access", "synthetic-renewable", "synthetic-secret"):
@@ -152,11 +163,11 @@ def test_real_oauth_renewal_sdk_adapter_service_and_http(monkeypatch, tmp_path, 
 
 
 @pytest.mark.parametrize("route,params", [
-    ("/v3/budget", {"period": "synthetic-sensitive-invalid"}),
-    ("/v3/budget", {"start_date": "2026-01-01"}),
-    ("/v3/spending-search", {}),
-    ("/v3/spending-search", {"query": " "}),
-    ("/v3/spending-search", {"query": "synthetic-sensitive", "direction": "invalid"}),
+    ("/v1/budget", {"period": "synthetic-sensitive-invalid"}),
+    ("/v1/budget", {"start_date": "2026-01-01"}),
+    ("/v1/spending-search", {}),
+    ("/v1/spending-search", {"query": " "}),
+    ("/v1/spending-search", {"query": "synthetic-sensitive", "direction": "invalid"}),
 ])
 def test_optional_invalid_arguments_fail_before_oauth(monkeypatch, route, params):
     monkeypatch.setenv("FINARY_BRIDGE_API_KEY", KEY)
@@ -168,8 +179,8 @@ def test_optional_invalid_arguments_fail_before_oauth(monkeypatch, route, params
 
 
 @pytest.mark.parametrize("route,tool", [
-    ("/v3/snapshot", "holdings"), ("/v3/budget", "get_budget_overview"),
-    ("/v3/spending-search", "search_spending"), ("/v3/goals", "goals"),
+    ("/v1/snapshot", "holdings"), ("/v1/budget", "get_budget_overview"),
+    ("/v1/spending-search", "search_spending"), ("/v1/goals", "goals"),
 ])
 def test_upstream_errors_are_sanitized_at_real_http_boundary(monkeypatch, caplog, route, tool):
     monkeypatch.setenv("FINARY_BRIDGE_API_KEY", KEY)

@@ -93,14 +93,14 @@ def test_goals_are_complete_plans_without_progress_or_durable_identity():
 def test_optional_routes_are_protected_and_versioned(monkeypatch):
     monkeypatch.setenv("FINARY_BRIDGE_API_KEY", "synthetic-local")
     client = TestClient(app)
-    for path in ("/v3/goals", "/v3/budget", "/v3/spending-search?query=synthetic"):
+    for path in ("/v1/goals", "/v1/budget", "/v1/spending-search?query=synthetic"):
         assert client.get(path).status_code == 401
     wire = SyntheticWire()
     app.dependency_overrides[get_authenticated_mcp_client] = wire.client
     try:
-        assert client.get("/v3/goals").json()["identity_basis"] == "COMPLETE_RESPONSE_ONLY"
-        assert client.get("/v3/budget").status_code == 200
-        assert client.get("/v3/spending-search?query=synthetic").status_code == 200
+        assert client.get("/v1/goals").json()["identity_basis"] == "COMPLETE_RESPONSE_ONLY"
+        assert client.get("/v1/budget").status_code == 200
+        assert client.get("/v1/spending-search?query=synthetic").status_code == 200
     finally:
         app.dependency_overrides.clear()
 
@@ -141,14 +141,14 @@ def test_goal_array_changes_create_no_persistent_identity():
     assert asyncio.run(OptionalMcpService(wire.client()).goals(NOW)).goals == []
 
 
-def test_nine_action_question_matrix_is_complete_and_schedule_is_bounded():
+def test_capability_matrix_is_complete_and_schedule_is_bounded():
     import json
     from pathlib import Path
 
     from app.mcp_validation import CONTRACT
 
     root = Path(__file__).parents[2]
-    guide = (root / "docs/mcp-consumer.md").read_text()
+    guide = (root / "docs/finary-mcp-contract.md").read_text()
     rows = [line for line in guide.splitlines() if line.startswith("| `")]
     assert {row.split("`")[1] for row in rows} == set(CONTRACT["capabilities"])
     assert len(rows) == 9
@@ -158,7 +158,7 @@ def test_nine_action_question_matrix_is_complete_and_schedule_is_bounded():
         for n in workflow["nodes"]
         if n["type"] == "n8n-nodes-base.httpRequest"
     ]
-    assert len(routes) == 2 and sum("/v3/snapshot" in route for route in routes) == 1
+    assert len(routes) == 2 and sum("/v1/snapshot" in route for route in routes) == 1
 
 
 def test_access_logs_do_not_include_user_search_labels():
@@ -172,12 +172,12 @@ def test_access_logs_do_not_include_user_search_labels():
         "synthetic",
         1,
         '%s - "%s %s HTTP/%s" %d',
-        ("local", "GET", "/v3/spending-search?query=synthetic-secret-label", "1.1", 200),
+        ("local", "GET", "/v1/spending-search?query=synthetic-secret-label", "1.1", 200),
         None,
     )
     assert McpAccessFilter().filter(record)
     assert "synthetic-secret-label" not in record.getMessage()
-    assert "/v3/spending-search" in record.getMessage()
+    assert "/v1/spending-search" in record.getMessage()
 
 
 @pytest.mark.parametrize(

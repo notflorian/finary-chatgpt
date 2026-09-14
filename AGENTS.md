@@ -90,7 +90,8 @@ Do not add new top-level structure without a clear architectural reason.
 - Pinned native MCP SDK inside the official adapter
 - pytest, Ruff, mypy
 - self-hosted n8n using standard nodes
-- Google Sheets layout `4.0`, API `3.0`, source contract `2.0.0`
+- Application/package/service `1.0.0`
+- Google Sheets layout `1.0`, API `1.0`, source contract `1.0.0`
 - `Europe/Paris` schedules and business dates
 - ISO 8601 timestamps with explicit timezone offsets
 
@@ -143,10 +144,10 @@ normalization. They never rewrite official MCP allocation.
 
 - `GET /health` returns service metadata without contacting Finary or reading
   authentication state.
-- `GET /v3/snapshot` is canonical and returns the MCP schema `3.0`.
-- `GET /v3/budget`, `GET /v3/spending-search` and `GET /v3/goals` remain
+- `GET /v1/snapshot` is canonical and returns the MCP schema `1.0`.
+- `GET /v1/budget`, `GET /v1/spending-search` and `GET /v1/goals` remain
   independent optional reads outside portfolio synchronization.
-- `/v1/snapshot` and `/v2/snapshot` are removed and must return 404.
+- `/v2/snapshot` and `/v3/snapshot` are removed and must return 404.
 - Structured errors use `{error: {code, message, retryable}}` and never expose
   raw upstream details.
 
@@ -157,7 +158,7 @@ breaking downstream contract revision.
 ### Google Sheets and n8n
 
 `docs/finary-mcp-contract.json` defines the enduring `current_workbook` layout.
-`docs/google-sheets-schema.json` is its canonical generated 4.0 artifact, with an
+`docs/google-sheets-schema.json` is its canonical generated 1.0 artifact, with an
 identical packaged copy. Generate it directly; never import an older schema or
 retain compatibility columns, migration helpers or dual-layout readers.
 Use `scripts/initialize-workbook.py` for fresh PAUSED workbooks. Preserve sheet
@@ -196,7 +197,7 @@ security design.
 Official MCP OAuth requires explicit operator consent and protected renewable
 state in the bridge-only MCP volume. Its verified issuer is
 `https://clerk.finary.com`; preserve issuer validation and endpoint allowlisting.
-This is independent OAuth, not the removed private password/cookie/MFA flow.
+This OAuth is independent of assistant/plugin authorization.
 Access tokens remain memory-only; preserve bounded renewal, atomic writes,
 rotation ownership and concurrency leases. HTTP routes never prompt or bootstrap.
 
@@ -231,7 +232,7 @@ Run the complete local gate from the repository root:
 
 ```bash
 cd finary-bridge
-python -m pytest -m "not live" --ignore=tests/live
+python -m pytest -m "not live" --ignore=tests/live -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
 python -m ruff check .
 python -m mypy app
 cd ..

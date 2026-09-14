@@ -173,7 +173,7 @@ def generate(check=False):
         "Fetch MCP Snapshot",
         "httpRequest",
         {
-            "url": "={{ ($env.FINARY_BRIDGE_URL || 'http://finary-bridge:8000') + '/v3/snapshot' }}",
+            "url": "={{ ($env.FINARY_BRIDGE_URL || 'http://finary-bridge:8000') + '/v1/snapshot' }}",
             "sendHeaders": True,
             "headerParameters": {
                 "parameters": [

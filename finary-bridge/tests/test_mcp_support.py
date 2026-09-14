@@ -43,13 +43,13 @@ def test_tests_never_import_other_test_modules():
 
 
 def test_materialized_cases_and_native_peers_do_not_share_mutable_state():
-    case = cases("snapshot_v3")[0]
+    case = cases("snapshot_v1")[0]
     original_changes = deepcopy(case["changes"])
     value = materialize(case)
     value["accounts"].clear()
     assert materialize(case)["accounts"]
     case["changes"].append({"op": "remove", "path": "/accounts"})
-    assert cases("snapshot_v3")[0]["changes"] == original_changes
+    assert cases("snapshot_v1")[0]["changes"] == original_changes
     wire = SyntheticWire()
     wire.values["accounts"]["data"].clear()
     wire.calls.append(("accounts", {}))

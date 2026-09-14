@@ -1,119 +1,96 @@
-# ChatGPT integration
+# ChatGPT connection and reading workflow
 
-For official MCP, follow the [nine-action source matrix](mcp-consumer.md). Direct
-authorized reads answer current questions; validated workbook observations
-provide retained history and manual analysis. Explicitly date any fallback and
-never present a live overview plus stale workbook detail as one observation.
-The supported workbook is layout 4.0. Validate its actual headers, README,
-control and per-observation terminal membership with the production reference
-consumer before interpretation.
+Use the private workbook for retained observations and manual analysis. Direct
+Finary MCP questions use a separate authorized connection for current questions;
+a live overview plus older workbook holdings is not one complete observation.
 
-## Recommended setup
+## Connect the workbook
 
-Use a private ChatGPT **Project** as the portfolio-analysis workspace. In the
-product surface verified for this repository, the custom-GPT editor/runtime did
-not expose the Google Drive connection needed to read the live workbook. A
-Project did. This is a scoped product limitation and may vary by ChatGPT plan,
-workspace policy, region, or future product changes; confirm the available
-connectors in your own account.
+First complete [manual synchronization and readback](operations.md#consumer-readback-verification).
+Keep Google sharing limited to your intended account/workspace. Finary OAuth in
+the bridge, Google OAuth in n8n and ChatGPT's Google Drive connection are three
+separate authorizations; changing one does not verify or revoke the others.
 
-The Project design keeps two concerns separate:
+1. In ChatGPT, connect Google Drive using the connection/plugin controls available
+   to your account and workspace. In ChatGPT Work, install Google Drive from
+   Plugins and select it with `@Google Drive` in the task. See the
+   [official connection guidance](https://learn.chatgpt.com/docs/get-started-with-work#add-plugins-for-more-context-and-better-outputs).
+   Availability and permissions depend on the account; this repository does not
+   assert that every plan or custom-GPT surface exposes the same controls.
+2. Create a private portfolio Project or dedicated conversation. Add the exact
+   workbook link and [portfolio knowledge reference](finary-portfolio-data-knowledge.md).
+   If using a Project, keep the reference with its sources and the behavioral
+   rules below in its Instructions. Confirm that ChatGPT can read the actual
+   README and full tables, not merely a search preview.
+3. Add your own investment policy if you want policy-based analysis. Keep it
+   separate from the workbook semantics and tell ChatGPT which policy applies.
+4. Ask for a read-only first analysis with the source/run/observation identity,
+   business date, completion time, coverage, warnings and freshness disclosed.
 
-- **Instructions** define assistant behavior and the authority of your personal
-  investment policy;
-- **sources** provide the private workbook and durable reference material.
+If full workbook access is unavailable, provide a complete private export and
+its export date. Treat it as a dated snapshot, never an automatically refreshed
+source. A connection or uploaded guide does not install the Python reference
+consumer in ChatGPT. Use the operator's offline readback command for executable
+validation; do not claim that a language-model reading has run that code.
 
-Google Drive files added to a Project are retrieved on demand rather than
-copied into this repository. Do not export a static workbook copy when the live
-Drive source is available.
+Never add Finary state, tokens, n8n credentials, a public workbook link or a bridge
+endpoint as Project sources. Keep financial exports outside the repository.
 
-## Prerequisites
+## Suggested instructions
 
-Before connecting ChatGPT:
+> Use the designated private workbook and its knowledge reference for portfolio
+> facts. Read complete tables and validate observation membership before claiming
+> current completeness. Disclose the selected run, observation, business date,
+> completion time, coverage and warnings. Preserve unknown values and independent
+> currency/ownership/freshness evidence. Date historical fallback and never enrich
+> it with later account metadata or live MCP results. Check analysis against my
+> stated investment policy; identify missing or conflicting policy requirements.
+> Explain uncertainty and sources. Do not execute trades, transfers or external
+> writes.
 
-- the daily synchronization has produced at least one `SUCCESS` or
-  `SUCCESS_WITH_WARNINGS` row;
-- the workbook headers match schema `4.0`;
-- the workbook contains no Finary credentials, cookies, tokens, or raw payloads;
-- Google sharing is restricted to the intended user or workspace;
-- you have a personal investment policy suitable for use as the primary
-  behavioral reference.
+## Reading an observation
 
-The n8n Google Sheets OAuth credential and the ChatGPT Google Drive connection
-are independent. Revoking one must not silently revoke or validate the other.
+The [knowledge reference](finary-portfolio-data-knowledge.md) is self-contained
+for interpretation. The [canonical schema](google-sheets-schema.json) owns exact
+fields and [the production consumer](../finary-bridge/app/mcp_consumer.py) implements
+validation. Workbook/API versions are `1.0`; source contract is `1.0.0`.
 
-## Create the Project
+Validate complete physical headers, README, singleton writer control, unique
+keys, typed manual inputs and every automated row before selecting any candidate.
+Each automated row must match exactly one stored terminal with the same run and
+official provider. Orphan/malformed rows invalidate the inventory, including rows
+outside the selected observation. Valid FAILED partial rows may remain, but never
+supply completed-observation evidence.
 
-1. Create a private ChatGPT Project for portfolio analysis.
-2. Add Project Instructions that require every portfolio recommendation to be
-   checked against your personal investment policy.
-3. Upload your personal investment policy as a Project source.
-4. Upload
-   [`finary-portfolio-data-knowledge.md`](finary-portfolio-data-knowledge.md) as
-   a Project source. This file teaches ChatGPT the workbook's stable semantics;
-   it does not replace behavioral Instructions.
-5. Connect Google Drive to ChatGPT, using the minimum account scope that allows
-   the Project to read the workbook.
-6. Add the exact private **Finary Portfolio Data** spreadsheet link as a Project
-   source.
-7. Ask the Project to read the workbook `README` tab and the knowledge file
-   before interpreting financial tables.
+Choose the newest independently validated SUCCESS or SUCCESS_WITH_WARNINGS.
+A later failure does not replace it. Null expected counts mean unavailable;
+zero means validated empty membership. Active current rows must match the exact
+observation/run and counts. Accepted history can support explicitly dated fallback
+without later account metadata; current account balances are not historical
+account evidence. If required tables are truncated or unavailable, report the
+limitation instead of certifying completeness.
 
-Do not add the bridge URL, an n8n webhook, Finary credentials, Google OAuth
-tokens, or a public spreadsheet link to the Project.
+Official overview totals and official allocation remain independent of detail
+sums and custom asset classes. Debt detail is unavailable even when reported
+liabilities and net worth are known. Currency, ownership basis, scope, metric and
+source-contract compatibility govern series comparisons. No percentage change is
+meaningful across a series break. Missing baseline dimensions also create breaks.
+A successful state older than 48 hours is stale; bank freshness is separate.
+Sequential Sheets reads/writes are not atomic.
 
-## Suggested Project Instructions
+## Direct MCP questions
 
-The instructions can be written in the user's preferred language. They should,
-at minimum, establish these behavioral rules:
+The bridge supports optional budget, explicit-label spending search and goals
+through `/v1/budget`, `/v1/spending-search` and `/v1/goals`. They are independent
+reads, outside workbook synchronization. Budget/search describe configured
+household cashflows, not investment cashflows or transaction-level history.
+Goals describe plans, not measured progress or additional assets.
 
-- the personal investment policy is the primary authority for portfolio
-  analysis and recommendations;
-- the assistant must check allowed instruments, exclusions, limits, wrappers,
-  extra-financial criteria, fees, liquidity, replication, concentration,
-  rebalancing, and sale rules before recommending an action;
-- a conflicting request must be described as non-compliant rather than
-  optimized around the policy;
-- missing policy guidance must be stated, not invented;
-- the live **Finary Portfolio Data** workbook is the source for portfolio facts;
-- workbook semantics come from `finary-portfolio-data-knowledge.md` and the
-  workbook `README` tab;
-- the assistant must validate complete current-table membership before using
-  current holdings, and report accepted/rejected sources, selected `run_id`,
-  snapshot date, `completed_at`, warnings, and liability coverage;
-- dated historical fallback and reported overview liabilities must have
-  separate provenance; missing details must not be invented or enriched from
-  invalid current rows;
-- unknown values remain unknown, and incomplete coverage must be disclosed;
-- analysis is informational and must not trigger trading or external actions.
+The external connector may declare `get_me`, `profiles` and compound-interest
+simulation; this bridge does not expose them. Simulation requires separately
+confirmed hypothetical inputs, never parameters inferred from the workbook.
+Declared capability, successful retrieval and verified financial semantics are
+different evidence. See the [capability contract](finary-mcp-contract.md#capabilities).
 
-Keep the instructions focused on behavior. Put tab descriptions, key formats,
-null semantics, coverage rules, and calculation definitions in the uploaded
-knowledge file so the instruction field remains short and maintainable.
-
-## How ChatGPT should read the workbook
-
-Read the current [knowledge reference](finary-portfolio-data-knowledge.md) and
-[MCP consumer rules](mcp-consumer.md). Use only full independently validated
-observations with explicit business date, run/observation identity, completion
-time and limitations. Missing rows or counts are not zero. Official totals and
-allocation retain their authority even when detail is unavailable.
-
-Debt detail is unavailable. Reported liabilities and net worth may still be
-known from the official overview; retain their currency and debt valuation
-qualifiers. Never infer debt detail or combine earlier liabilities with later
-assets as an authoritative current total. Historical fallback never borrows
-later current account metadata.
-
-No connector retrieval makes sequential Sheets reads atomic. If complete tables,
-headers or membership are unavailable, describe the limitation instead of
-certifying a complete current portfolio. Update the uploaded knowledge reference
-when the workbook contract changes; repository changes do not update it automatically.
-
-## Connection and revocation boundaries
-
-The n8n Google Sheets OAuth credential and the ChatGPT Google Drive connection
-are independent. Removing ChatGPT access does not revoke the separate Google
-OAuth credential stored in n8n or the independently authorized Finary connection.
-Keep the workbook private. This integration does not authorize automated
-purchases, sales, or transfers.
+Update the uploaded knowledge reference when the installed contract changes.
+Repository edits do not update ChatGPT sources automatically.

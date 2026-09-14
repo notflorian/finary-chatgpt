@@ -31,8 +31,8 @@ def test_workbook_fields_do_not_carry_credentials():
 
 def test_readme_has_current_authority_and_no_empty_compatibility_columns():
     entries = {row["key"]: row["value"] for row in SCHEMA["readme_entries"]}
-    assert entries["workbook_schema"] == "4.0"
-    assert entries["source_contract_version"] == "2.0.0"
+    assert entries["workbook_schema"] == "1.0"
+    assert entries["source_contract_version"] == "1.0.0"
     assert "Official overview" in entries["authority"]
     assert "Multiple immutable observations" in entries["history"]
     assert "Debt detail is unavailable" in entries["debt"]

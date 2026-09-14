@@ -12,7 +12,7 @@ from app.main import app
 def test_package_service_and_openapi_versions_agree():
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     with TestClient(app) as client:
-        assert project["project"]["version"] == SERVICE_VERSION == "2.0.0"
+        assert project["project"]["version"] == SERVICE_VERSION == "1.0.0"
         assert client.get("/openapi.json").json()["info"]["version"] == SERVICE_VERSION
         response = client.get("/health")
         assert response.status_code == 200

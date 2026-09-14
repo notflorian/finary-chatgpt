@@ -30,7 +30,7 @@ def test_isolated_native_collection_structure(capsys, monkeypatch):
         async with client.session(("get_portfolio_overview", "accounts", "holdings")) as session:
             revision = session.client.protocol_version
         result = await McpSnapshotService(client).snapshot()
-        assert result.schema_version == "3.0"
+        assert result.schema_version == "1.0"
         assert result.provenance.provider == "finary_official_mcp"
         return revision
 
@@ -90,7 +90,7 @@ def test_isolated_natural_expiry_renewal(capsys):
             client = NativeMcpClient(reuse_oauth)
             service = McpSnapshotService(client)
             before = await service.snapshot()
-            assert before.schema_version == "3.0"
+            assert before.schema_version == "1.0"
             context = http.auth.context
             expiry = context.token_expiry_time
             generation = context.storage.state.generation
@@ -111,7 +111,7 @@ def test_isolated_natural_expiry_renewal(capsys):
             assert not context.is_token_valid()
             emit("NATURAL_EXPIRY_OBSERVED")
             after = await service.snapshot()
-            assert after.schema_version == "3.0"
+            assert after.schema_version == "1.0"
             assert context.storage.state.generation != generation
             assert context.token_expiry_time > expiry
             assert context.token_expiry_time > time() and context.is_token_valid()

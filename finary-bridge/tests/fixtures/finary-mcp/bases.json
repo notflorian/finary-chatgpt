@@ -364,13 +364,13 @@
   "decimal-negative": "-2.25",
   "decimal-exact": "123456789012345678901234.123456789012345678",
   "snapshot": {
-    "schema_version": "3.0",
+    "schema_version": "1.0",
     "observation_id": "00000000-0000-4000-8000-000000000001",
     "snapshot_date": "2026-09-11",
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "2.0.0",
+      "source_contract_version": "1.0.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",
@@ -487,13 +487,13 @@
     "unsupported_details": []
   },
   "non_eur_snapshot": {
-    "schema_version": "3.0",
+    "schema_version": "1.0",
     "observation_id": "00000000-0000-4000-8000-000000000001",
     "snapshot_date": "2026-09-11",
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "2.0.0",
+      "source_contract_version": "1.0.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",

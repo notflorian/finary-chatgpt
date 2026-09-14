@@ -2,85 +2,76 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/notflorian/finary-chatgpt/blob/main/docs/finary-mcp-contract.json",
   "title": "Finary official MCP integration contract",
-  "contract_version": "2.0.0",
+  "contract_version": "1.0.0",
   "status": "IMPLEMENTED",
-  "inspection_date": "2026-09-11",
   "implemented": {
-    "api_schema": "3.0",
-    "canonical_route": "/v3/snapshot",
-    "workbook_schema": "4.0",
-    "application_version": "2.0.0"
+    "api_schema": "1.0",
+    "canonical_route": "/v1/snapshot",
+    "workbook_schema": "1.0",
+    "application_version": "1.0.0"
   },
   "providers": {
     "finary_official_mcp": {
       "status": "IMPLEMENTED",
-      "source_contract_version": "2.0.0",
-      "route": "/v3/snapshot",
-      "schema": "#/$defs/snapshot_v3",
+      "source_contract_version": "1.0.0",
+      "route": "/v1/snapshot",
+      "schema": "#/$defs/snapshot_v1",
       "standalone_authorization": "INDEPENDENT_OPERATOR_CONSENT"
     }
   },
   "evidence": {
-    "operator_precision_2026_09_11": {
+    "native_decimal_structure": {
       "class": "observed_structure",
-      "date": "2026-09-11",
-      "source": "Operator-provided output of the isolated native structural test",
-      "details": "accounts account_observed attributes.balance: plain decimal text, no whitespace/plus/padding, integer bound respected, more than 18 fractional digits and no exact zero-trimming repair. No amount, identifier or raw payload was shared. Exact upstream scale and maximum remain unknown.",
+      "source": "Bounded native account structure",
+      "details": "Native account balances can exceed 18 fractional digits. Exact upstream scale and maximum remain unknown; the project preserves text within its explicit bounds.",
       "native_wire_proven": true
     },
-    "catalog_2026_09_11": {
+    "connector_catalog": {
       "class": "declared_connector_schema",
-      "date": "2026-09-11",
-      "source": "Connected Finary catalog; nine action declarations inspected during this task",
+      "source": "Finary assistant connector action declarations",
+      "details": "Declared payload schemas do not establish native transport or financial semantics.",
       "native_wire_proven": false
     },
-    "bounded_reads_2026_09_11": {
+    "resource_structure": {
       "class": "observed_structure",
-      "date": "2026-09-11",
-      "source": "This task: accounts and overview read once; first account holdings read with limit=1, offset=0; only field/type summaries retained; one budget default-period read to verify view field names only (not note consistency)",
-      "actions": ["accounts", "holdings", "get_portfolio_overview", "get_budget_overview"],
+      "source": "Bounded structural summaries of Finary connector responses",
+      "details": "Bounded account, holding, overview and budget response structure; existence of a field or resource type does not verify its currency, ownership or units.",
       "native_wire_proven": false
-    },
-    "roadmap_investigation": {
-      "class": "historical_observation",
-      "date": "2026-09-11",
-      "source": "https://github.com/notflorian/finary-chatgpt/issues/85",
-      "details": "Seven successful actions; forced offset pagination. No search or simulation invocation."
-    },
-    "contract_issue": {
-      "class": "historical_observation",
-      "date": "2026-09-11",
-      "source": "https://github.com/notflorian/finary-chatgpt/issues/86"
     },
     "product_page": {
       "class": "official_documentation",
-      "date": "2026-09-11",
       "source": "https://finary.com/fr/mcp",
-      "details": "Lists eight actions, omitting search_spending; public count is not capability authority."
+      "details": "Product context; action counts are not runtime capability authority."
     },
     "help_page": {
       "class": "official_documentation",
-      "date": "2026-09-11",
       "source": "https://help.finary.com/fr/articles/16335735-utiliser-le-mcp-finary-avec-mon-assistant-ia-claude-chatgpt-perplexity-mistral",
-      "details": "Assistant setup at https://public-api.finary.com/mcp; does not establish this bridge authorization lifecycle."
+      "details": "Assistant connection instructions; bridge OAuth requires independent operator consent."
     },
     "goal_month_precision": {
-      "class": "historical_observation",
-      "date": "2026-09-11",
-      "source": "https://github.com/notflorian/finary-chatgpt/issues/93",
-      "details": "Month selection normalized to day 15; attributed, not newly verified."
+      "class": "reported_structure",
+      "source": "Goal target-date representation",
+      "details": "Month selections can be represented on day 15. This is attributed precision, not a verified day-level deadline."
     },
-    "project_decision": {"class": "project_decision", "date": "2026-09-11", "source": "finary-mcp-contract.md"},
+    "project_decision": {
+      "class": "project_decision",
+      "source": "finary-mcp-contract.md"
+    },
     "synthetic_defensive": {
       "class": "synthetic_defensive",
-      "date": "2026-09-11",
       "source": "../finary-bridge/tests/fixtures/finary-mcp/manifest.json",
-      "details": "Constructed from invented data; never establishes upstream support."
+      "details": "Invented cases test rejection and supported transformations; they never establish upstream support."
+    },
+    "reported_resource_structure": {
+      "class": "reported_structure",
+      "source": "Reported connector response summaries",
+      "details": "Identity/profile, account, holding, overview, budget and goal response structure. These reports do not verify native transport or every financial field; search and simulation have declaration evidence only.",
+      "native_wire_proven": false
     }
   },
   "capabilities": {
     "get_me": {
-      "support_status": "HISTORICALLY_OBSERVED",
+      "support_status": "REPORTED_STRUCTURE",
       "runtime_status": "NOT_IMPLEMENTED",
       "input_schema": "#/$defs/analytics_input",
       "output_schema": "#/$defs/get_me_output",
@@ -93,10 +84,10 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+      "evidence": ["connector_catalog", "reported_resource_structure"]
     },
     "profiles": {
-      "support_status": "HISTORICALLY_OBSERVED",
+      "support_status": "REPORTED_STRUCTURE",
       "runtime_status": "NOT_IMPLEMENTED",
       "input_schema": "#/$defs/analytics_input",
       "output_schema": "#/$defs/profiles_output",
@@ -109,11 +100,11 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+      "evidence": ["connector_catalog", "reported_resource_structure"]
     },
     "accounts": {
       "support_status": "OBSERVED_SUBSET",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/analytics_input",
       "output_schema": "#/$defs/accounts_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -125,11 +116,11 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"]
+      "evidence": ["connector_catalog", "resource_structure"]
     },
     "holdings": {
       "support_status": "OBSERVED_SUBSET",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/holdings_input",
       "output_schema": "#/$defs/holdings_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -141,12 +132,12 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"],
+      "evidence": ["connector_catalog", "resource_structure"],
       "input_schema_layer": "Project acceptance narrows declared number limit/offset to bounded integers; account_id required in connector declaration."
     },
     "get_portfolio_overview": {
       "support_status": "OBSERVED_SUBSET",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/analytics_input",
       "output_schema": "#/$defs/overview_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -158,11 +149,11 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "bounded_reads_2026_09_11"]
+      "evidence": ["connector_catalog", "resource_structure"]
     },
     "get_budget_overview": {
       "support_status": "OBSERVED_SUBSET",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/period_input",
       "output_schema": "#/$defs/budget_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -174,12 +165,12 @@
       "freshness": "returned window/history and unpriced evidence; retrieval time separate",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "roadmap_investigation", "bounded_reads_2026_09_11"],
+      "evidence": ["connector_catalog", "reported_resource_structure", "resource_structure"],
       "input_schema_layer": "Project date/calendar/nonblank constraints supplement declared string arguments; paired/default semantics are declared descriptions."
     },
     "goals": {
-      "support_status": "HISTORICALLY_OBSERVED",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "support_status": "REPORTED_STRUCTURE",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/analytics_input",
       "output_schema": "#/$defs/goals_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -191,11 +182,11 @@
       "freshness": "No ingestion-time guarantee of source freshness; accounts connection fields when available",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11", "roadmap_investigation"]
+      "evidence": ["connector_catalog", "reported_resource_structure"]
     },
     "search_spending": {
       "support_status": "DECLARED_ONLY",
-      "runtime_status": "NOT_IMPLEMENTED",
+      "runtime_status": "IMPLEMENTED",
       "input_schema": "#/$defs/search_input",
       "output_schema": "#/$defs/search_output",
       "schema_layer": "assistant_connector_declared_payload",
@@ -207,7 +198,7 @@
       "freshness": "returned window/history and unpriced evidence; retrieval time separate",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11"],
+      "evidence": ["connector_catalog"],
       "input_schema_layer": "Project date/calendar/nonblank constraints supplement declared string arguments; paired/default semantics are declared descriptions."
     },
     "simulate_compound_interest": {
@@ -224,13 +215,13 @@
       "freshness": "not_applicable",
       "absence": "Required and nullable sets are declared in output schema; unknown objects have no asserted upstream required fields. Optional absence remains distinct from explicit null; normalized unknowns become null with coverage.",
       "errors": "transport_policy; HTTP success is insufficient",
-      "evidence": ["catalog_2026_09_11"]
+      "evidence": ["connector_catalog"]
     }
   },
   "schema_layers": {
     "declared_payloads": "*_output: lossless connector declaration transcription of known types; unknown objects remain open; not native MCP schemas",
     "observed_overlays": "*_observed: known inspected fields are optional/nullable defensively; type/id/parent requirements are project acceptance, not claimed universal upstream requirements",
-    "project_acceptance": "decimal, holdings_page/session, snapshot_v3: stricter planned ingestion requirements",
+    "project_acceptance": "decimal, holdings_page/session, snapshot_v1: strict ingestion requirements",
     "wrapper": "connector_result is the assistant wrapper only; content and structuredContent mapping to native results must be verified separately"
   },
   "input_policy": {
@@ -242,12 +233,11 @@
     "date_validation_clock": "Current Europe/Paris calendar date at invocation, never a cached inspection date; test cases inject a fixed clock."
   },
   "numeric_policy": {
-    "revision_reason": "Contract 1.1.0 raises the project fractional bound from 18 to 64 after an operator-run native accounts read reported a plain decimal with more than 18 significant fractional digits. Preserve the exact source string; never round. The 64-place cap is a bounded project policy, not a verified upstream maximum.",
     "ingestion": "Decimal constructed directly from bounded strings; no float intermediate; validate lexical length before parsing; preserve exact value; reject malformed/non-finite/out-of-range without truncation or rounding",
     "limits": {"integer_digits": 24, "fractional_digits": 64},
     "absence": "absent/null unknown, zero is known; reject booleans, blanks and text placeholders as amounts",
     "sheets": "Monetary, quantity and rate columns use exact decimal TEXT written RAW; nullable cells explicitly clear using empty strings. Manual allocation targets use decimal fractions and manual cashflows use EUR.",
-    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and implementation-time bounds before invocation. Never use as ingestion decimals.",
+    "simulation": "Declared numeric tool inputs/outputs are separate approximate on-demand results; enforce finite JSON numbers and explicit bounds before invocation. Never use as ingestion decimals.",
     "rate_units": {
       "annual_yield_percent": "PERCENT, ANNUAL",
       "annual_yield": "UNVERIFIED until type-specific source evidence",
@@ -256,13 +246,14 @@
       "ownership_share": "FRACTION; nonnegative, can exceed 1",
       "target_coverage_months": "MONTHS, not money"
     },
-    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds."
+    "equality": "Compare validated decimal strings by exact numeric value, never lexical spelling or binary floats. No canonical scale: 0, 0.00 and -0.00 are equal; 250.0 and 250.00 are equal. Preserve source spelling in stored decimal text; equality does not round or relax lexical bounds.",
+    "precision": "Preserve exact decimal text up to 24 integer and 64 fractional digits. These are project safety bounds, not a verified upstream maximum; values outside them fail without rounding."
   },
   "transport_policy": {
     "native_protocol_revision": null,
     "negotiated_transport": null,
-    "authorization": "UNVERIFIED; discover and verify in client issue; no invented OAuth endpoints/grants/scopes/registration/token lifetime",
-    "credential_boundary": "Never inspect or extract assistant-managed credentials. Separate bridge OAuth store from Clerk; minimum verified restart state only; operator bootstrap outside HTTP routes.",
+    "authorization": "Independent operator OAuth through the pinned native SDK; authorization-code + S256 with public-client registration. Verify issuer and allowlisted endpoints from metadata. Normal routes never initiate consent.",
+    "credential_boundary": "Bridge-only protected renewable state from independent operator consent; memory-only access tokens. Never inspect or reuse assistant-managed credentials.",
     "success": "Validate negotiated protocol and tool result, reject protocol error or isError=true even on HTTP 200. Require an unambiguous typed payload; conflicting text/structured payloads or malformed envelopes fail. Do not parse arbitrary notes/HTML as accounting instructions.",
     "limits": {
       "call_timeout_seconds": 30,
@@ -283,7 +274,7 @@
       "incomplete_pagination": "MCP_INCOMPLETE_COLLECTION",
       "unknown_nonempty_type": "MCP_UNSUPPORTED_DETAIL",
       "missing_capability": "MCP_CAPABILITY_UNAVAILABLE",
-      "standalone_auth_unverified": "MCP_AUTH_UNAVAILABLE"
+      "authorization_unavailable": "MCP_AUTH_UNAVAILABLE"
     },
     "telemetry": "fixed code and fixed <=160-character message, retryable; allowlisted warning codes only; no upstream notes, HTML, raw errors, IDs from auth, prompts or personal values",
     "error_messages": {
@@ -336,7 +327,7 @@
     "unknown_types": "Preserve sanitized type/count diagnostics, mark holding semantics UNVERIFIED and collection PARTIAL; emit no position write set. Unknown details never disappear into COMPLETE. Unverified loans separately forbid debt-detail COMPLETE.",
     "links": "Relative self/first/last/next/prev are structural evidence, never REST traversal authority; tool offset calls only",
     "observed_types": ["security-holdings", "fiat-holdings", "crypto-holdings", "fond-euro-holdings", "scpi-holdings"],
-    "observed_type_evidence": "roadmap_investigation supplies the vocabulary; bounded current page confirms security relationship and field names only; existence is not verification of all valuation fields",
+    "observed_type_evidence": "Resource structure supplies the type vocabulary; supported source mappings remain qualified per field. Type existence does not establish valuation units or ownership.",
     "loan_status": "NO_VERIFIED_NONEMPTY_MAPPING"
   },
   "authority": {
@@ -348,7 +339,7 @@
     "preferred_wealth_metric": "display preference only",
     "allocation": "official category/by_type preserved separately from custom AssetClass and overrides; unknown category identifiers retained",
     "debt": "reported totals and independently complete loan retrieval are different; complete with unvalued debt is qualified, assets_only count zero proves nothing; never sum details to correct overview",
-    "currency": "Native storage in workbook 4.0, nullable exact EUR projections. Overview amount_eur only when view.currency=EUR; account EUR fields never imply overview FX. Unsupported view is rejected, valid non-EUR currency preserved. Incompatible workbook layouts are rejected; no legacy writer is supported.",
+    "currency": "Native storage in workbook 1.0, nullable exact EUR projections. Overview amount_eur only when view.currency=EUR; account EUR fields never imply overview FX. Unsupported view is rejected, valid non-EUR currency preserved. Incompatible workbook layouts are rejected; only the current MCP writer is supported.",
     "freshness": "ingestion, entity update and bank success are distinct; last_sync_at not success; source last_successful_sync_at >48h stale; broken status remains broken even after recent attempt; manual account no connection is NOT_APPLICABLE, unresolved relationship UNKNOWN; no silent deduplication"
   },
   "write_gates": {
@@ -370,7 +361,7 @@
     "official_mcp": {
       "status": "IMPLEMENTED",
       "input": "Typed per-action inputs in capability registry; no analytics prompt in scheduled calls; official MCP only",
-      "output": "Adapter-owned decoded typed results and collection evidence -> separate MCP snapshot service -> snapshot_v3; no raw relationships outside adapter",
+      "output": "Adapter-owned decoded typed results and collection evidence -> separate MCP snapshot service -> snapshot_v1; no raw relationships outside adapter",
       "owns": [
         "transport",
         "authorization",
@@ -391,7 +382,7 @@
   },
   "ambiguities": {
     "account_wording": {
-      "evidence": ["bounded_reads_2026_09_11", "contract_issue"],
+      "evidence": ["resource_structure", "project_decision"],
       "affected_fields": ["accounts._reading_note", "owners", "total_owned_value_eur"],
       "conservative_behavior": "Preserve explicit direct-owner values; warning OWNERSHIP_WORDING_CONFLICT; no recomputed household total",
       "downstream_impact": "Account household stake and company look-through unavailable",
@@ -399,23 +390,27 @@
       "state": "OPEN"
     },
     "budget_history": {
-      "evidence": ["roadmap_investigation"],
+      "evidence": ["reported_resource_structure"],
       "affected_fields": ["view history bounds", "period_note", "transactions_count", "family_*"],
-      "conservative_behavior": "Retain populated amounts and actual bounds; null history -> UNVERIFIED, historically contradictory evidence -> INCONSISTENT; no trend certification or English-note parser",
+      "conservative_behavior": "Retain populated amounts and actual bounds. Null history means UNVERIFIED; contradictory source evidence is INCONSISTENT. Neither establishes trend completeness; do not parse free-text notes as accounting rules.",
       "downstream_impact": "Optional budget quality limitation, never zero cashflows",
       "resolution": "Stable upstream coverage fields and consistent populated/history evidence",
       "state": "OPEN"
     },
     "standalone_oauth": {
-      "evidence": ["roadmap_investigation", "help_page"],
-      "affected_fields": ["transport", "discovery", "authorization", "refresh", "restart"],
-      "conservative_behavior": "Fail sanitized unavailable until independent bridge verification; earlier unauthenticated GET 403 without WWW-Authenticate has unknown cause",
-      "downstream_impact": "Client implementation/production readiness gate only; contract can ship",
-      "resolution": "Authorized SDK negotiation/discovery, registration, redirect, consent, refresh rotation, cold restart and revocation structural tests",
-      "state": "OPEN"
+      "evidence": ["reported_resource_structure", "help_page"],
+      "affected_fields": [
+        "effective scope",
+        "renewal",
+        "revocation"
+      ],
+      "conservative_behavior": "Use independent operator consent and one renewable-state owner. Effective SDK scopes are not a certified minimum permission set. Accepted revocation and local removal do not prove immediate rejection of cached access tokens.",
+      "downstream_impact": "Persistent authorization failure requires operator recovery; normal routes remain noninteractive. Remote rotation and local persistence are not transactional.",
+      "resolution": "Independent operator verification of the designated connection and explicit issuer guarantees for the affected behavior.",
+      "state": "QUALIFIED"
     },
     "unobserved_shapes": {
-      "evidence": ["roadmap_investigation"],
+      "evidence": ["reported_resource_structure"],
       "affected_fields": [
         "nonempty loans",
         "joint/company owner scenarios",
@@ -423,12 +418,12 @@
         "other advertised holding types"
       ],
       "conservative_behavior": "Synthetic defensive only; unsupported nonempty details cannot establish COMPLETE; no guessed loan fields",
-      "downstream_impact": "Loan detail mapping gated; supported overview remains independently available",
+      "downstream_impact": "Loan detail is unavailable; the supported overview remains independently available.",
       "resolution": "Authorized structural samples and official field/unit/ownership clarification for each type",
       "state": "OPEN"
     },
     "holding_units": {
-      "evidence": ["roadmap_investigation", "bounded_reads_2026_09_11"],
+      "evidence": ["reported_resource_structure", "resource_structure"],
       "affected_fields": [
         "buying_price",
         "annual_yield",
@@ -442,7 +437,7 @@
       "state": "OPEN"
     },
     "provider_identity": {
-      "evidence": ["contract_issue"],
+      "evidence": ["project_decision"],
       "affected_fields": [
         "account IDs",
         "holding IDs",
@@ -451,10 +446,10 @@
       "conservative_behavior": "Use exact canonical MCP identities only. Never infer identity from names, tickers or equal numeric IDs.",
       "downstream_impact": "Series break and manual review of exact MCP overrides",
       "resolution": "Use exact canonical MCP identities only. Never infer identity from names, tickers or equal numeric IDs.",
-      "state": "OPEN"
+      "state": "ENFORCED"
     },
     "goal_precision": {
-      "evidence": ["goal_month_precision", "catalog_2026_09_11"],
+      "evidence": ["goal_month_precision", "connector_catalog"],
       "affected_fields": ["target_date", "goal identity"],
       "conservative_behavior": "Attribute month semantics; do not interpret 15th as deadline; no stable identity",
       "downstream_impact": "Versioned response only, no progress or persistent goal upserts",
@@ -462,7 +457,7 @@
       "state": "OPEN"
     },
     "budget_target_currency": {
-      "evidence": ["catalog_2026_09_11"],
+      "evidence": ["connector_catalog"],
       "affected_fields": ["by_category.target.amount", "should_reach"],
       "conservative_behavior": "Keep currency unconfirmed; true=floor false=ceiling; no monetary target comparison until currency confirmed",
       "downstream_impact": "No target variance/achievement certification",
@@ -470,7 +465,7 @@
       "state": "OPEN"
     },
     "unknown_objects": {
-      "evidence": ["catalog_2026_09_11"],
+      "evidence": ["connector_catalog"],
       "affected_fields": [
         "get_me.data",
         "profiles.data[]",
@@ -481,7 +476,7 @@
         "simulation.series[]"
       ],
       "conservative_behavior": "Do not fill unspecified shapes; validate mapped fields only with evidence; missing optional enrichment null",
-      "downstream_impact": "Further adapter-specific schema verification needed",
+      "downstream_impact": "Unknown inner fields cannot supply normalized data without an explicit supported mapping.",
       "resolution": "Declared structured schema or authorized bounded structural inspection",
       "state": "OPEN"
     }
@@ -1331,7 +1326,7 @@
           }
         },
         "source_contract_version": {
-          "const": "2.0.0",
+          "const": "1.0.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
@@ -2559,11 +2554,11 @@
       "required": ["code", "entity_key"],
       "additionalProperties": false
     },
-    "snapshot_v3": {
+    "snapshot_v1": {
       "type": "object",
       "properties": {
         "schema_version": {
-          "const": "3.0",
+          "const": "1.0",
           "x-field": {
             "authority": "bridge",
             "grain": "observation",
@@ -3256,7 +3251,7 @@
     "writer_control": {
       "type": "object",
       "properties": {
-        "workbook_schema": {"const": "4.0"},
+        "workbook_schema": {"const": "1.0"},
         "provider": {"const": "finary_official_mcp"},
         "generation": {
           "type": "integer",
@@ -3569,13 +3564,13 @@
           ]
         },
         "api_schema": {
-          "const": "3.0"
+          "const": "1.0"
         },
         "workbook_schema": {
-          "const": "4.0"
+          "const": "1.0"
         },
         "source_contract_version": {
-          "const": "2.0.0"
+          "const": "1.0.0"
         },
         "provider": {
           "const": "finary_official_mcp"
@@ -3934,7 +3929,7 @@
         "current_value": "decimal with current_value_currency; per-type ownership qualification",
         "buying_price": "decimal with buying_price_currency; unit versus total unresolved",
         "quantity": "security/crypto quantity; not money",
-        "shares": "SCPI shares attributed to historical investigation; not newly verified",
+        "shares": "SCPI share quantity with attributed units; no inferred valuation formula",
         "annual_yield": "fund source field, unit not assumed",
         "relationships.asset.data": "account resource (assets, id)",
         "included securities": "name/symbol/isin/security_type/current_price/current_price_currency_code/expense_ratio/subscription_fees_ratio inspected; optional enrichment, never identity"
@@ -3955,7 +3950,7 @@
       }
     },
     "get_me_profiles": {
-      "fields": "Only declared open data object/array and historical successful reads available; identity/labels not exported as totals; no invented inner schema"
+      "fields": "Declared open data object/array with reported response structure; identity/labels not exported as totals; no invented inner schema"
     },
     "budget": {
       "schema": "#/$defs/budget_view_observed",
@@ -3973,19 +3968,22 @@
   },
   "semantic_rules": {
     "currency": "all overview/allocation/member money.currency equals provenance.currency; amount_eur equals amount only if EUR; no overview SOURCE_CONVERSION until independently verified upstream support is added. account native_balance may have SOURCE_CONVERSION using supplied full_value_eur only, never direct owners value. Check view denomination even for null amounts: every overview/allocation/member currency must be nonnull and equal provenance.currency. Any normalized nonnull amount requires an explicit currency; a bare upstream number cannot become validated money.",
-    "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in 1.1.0: require explicit EUR denomination. Debt amounts are nonnegative when present.",
+    "amount_absence": "amount=null => amount_eur=null and eur_basis=UNAVAILABLE. currency=null => amount_eur=null. Gross/Financial Assets always nonnegative known; reported liabilities nonnegative or null, net worth signed. Holding EUR projections have no verified separate conversion in the supported contract: require explicit EUR denomination. Debt amounts are nonnegative when present.",
     "window": "collection_started_at <= collection_ended_at <= generated_at; snapshot_date is generated_at in Europe/Paris; upstream_as_of remains nullable and never set to ingestion time.",
     "complete_debt_detail": "Current version can express independently enumerated empty debt detail only; requires complete compatible accounts/holdings retrieval, supported semantics, overview complete with zero reported debt and zero unvalued count. Overview zero alone is insufficient; nonempty debt shape needs a versioned extension and evidence.",
     "complete_positions": "Every returned holding must be represented once with valid parent and supported type. Unknown or unverified nonempty shape aborts detail writes; never an unknown shape hidden behind a COMPLETE flag. Resource support is distinct from field-unit/ownership confidence: supported resources may retain explicitly qualified UNVERIFIED fields without derived accounting claims.",
-    "optional_quality": "Budget unknown history prohibits trend certification. Contradictory historical note evidence is separately attributed, never inferred by a generic English-note parser. Goals persist no stable identities; label matching never joins people or accounts.",
+    "optional_quality": "Budget unknown history prohibits trend certification; contradictory source evidence remains qualified. Free-text notes are not parsed into accounting rules. Goals have no stable identities; labels never join people or accounts.",
     "native_valuation": "Apply valuation_contracts independently per collection. COMPLETE requires every accepted row to have both the covered native amount and its currency, including known zero; an independently complete empty collection is vacuously COMPLETE. EUR projection, cost/rate/quantity and ownership confidence remain separately qualified. Incomplete retrieval has no accepted current rows and cannot certify valuation.",
     "member_identity": "member_ordinal must be unique within one observation, regardless of labels; portfolio_members is keyed by observation_id + member_ordinal. Reuse across different observations is allowed and implies no persistent person identity. The x-unique-by annotation requires the cross-record identity check; JSON Schema alone cannot enforce projected uniqueness.",
     "diagnostic_identity": "Reject repeated warning (code, entity_key) pairs, including a null entity_key. The adapter must deduplicate identical warnings before publishing the snapshot and table membership counts. Unsupported detail (account_key, holding_type, reason) must be unique regardless of count, and every diagnostic account_key must reference an account in the same observation. Conflicting counts are rejected, never silently summed or selected. If no accepted accounts are available, per-account diagnostics cannot be published as orphan rows. These diagnostics never authorize portfolio inactivation."
   },
   "version_policy": {
-    "source_contract_version": "Project-owned version of the evidence-backed source interpretation; not an upstream Finary release or negotiated MCP protocol revision. Native revision remains unverified.",
-    "change_control": "Version changes record new evidence and compatibility impact; no unsupported observation silently becomes supported. Breaking normalized or workbook changes require coordinated major revisions.",
-    "registry_support": "OBSERVED_SUBSET and HISTORICALLY_OBSERVED describe evidence, never standalone bridge runtime availability."
+    "application_version": "Semantic version of the installed package, service metadata and bridge User-Agent.",
+    "api_schema": "Two-component version of the normalized HTTP response contract; routes identify its major version.",
+    "workbook_schema": "Two-component version of physical sheet layout, headers, bindings and metadata.",
+    "source_contract_version": "Project-owned semantic version of source interpretation; not an upstream release or negotiated MCP protocol revision.",
+    "change_control": "Version each affected contract according to its compatibility impact. Breaking changes require a major revision of the affected contract and coordinated consumers/generators, not automatic equality of all four versions. Never silently upgrade evidence or accept an incompatible structure by label alone.",
+    "registry_support": "OBSERVED_SUBSET, REPORTED_STRUCTURE and DECLARED_ONLY describe source evidence; runtime_status separately describes implemented bridge availability."
   },
   "valuation_contracts": {
     "account_valuation": {
@@ -4039,10 +4037,14 @@
     "#/$defs/search_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
     "#/$defs/simulation_input": {"kind": "constant", "value": "NOT_APPLICABLE"},
     "#/$defs/simulation_output": {"kind": "capability", "defensive_quality": "UNVERIFIED"},
-    "#/$defs/snapshot_v3": {"kind": "field", "path": "/coverage/overview_quality", "required_check": "snapshot"}
+    "#/$defs/snapshot_v1": {
+      "kind": "field",
+      "path": "/coverage/overview_quality",
+      "required_check": "snapshot"
+    }
   },
   "current_workbook": {
-    "schema_version": "4.0",
+    "schema_version": "1.0",
     "canonical_schema": "google-sheets-schema.json",
     "workbook_name": "Finary Portfolio Data",
     "timezone": "Europe/Paris",
