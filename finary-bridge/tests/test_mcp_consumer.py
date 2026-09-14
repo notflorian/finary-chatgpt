@@ -6,7 +6,15 @@ from datetime import timedelta
 import pytest
 from mcp_artifacts import SCHEMA
 from mcp_snapshots import NOW
-from mcp_workbooks import book_for_consumer, empty_book, failure, prepare, readback, writes
+from mcp_workbooks import (
+    book_for_consumer,
+    book_with_two_observations,
+    empty_book,
+    failure,
+    prepare,
+    readback,
+    writes,
+)
 
 from app.mcp_consumer import observation, select
 
@@ -55,10 +63,12 @@ def test_orphan_current_observation_blocks_readback():
         select(readback(book), now=NOW + timedelta(minutes=1))
 
 
-def test_later_failure_does_not_replace_success():
+@pytest.mark.parametrize("delay", [0, 30])
+def test_later_failure_does_not_replace_success(delay):
     book = book_for_consumer()
     named = prepare(book=book, execution="later-run")
     book["sync_runs"] += failure(named, book, execution="later-run")
+    book["sync_runs"][-1]["completed_at"] = (NOW + timedelta(seconds=delay)).isoformat()
     assert select(readback(book), now=NOW + timedelta(minutes=1))["current_complete"]
 
 
@@ -195,3 +205,41 @@ def test_unidentified_automated_rows_are_not_silently_ignored(table):
     book[table].append(row)
     with pytest.raises(ValueError):
         select(readback(book), now=NOW + timedelta(minutes=1))
+
+
+@pytest.mark.parametrize(
+    "completions",
+    [
+        ("2026-09-11T08:00:00Z", "2026-09-11T08:00:00+00:00"),
+        ("2026-09-11T10:00:00+02:00", "2026-09-11T03:00:00-05:00"),
+        ("2026-09-11T08:00:00.1Z", "2026-09-11T08:00:00.100Z"),
+        ("2026-09-11T08:00:00Z", "2026-09-11T08:00:00Z"),
+    ],
+)
+def test_equivalent_completion_instants_are_ambiguous(completions):
+    book = book_with_two_observations()
+    now = NOW + timedelta(minutes=1)
+    for terminal, completed in zip(book["sync_runs"], completions, strict=True):
+        terminal["completed_at"] = completed
+    first, second = [observation(readback(book), row, now=now) for row in book["sync_runs"]]
+    assert first["dated_fallback"] and not first["current_complete"]
+    assert second["current_complete"] and not second["dated_fallback"]
+    for _ in range(2):
+        with pytest.raises(ValueError):
+            select(readback(book), now=now)
+        book["sync_runs"].reverse()
+
+
+def test_distinct_completion_instants_use_chronology_in_either_row_order():
+    book = book_with_two_observations()
+    first, second = book["sync_runs"]
+    first["completed_at"] = "2026-09-11T10:00:00+02:00"
+    second["completed_at"] = "2026-09-11T03:00:01-05:00"
+    assert first["completed_at"] > second["completed_at"]
+    now = NOW + timedelta(minutes=1)
+    expected = select(readback(book), now=now)
+    assert expected["context"]["run_id"] == second["run_id"]
+    assert expected["current_complete"] and not expected["dated_fallback"]
+    assert not expected["stale"] and not expected["series_break"]
+    book["sync_runs"].reverse()
+    assert select(readback(book), now=now) == expected
