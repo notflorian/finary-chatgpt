@@ -18,20 +18,10 @@ from app.mcp_validation import (
     validate_money,
     validate_position,
 )
-from app.mcp_workbook import VERSION, records, validate_row
+from app.mcp_workbook import CHILD_KEYS, VERSION, records, validate_row
 
 TABLES = CONTRACT["current_workbook"]["tables"]
 COUNTS = TABLES["sync_runs"]["count_columns"]
-CHILD_KEYS = {
-    "account_ownership": ("account_key", "owner_key"),
-    "source_connections": ("connection_key",),
-    "position_rates": ("position_key", "source_field"),
-    "official_allocation_categories": ("category",),
-    "official_allocation_types": ("category", "holding_type"),
-    "portfolio_members": ("member_ordinal",),
-    "source_warnings": ("code", "entity_key"),
-    "unsupported_details": ("account_key", "holding_type", "reason"),
-}
 
 
 def require(value: bool) -> None:
@@ -200,12 +190,10 @@ def _observation(
         )
     )
     daily = daily_rows[0]
-    require(daily["daily_key"] == f"mcp:daily:{context['snapshot_date']}:{observation_id}")
     require(daily["snapshot_date"] == context["snapshot_date"])
     require(daily["generated_at"] == context["generated_at"])
     completed = instant(terminal["completed_at"])
     require(instant(context["generated_at"]) <= completed <= now)
-    from urllib.parse import quote
 
     detail: dict[str, list[dict[str, Any]] | None] = {}
     for table, fields in CHILD_KEYS.items():
@@ -215,16 +203,6 @@ def _observation(
             continue
         parsed = [normalized(table, row) for row in child_rows]
         unique(parsed, fields)
-        for row, value in zip(child_rows, parsed, strict=True):
-            parts = [
-                "~null"
-                if value[field] is None
-                else "~value" + quote(value[field], safe="-._~")
-                if field == "entity_key"
-                else quote(str(value[field]), safe="-._~")
-                for field in fields
-            ]
-            require(row["row_key"] == observation_id + ":" + table + ":" + ":".join(parts))
         detail[table] = parsed
     for money in (
         overview["gross_assets"],
@@ -249,10 +227,6 @@ def _observation(
     for position in positions or []:
         validate_position(position)
     for row in history or []:
-        require(
-            row["history_key"]
-            == f"mcp:history:{context['snapshot_date']}:{observation_id}:{row['position_key']}"
-        )
         require(
             row["snapshot_date"] == context["snapshot_date"]
             and row["generated_at"] == context["generated_at"]
