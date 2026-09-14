@@ -18,6 +18,71 @@ from app.mcp_workbook import cell, google_create, initialize
 ROOT = Path(__file__).parents[2]
 
 
+@pytest.mark.parametrize("section", ["Required local checks", "Opt-in diagnostics"])
+def test_isolated_compose_commands_preserve_their_environment_boundary(tmp_path, section):
+    document = (ROOT / "docs/development.md").read_text()
+    section_text = document.split(f"## {section}\n", 1)[1].split("\n## ", 1)[0]
+    blocks = [
+        block
+        for block in re.findall(r"```bash\n(.*?)```", section_text, flags=re.S)
+        if "docker-compose.mcp-test.yml" in block
+    ]
+    assert len(blocks) == 1, "Expected one explicit isolated Compose command block"
+    state = tmp_path / "synthetic operator state"
+    state.mkdir()
+    operator = {
+        "FINARY_MCP_TEST_DIR": str(state),
+        "FINARY_MCP_CANDIDATE_API_KEY": "synthetic-operator-key",
+        "FINARY_MCP_CANDIDATE_WORKBOOK_ID": "synthetic-operator-book",
+        "FINARY_MCP_CANDIDATE_WRITER_ID": "synthetic-operator-writer",
+        "FINARY_MCP_CANDIDATE_WRITER_GENERATION": "73",
+    }
+    # Only the substitute executable is on PATH; no inherited shell hooks or secrets.
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    docker = binary / "docker"
+    docker.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        f"names = {[*operator, 'COMPOSE_ENV_FILES']!r}\n"
+        "print(json.dumps({'args': sys.argv[1:], "
+        "'env': {name: os.environ.get(name) for name in names}, 'cwd': os.getcwd()}))\n"
+    )
+    docker.chmod(0o700)
+    result = subprocess.run(
+        ["/bin/bash", "--noprofile", "--norc", "-eu", "-c", blocks[0]],
+        cwd=ROOT,
+        env={"PATH": str(binary), "HOME": str(tmp_path), **operator},
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    )
+    assert result.stderr == ""
+    calls = [json.loads(line) for line in result.stdout.splitlines()]
+    expected = {**operator, "COMPOSE_ENV_FILES": "/dev/null"}
+    actions = [["config", "--quiet"]]
+    if section == "Required local checks":
+        expected.update(
+            FINARY_MCP_TEST_DIR="/tmp",
+            FINARY_MCP_CANDIDATE_API_KEY="synthetic-key",
+            FINARY_MCP_CANDIDATE_WORKBOOK_ID="synthetic-book",
+        )
+    else:
+        actions.append(["up", "-d", "--build", "--wait"])
+    assert calls == [
+        {
+            "args": [
+                "compose", "--env-file", "/dev/null", "-p", "finary-mcp-candidate",
+                "-f", "docker-compose.mcp-test.yml", *action,
+            ],
+            "env": expected,
+            "cwd": str(ROOT),
+        }
+        for action in actions
+    ]
+
+
 def test_local_documentation_links_and_anchors_resolve():
     documents = [
         ROOT / "README.md",

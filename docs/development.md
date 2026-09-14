@@ -174,15 +174,28 @@ information. It never prints instance values, raw payloads or authentication dat
 
 The standalone `docker-compose.mcp-test.yml` uses project `finary-mcp-candidate`,
 localhost ports 8001/5679, its own network/n8n volume and an existing isolated
-OAuth directory. Use it alone, never as a production override. Set
+OAuth directory. Use it alone, never as a production override. Export
 `FINARY_MCP_TEST_DIR`, `FINARY_MCP_CANDIDATE_API_KEY`,
 `FINARY_MCP_CANDIDATE_WORKBOOK_ID`, `FINARY_MCP_CANDIDATE_WRITER_ID` and
-`FINARY_MCP_CANDIDATE_WRITER_GENERATION` explicitly for its fresh workbook.
-Stop host state users before container use. From the root, validate configuration
-first using the command above, then an authorized operator can start only this
-stack with the same arguments and `up -d --build --wait` instead of `config --quiet`.
-Create its own Google credential. Keep it unpublished and stop it with the same
-project/file arguments; never mount production volumes or use `down -v`.
+`FINARY_MCP_CANDIDATE_WRITER_GENERATION` explicitly for its fresh isolated workbook
+in the operator's shell. Keep the independently authorized OAuth directory and
+matching writer values. Stop all other users of that state before container use.
+From the repository root, in that same shell, an explicitly authorized operator
+can validate those settings without printing resolved secrets and then start only
+the isolated stack:
+
+```bash
+COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
+  -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet && \
+COMPOSE_ENV_FILES=/dev/null docker compose --env-file /dev/null \
+  -p finary-mcp-candidate -f docker-compose.mcp-test.yml up -d --build --wait
+```
+
+Both commands inherit the five exported values; neither loads production `.env`
+files. Do not copy the synthetic assignments from Required local checks into this
+operator command. Create its own Google credential. Keep its workflow unpublished
+and stop it with the same environment/project/file arguments and `stop` instead
+of `up -d --build --wait`; never mount production volumes or use `down -v`.
 
 Natural-expiry diagnostics retain one OAuth session across the SDK-advertised
 expiry and perform two bounded collections. They neither change tokens/clocks nor
