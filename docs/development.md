@@ -90,6 +90,14 @@ response loss and complete stdout evidence under backpressure.
 The required runtime gate uses `-n auto --maxprocesses 4 --dist worksteal` with
 `--max-worker-restart 0`. Local worker count defaults to two; CI uses detected
 capacity capped at four. `PYTEST_XDIST_WORKER_COUNT` provides an explicit override.
+The full credential-free CI suite uses the same bounded worker settings and
+unchanged test selection. To reproduce it locally from `finary-bridge`, run:
+
+```bash
+python -m pytest -m "not live" --ignore=tests/live \
+  -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
+```
+
 Each engine execution uses fresh disposable network-disabled containers/databases.
 These are synthetic runtime checks, not live Google or Finary acceptance.
 

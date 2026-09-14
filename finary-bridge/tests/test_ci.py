@@ -56,6 +56,10 @@ def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
 
     assert 'python -m pytest -m "not live" --ignore=tests/live' in ci
+    job = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+    assert (
+        "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
+    ) in " ".join(job.split())
     assert "FINARY_LIVE_TEST" not in ci
     assert "FINARY_LIVE_SESSION_TEST" not in ci
     assert "FINARY_LIVE_DESCRIBE" not in ci

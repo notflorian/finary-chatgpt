@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import conftest
 import pytest
-
-from tests import conftest
 
 
 @pytest.mark.parametrize(
