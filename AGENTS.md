@@ -70,8 +70,7 @@ finary-chatgpt/
 │   │   └── services/mcp_snapshot_service.py
 │   └── tests/
 ├── n8n/workflows/
-│   ├── finary-daily-sync.json
-│   └── finary-error-handler.json
+│   └── finary-mcp-sync.json
 ├── scripts/
 └── docs/
     ├── architecture.md
@@ -91,7 +90,7 @@ Do not add new top-level structure without a clear architectural reason.
 - Pinned native MCP SDK inside the official adapter
 - pytest, Ruff, mypy
 - self-hosted n8n using standard nodes
-- Google Sheets schema `2.1` for legacy and `3.0` for the MCP candidate
+- Google Sheets layout `4.0`, API `3.0`, source contract `2.0.0`
 - `Europe/Paris` schedules and business dates
 - ISO 8601 timestamps with explicit timezone offsets
 
@@ -157,13 +156,14 @@ breaking downstream contract revision.
 
 ### Google Sheets and n8n
 
-`docs/google-sheets-schema.json` is the canonical 3.0 machine-readable workbook
-contract. The frozen legacy writer awaits removal and is not supported by this bridge.
-Its retained tests explicitly use the frozen 2.1
-`docs/google-sheets-schema-v2.json`; never mix these writer/schema bindings.
-Preserve each contract's sheet order, headers, types, nullability, ownership,
-enums, and key formats. Documentation summarizes it but must not become a second
-field-level source of truth.
+`docs/finary-mcp-contract.json` defines the enduring `current_workbook` layout.
+`docs/google-sheets-schema.json` is its canonical generated 4.0 artifact, with an
+identical packaged copy. Generate it directly; never import an older schema or
+retain compatibility columns, migration helpers or dual-layout readers.
+Use `scripts/initialize-workbook.py` for fresh PAUSED workbooks. Preserve sheet
+order, headers, types, nullability, ownership, enums and deterministic keys.
+Reject old/incompatible layouts rather than modifying operator workbooks.
+Documentation summarizes the contract without duplicating field definitions.
 
 Current sheets use deterministic upserts. Missing accounts or positions become
 `is_active = FALSE`; they are not deleted. Historical rows are never deleted.

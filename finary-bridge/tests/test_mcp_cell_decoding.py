@@ -4,8 +4,8 @@ from copy import deepcopy
 from subprocess import CalledProcessError
 
 import pytest
+from n8n_code import _run_code_node
 from test_mcp_workflow import SCHEMA, WORKFLOW, empty_book, prepare
-from test_n8n_workflow import _run_code_node
 
 
 def decode(table, row):
@@ -57,7 +57,7 @@ def test_exact_safe_integers_remain_compatible_with_sheets_text(value, expected)
 def test_native_amount_columns_remain_text_at_full_contract_precision():
     value = "123456789012345678901234." + "1" * 64
     columns = {c["name"]: c for c in SCHEMA["sheets"]["positions_current"]["columns"]}
-    for name in ("mcp_current_value_amount", "mcp_current_value_amount_eur"):
+    for name in ("current_value_amount", "current_value_amount_eur"):
         assert columns[name]["type"] == "STRING"
         assert decode("positions_current", {name: value})[name] == value
 

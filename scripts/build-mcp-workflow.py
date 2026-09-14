@@ -18,7 +18,13 @@ def prelude(name):
     if name == "Initialize MCP Run":
         binding = (
             "const mcpWorkbook={}; const mcpContract="
-            + json.dumps({"contract_version": workbook["source_contract_version"]})
+            + json.dumps(
+                {
+                    "contract_version": workbook["source_contract_version"],
+                    "api_schema": workbook["api_schema"],
+                    "workbook_schema": workbook["schema_version"],
+                }
+            )
             + ";\n"
         )
     else:
@@ -30,7 +36,7 @@ def prelude(name):
         binding = (
             "const mcpWorkbook="
             + value
-            + ";\nconst mcpContract={contract_version:mcpWorkbook.source_contract_version,numeric_policy:mcpWorkbook.mcp_numeric_policy,$defs:mcpWorkbook.mcp_definitions,identity:mcpWorkbook.mcp_identity,valuation_contracts:mcpWorkbook.mcp_valuation_contracts};\n"
+            + ";\nconst mcpContract={contract_version:mcpWorkbook.source_contract_version,api_schema:mcpWorkbook.api_schema,workbook_schema:mcpWorkbook.schema_version,numeric_policy:mcpWorkbook.mcp_numeric_policy,$defs:mcpWorkbook.mcp_definitions,identity:mcpWorkbook.mcp_identity,valuation_contracts:mcpWorkbook.mcp_valuation_contracts};\n"
         )
     library = (
         (ROOT / "n8n/mcp-validation.js").read_text()
@@ -122,14 +128,15 @@ def generate(check=False):
             }
         else:
             options.update(executeOnce=True, alwaysOutputData=True)
+            p["options"]["outputFormatting"] = {
+                "values": {"general": "FORMULA", "date": "FORMATTED_STRING"}
+            }
             if header:
-                p["options"] = {
-                    "dataLocationOnSheet": {
-                        "values": {
-                            "rangeDefinition": "specifyRange",
-                            "headerRow": 1,
-                            "firstDataRow": 1,
-                        }
+                p["options"]["dataLocationOnSheet"] = {
+                    "values": {
+                        "rangeDefinition": "specifyRange",
+                        "headerRow": 1,
+                        "firstDataRow": 1,
                     }
                 }
         return node(name, "googleSheets", p, **options)
@@ -170,7 +177,10 @@ def generate(check=False):
             "sendHeaders": True,
             "headerParameters": {
                 "parameters": [
-                    {"name": "X-API-Key", "value": "={{ $env.FINARY_BRIDGE_API_KEY || '' }}"}
+                    {
+                        "name": "X-API-Key",
+                        "value": "={{ $env.FINARY_BRIDGE_API_KEY || '' }}",
+                    }
                 ]
             },
             "options": {
@@ -201,8 +211,6 @@ def generate(check=False):
     link(previous, prepare)
     previous = prepare
     for table in schema["mcp_tables"]["sync_runs"]["count_columns"]:
-        if table == "liabilities_current":
-            continue
         check_name = code(
             "Check " + table,
             "const p=$('Prepare MCP Rows').first().json;\nmcpRun(p.run,String($execution.id));\nreturn [{json:{has_rows:p.batches['"
@@ -269,7 +277,11 @@ def generate(check=False):
         for n in nodes
         if n["name"] != "Initialize MCP Run"
         and n["type"]
-        in {"n8n-nodes-base.code", "n8n-nodes-base.googleSheets", "n8n-nodes-base.httpRequest"}
+        in {
+            "n8n-nodes-base.code",
+            "n8n-nodes-base.googleSheets",
+            "n8n-nodes-base.httpRequest",
+        }
     ]
     failure_control = sheet("Failure Writer Control", "writer_control")
     failure_header = sheet("Failure Terminal Header", "sync_runs", header=True)

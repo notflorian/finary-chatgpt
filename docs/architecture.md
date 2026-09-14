@@ -4,7 +4,7 @@
 
 Finary Portfolio Data supports official Finary MCP exclusively.
 The [MCP contract](finary-mcp-contract.md)
-is the semantic foundation for implemented API/workbook 3.0. Its fixture oracle
+is the semantic foundation for implemented API 3.0 and workbook 4.0. Its fixture oracle
 is test-only; the runtime uses the pinned native SDK, bridge-owned OAuth,
 production validators, adapter, service and protected routes. Independent
 live acceptance is tracked in [the matrix](mcp-acceptance.md).
@@ -49,11 +49,9 @@ portfolio critical path. No scheduled call carries an analytics prompt.
 
 The generated inactive MCP workflow validates all rows before portfolio writes,
 checks the writer generation, preserves exact decimal text and publishes terminal
-membership after required writes. Loan detail remains unavailable. Migration is
-append-only against a distinct candidate workbook; the legacy writer explicitly
-fetches the frozen 2.1 contract. See [operations](mcp-operations.md) and
-[consumer interpretation](mcp-consumer.md). The frozen 2.1 workflow design below
-remains for workbook cleanup; it cannot synchronize against the MCP-only bridge.
+membership after required writes. Loan detail remains unavailable. Workbook 4.0 is generated directly from
+`current_workbook` in the MCP contract, with no prior layout dependency.
+[Operations](operations.md) initializes new workbooks and defines writer activation.
 
 ## Trust boundaries
 
@@ -138,107 +136,39 @@ The repository no longer mounts or declares the old private session volume;
 existing operator volumes must not be read, converted or deleted by cleanup.
 See [OAuth operations](mcp-operations.md#backups-and-independent-oauth).
 
-## Retained workbook design
-
-The following frozen legacy-workbook material awaits the workbook and broader
-documentation cleanup. It does not describe supported HTTP routes or a runnable
-private provider in application 2.0.0.
-
 ## Synchronization topology
 
-The daily workflow supports manual execution and a 07:30 `Europe/Paris`
-schedule. It:
+The inactive MCP export supports manual execution and a 07:30 Europe/Paris
+schedule. It creates a UUID-bearing n8n run identity, fetches the canonical schema
+and `/v3/snapshot`, validates them, reads all required headers and rows, and checks
+writer control before preparing and validating every batch. It then upserts
+current and observation tables, rechecks writer generation and terminal
+collisions, and records success after all required writes.
 
-1. creates a random UUID with the verified n8n execution ID, saves that opaque
-   `run_id` in initialization output, and loads
-   workbook schema `2.1` from the internal schema server;
-2. requests `/v2/snapshot`;
-3. validates schema, entities, keys, headers, and safety gates;
-4. reads and applies exact-match asset overrides;
-5. prepares all rows before any portfolio write;
-6. upserts current accounts and positions;
-7. updates liability state only for `COMPLETE` coverage;
-8. upserts same-day position history with `run_id` membership and the daily summary;
-9. writes one terminal `sync_runs` row.
+Only complete collection evidence permits current-row inactivation. Inactive
+rows retain their observation identity and timestamps. History is immutable per
+accepted observation, including multiple observations on the same date. Empty
+batches continue exactly once without dummy rows. Manual inputs are never
+synchronization-owned. Exact decimal text is written RAW and null cells clear
+explicitly with empty strings.
 
-The prewrite gate has two independent boundaries. `Validate Snapshot` uses a
-generated projection of the Pydantic field contract, rejects malformed objects,
-extra fields and invalid scalar values, and applies only canonical model
-defaults before overrides. Metadata scalars are validated and then discarded
-under the empty downstream allowlist. Existing key, reference, coverage and
-monetary safety checks still apply. This is defense in depth: the canonical
-FastAPI response model normally prevents malformed snapshots from reaching n8n.
+The same graph handles sanitized failures under its own control/header/terminal
+checks. No separate error workflow is required. A lost terminal response cannot
+overwrite a stored success. Sequential Sheets reads/writes and control rechecks
+are not atomic; operational single-writer exclusion remains necessary.
 
-`Prepare Validated Rows` validates all six write batches against the canonical
-workbook columns, order, types, nullability and enum bindings before emitting
-the first account row. It also checks keys, run context, counts, observation
-membership and shared totals. A malformed history, daily or provisional success
-row blocks every portfolio write. Retained current rows selected for inactivation
-are explicitly decoded from Sheets encodings and validated without replacing
-their previous observation timestamps or run IDs. Missing required retained
-values stop the run; this gate does not repair historical data. Finalization
-still checks execution identity and timing after the required writes and
-validates the final terminal row before its write. The prewrite gate rejects
-existing run IDs; both daily terminal paths reread telemetry before writing.
-Failure replays require the same identity and original start; collisions leave
-existing terminal records intact.
-
-Explicit count checks branch around empty position and history write batches;
-liability writes use their existing independent batch check. Each check reduces
-the preceding batch to one control item, so the exclusive skip and write paths
-continue once. Successful empty table reads use n8n's `alwaysOutputData` and row
-preparation discards their empty control items. No dummy row reaches Sheets.
-A complete zero-position run updates accounts and the daily summary, inactivates
-retained positions without changing observation timestamps or IDs, writes no
-history observation, and publishes a zero-count terminal record only after the
-required writes. Old history, including earlier same-day runs, is retained.
-
-Current-state rows that disappear become inactive rather than being deleted.
-History is append-retained across dates and idempotently replaced for the same
-date and position key. Consumers accept history only when its run membership
-and count match the terminal successful run and daily row. Physical current
-tables also require full-table key/activity validation and active membership and
-counts matching the selected successful execution, including account references.
-Inactive rows retain their last observation ID even when rewritten; failed
-inactivation can invalidate prior active counts. Liability details are validated
-independently against the latest successful COMPLETE run. Consumers use only
-independently validated historical fallback or aggregates when details fail;
-they never combine partial current writes with a successful historical state.
-See the [consumer procedure](finary-portfolio-data-knowledge.md). The success marker
-is written last; partial Google Sheets writes can invalidate the prior same-day
-state, but the mismatch is detectable and a retry repairs deterministic keys.
-Manual sheets are never synchronization-owned. Read-side checks reject observed
-inconsistencies but cannot make sequential Sheets reads transactional. The
-executable consumer specification is test-only and is not deployed in ChatGPT.
-
-Native node retries stay inside the same n8n execution and retain its identity.
-A saved-data execution retry receives a new n8n execution ID but can retain
-earlier node output, so the workflow checks identity again immediately before
-publishing success. A stale saved identity cannot create a successful terminal
-marker; recovery then requires a full new execution, except when only the final
-terminal Sheets write itself is being retried after all required writes passed.
-
-Structured bridge failures stop before portfolio writes and may record sanitized
-failed telemetry. The linked error workflow derives correlation from the
-originating failed n8n execution supplied by the Error Trigger and retrieves its
-saved initialization through the local n8n API with a runtime-only credential.
-It verifies exact source context and never derives correlation from the error
-workflow's own execution, retry ancestry or wall-clock time. Missing origin data
-stops telemetry with a sanitized diagnostic. Fresh UUIDs prevent database ID
-reuse from reusing workbook identity; database replacement requires draining
-source executions and error handlers. See the
-[adoption and restore procedure](operations.md#adopting-restore-safe-run-identities).
-Both workflows use finite
-timeouts, and Sheets operations use bounded retries. Read nodes execute once to
-prevent quota amplification.
+The production consumer validates actual headers, metadata, terminal membership,
+counts, keys, coverage and normalized financial semantics. It can return
+independently validated dated history when current tables are inconsistent,
+without borrowing later account metadata.
 
 ## Versioning
 
-Application `2.0.0`, API `3.0`, workbook `3.0` and source-contract `1.1.0` are
-distinct versions. `/v3/snapshot` is the canonical route. The application bump
-reflects removal of private support and V1/V2 routes; it does not change MCP
-financial semantics. Workbook self-containment and final release documentation
-remain separate release requirements.
+Application 2.0.0 and API 3.0 remain unchanged. Workbook 4.0 removes transitional
+columns/tables, so it requires a new layout major. Source contract 2.0.0 reflects
+the breaking workbook definition under its coordinated-major policy; it does
+not claim a new upstream MCP version or new financial evidence. Old and
+transitional workbooks are rejected. No migration or dual-layout reader exists.
 
 ## Deliberate limitations
 

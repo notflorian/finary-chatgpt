@@ -50,93 +50,48 @@ python scripts/build-workflow-validation.py --check
 COMPOSE_ENV_FILES=/dev/null docker compose config --quiet
 COMPOSE_ENV_FILES=/dev/null bash scripts/validate-n8n-imports.sh
 FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15 \
-  finary-bridge/tests/test_n8n_zero_position_runtime.py \
-  finary-bridge/tests/test_restore_run_identity_runtime.py \
-  finary-bridge/tests/test_sheets_connector_runtime.py \
+  finary-bridge/tests/test_n8n_runtime_support.py \
   finary-bridge/tests/test_mcp_runtime.py
 ```
 
-The n8n validator imports all three workflow exports into an isolated ephemeral n8n
-instance with no network and no persistent project volumes. The import script pulls the
-image pinned by `docker-compose.yml` before running network-disabled containers.
-Use an otherwise unset/synthetic Compose environment; `COMPOSE_ENV_FILES` avoids
-loading the local `.env`. No project container or volume is used.
+The import check loads the single inactive MCP export into a disposable,
+network-disabled container with no persistent project volumes or credentials.
+Normal tests may skip Docker cases when unavailable; the explicit required gate
+and CI fail instead. Run the isolated Compose check with synthetic configuration:
 
-The runtime regression separately imports a synthetic copy and executes the real
-n8n graph with its persisted execution identity in disposable containers. Only
-HTTP/Sheets I/O nodes are replaced; production Code/If nodes, connections,
-empty-read flags, all-row writes, retry counts/delays, and finalization remain.
-It covers header-only reads, zero position/history/liability branches,
-liquidation, normal nonempty writes, and exhausted write retries preventing
-success. The same required runtime file also covers four malformed required-field
-snapshots, a corrupt retained liability selected for inactivation, and controlled
-history/daily output faults injected immediately before the real all-batch gate.
-Only those last two fault cases modify preparation to inject the synthetic
-defect; its validator and the remaining graph stay intact. These executions
-prove that an invalid later batch prevents the first portfolio write and terminal
-success. It checks execution data for single continuation, real row counts,
-write order and terminal timing, then checks the resulting synthetic workbook.
-This is runtime evidence distinct from an import or individual Code-node test;
-it does not test the Google service or upstream completeness beyond fixtures.
-Without Docker/the pinned image, normal tests skip these cases; the explicit
-`FINARY_REQUIRE_N8N_RUNTIME=1` check and CI fail instead of silently skipping.
+```bash
+COMPOSE_ENV_FILES=/dev/null FINARY_MCP_TEST_DIR=/tmp \
+FINARY_MCP_CANDIDATE_API_KEY=synthetic-key FINARY_MCP_CANDIDATE_WORKBOOK_ID=synthetic-book \
+docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
+```
 
-The connector regression loads the installed `appendOrUpdate.execute` and
-`GoogleSheet` implementation from that same Compose-pinned image. It executes
-the exported preparation and finalization code with synthetic snapshots, then
-applies the actual connector's emitted updates to individual in-memory cells.
-Only Sheets I/O is replaced; update preparation, column addressing, exported
-mapping expressions and append conversion remain real. A network-disabled Node
-process is reused within each test worker; no n8n server, database, credentials
-or project volumes are needed. This required gate covers all eight write paths,
-known/null transitions, same-day history, retries, zero/false preservation and
-consumer acceptance. The MCP connector cases cover native exact-decimal
-null → zero → null transitions and accepted observation membership.
+Keep evidence boundaries distinct:
 
-When `pytest-xdist` runs with `-n auto`, worker count comes from
-`tests/conftest.py`: local runs default to `2`, while CI scales to available CPU
-capacity (capped at `4`). Set `PYTEST_XDIST_WORKER_COUNT=<N>` to force an exact
-worker count in both local and CI environments.
-The required runtime gate uses CPU-detected `pytest-xdist` worker processes,
-capped at four, on the same runner after the image has been pulled and all
-exports have been imported. This uses all four CPUs on the public repository's
-standard Ubuntu runner while reducing concurrency on smaller machines. The cap
-also bounds simultaneous n8n containers on larger development machines.
-Tests retain separate temporary directories and fresh network-disabled
-containers/SQLite databases, including executions within a single test. Work
-stealing balances cases with different numbers of engine executions; it does
-not change the workflow graph or its real retry delays. The normal Python suite
-remains serial. A worker crash fails the gate without restarting that worker.
-The slowest 15 test phases are reported to make later timing changes visible.
-For a serial comparison on the same runner and image, replace
-`-n auto --maxprocesses 4` with `-n 0` and `--dist worksteal` with `--dist no`;
-for the previous two-worker baseline, replace it with `-n 2`. Compare pytest
-summaries and test counts as well as the total job duration. The job includes import checks
-and engine execution, so its duration is not an import-only benchmark.
+- Contract/unit tests exercise normalized models, monetary semantics, coverage,
+  the fresh initializer and the consumer.
+- `n8n_code.py` executes individual exported Code nodes with synthetic context.
+- `validate-n8n-imports.sh` proves the export imports into pinned n8n.
+- `n8n_runtime.py` executes the actual graph with persisted execution IDs, Code/If
+  nodes, retries and terminal paths, replacing external I/O only. Complete CLI
+  output is captured through files with the execution exit status preserved.
+- `sheets_connector.py` runs the installed Sheets read and appendOrUpdate operations
+  and GoogleSheet implementation; fake transport preserves cell types/formulas and
+  applies the emitted updates.
+- The end-to-end runtime regression starts with the real fresh initializer,
+  obtains a snapshot through synthetic MCP and the FastAPI route, executes the
+  exported graph, applies connector-emitted operations and invokes the production
+  reference consumer. It never manufactures successful output rows separately.
 
-The restore-identity module also executes the daily graph in fresh disposable
-SQLite databases that reuse execution number `1`, with real cryptographic UUIDs.
-It covers interrupted and completed writes, every collision gate, and native
-terminal-response-loss retries with an identical finalized payload. The installed
-pinned n8n error dispatcher receives the real synthetic execution result; only
-its delivery service is intercepted to capture the actual Error Trigger payload.
-That payload and the saved execution feed the real exported error Code/If graph,
-with synthetic local API/Sheets I/O and a manual input driver. Replays, failures
-before writes, lost successful responses and mismatched source context are
-checked. This verifies dispatcher fields and graph behavior, not live trigger
-scheduling, public API authentication, Google transport, or a database backup
-restoration. Python workbook regressions simulate restoration by ID reuse;
-fresh-container engine tests prove new-installation ID reuse separately.
+Runtime cases cover nonempty/zero/partial holdings, repeated empty runs, manual
+formulas, exact decimal bounds, null → zero → null cells, exhausted retries and
+recovery, invalid later batches, control rechecks, UUID identities, terminal
+response loss and complete stdout evidence under backpressure.
 
-## Planned MCP contract validation
-
-The [official MCP contract](finary-mcp-contract.md) is documentation and
-executable schema evidence only. With the development dependencies installed,
-run `python -m pytest -q tests/test_finary_mcp_contract.py` from `finary-bridge`.
-The tests use Draft 2020-12 validation plus focused cross-field contract checks
-on synthetic fixtures. They do not implement or prove a client, normalizer,
-writer, OAuth lifecycle or migration engine. The full required gates above
-remain applicable.
+The required runtime gate uses `-n auto --maxprocesses 4 --dist worksteal` with
+`--max-worker-restart 0`. Local worker count defaults to two; CI uses detected
+capacity capped at four. `PYTEST_XDIST_WORKER_COUNT` provides an explicit override.
+Each engine execution uses fresh disposable network-disabled containers/databases.
+These are synthetic runtime checks, not live Google or Finary acceptance.
 
 ## Workflow validation maintenance
 
@@ -151,10 +106,9 @@ python -m pytest -q finary-bridge/tests/test_mcp_integration.py finary-bridge/te
 It invokes the model/packaged-contract, workbook and workflow generators and
 propagates every failure. MCP Code-node sources live under
 `n8n/code-nodes/finary-mcp-sync`; exports are self-contained for pinned n8n.
-The legacy exports are frozen pending workbook removal. Their removed Pydantic
-API generator and model-parity tests are not part of supported generation.
-Static workbook and engine regressions remain until that cleanup. Shared helpers
-in legacy-named tests still serve the MCP runtime gate; keep them importable.
+Shared engine, Code-node and connector helpers live in `tests/n8n_runtime.py`,
+`tests/n8n_code.py` and `tests/sheets_connector.py`; none loads another writer.
+The initializer and packaged schema are verified alongside generated artifacts.
 
 ## Test design
 
@@ -224,12 +178,11 @@ test pass.
 
 ## Preparing application 2.0.0
 
-The breaking application version is 2.0.0; API/workbook remain 3.0 and
-source-contract remains 1.1.0. Workbook self-containment, migration/legacy-writer
-removal, broader test consolidation and the documentation rewrite must finish
-before release. Require all five CI jobs on the exact release commit. A package
-build, tag or green CI does not authorize deployment, workflow activation or
-operator data changes. This cleanup does not publish or tag a release.
+Application 2.0.0, API 3.0, workbook 4.0 and source-contract 2.0.0 have distinct
+purposes. The workbook change is breaking and requires fresh installation.
+Broader test consolidation and historical-document cleanup remain release work.
+Require all five CI jobs on the exact release commit. A package build or green
+CI does not authorize deployment, workflow activation or operator data changes.
 
 ## Official MCP evidence boundaries
 
@@ -247,14 +200,6 @@ wheel installation includes it. `test_mcp_workflow.py` validates exported code,
 while `test_mcp_runtime.py` separately runs the actual pinned graph and installed
 Sheets connector with synthetic I/O. It verifies native decimal null/zero/blank
 updates, child tables, terminal sequencing and the production reference consumer.
-`test_mcp_migration.py` exercises native Google request generation, preservation,
-idempotence and lost-response handling against a fake HTTP peer. This does not
-claim a live Google migration.
-
-The normal credential-free suite and explicit required runtime command must both
-pass. Runtime skips in the former are not runtime evidence. CI includes the MCP
-runtime module and Python 3.12/3.14 SDK/auth compatibility. The narrow live module
-requires explicit isolated state and is excluded from ordinary CI; use the
-[operator runbook](mcp-operations.md). Record current execution results in the
-[acceptance matrix](mcp-acceptance.md), separately from public metadata, actual
-consent and shadow-workbook evidence.
+Fresh creation request generation and current native-cell decoding are tested
+with synthetic inventories. No test in the normal gate contacts Google, Finary
+or Clerk, or mounts production volumes.

@@ -4,9 +4,9 @@ For official MCP, follow the [nine-action source matrix](mcp-consumer.md). Direc
 authorized reads answer current questions; validated workbook observations
 provide retained history and manual analysis. Explicitly date any fallback and
 never present a live overview plus stale workbook detail as one observation.
-The existing setup below applies to the legacy 2.1 workbook. For a 3.0 candidate,
-use its [canonical schema](google-sheets-schema.json), successful per-table
-membership and the production reference consumer before interpretation.
+The supported workbook is layout 4.0. Validate its actual headers, README,
+control and per-observation terminal membership with the production reference
+consumer before interpretation.
 
 ## Recommended setup
 
@@ -33,7 +33,7 @@ Before connecting ChatGPT:
 
 - the daily synchronization has produced at least one `SUCCESS` or
   `SUCCESS_WITH_WARNINGS` row;
-- the workbook headers match schema `2.1`;
+- the workbook headers match schema `4.0`;
 - the workbook contains no Finary credentials, cookies, tokens, or raw payloads;
 - Google sharing is restricted to the intended user or workspace;
 - you have a personal investment policy suitable for use as the primary
@@ -81,7 +81,7 @@ at minimum, establish these behavioral rules:
 - the assistant must validate complete current-table membership before using
   current holdings, and report accepted/rejected sources, selected `run_id`,
   snapshot date, `completed_at`, warnings, and liability coverage;
-- dated historical fallback and last-known complete liabilities must have
+- dated historical fallback and reported overview liabilities must have
   separate provenance; missing details must not be invented or enriched from
   invalid current rows;
 - unknown values remain unknown, and incomplete coverage must be disclosed;
@@ -93,121 +93,27 @@ knowledge file so the instruction field remains short and maintainable.
 
 ## How ChatGPT should read the workbook
 
-Use the complete [knowledge-reference procedure](finary-portfolio-data-knowledge.md#selecting-the-latest-successful-execution).
-For a portfolio-wide question, ChatGPT should:
+Read the current [knowledge reference](finary-portfolio-data-knowledge.md) and
+[MCP consumer rules](mcp-consumer.md). Use only full independently validated
+observations with explicit business date, run/observation identity, completion
+time and limitations. Missing rows or counts are not zero. Official totals and
+allocation retain their authority even when detail is unavailable.
 
-1. Retrieve full relevant tables, including all physical rows and pages. Select
-   the latest unambiguous `SUCCESS` or `SUCCESS_WITH_WARNINGS` using parsed,
-   timezone-aware `completed_at`. Require exactly one terminal record per run
-   across statuses. Reject missing evidence, conflicting duplicates and tied
-   newest instants; `run_id` is an opaque equality key, including new UUID-bearing IDs and
-   retained `n8n-execution` or timestamp-shaped legacy IDs. Absence of `FAILED` is
-   not proof of success.
-2. Before filtering current accounts or positions, validate non-empty unique
-   canonical keys and valid activity flags across both tables. Require every
-   active `last_seen_run_id` to match the selected run, with exact
-   `accounts_count` and `positions_count`. Counts must be finite non-negative
-   integers as numbers or decimal numeric strings; missing counts are not zero.
-   Flags accept booleans or exact `TRUE`/`FALSE`. Reject extra, missing,
-   duplicate, mixed or foreign active rows. Validate position-account links;
-   if using same-run history too, require identical position-key sets.
-3. Exclude inactive rows from holdings and active counts. Their older
-   `last_seen_run_id` is their last observation, not their last write. Detect
-   incomplete prior membership caused by failed inactivation using counts.
-4. If current data fails, use only independently validated history: one daily
-   row and matching successful terminal record, consistent coverage/totals,
-   canonical unique history keys, matching date/run membership and generated
-   timestamp, and valid `positions_count`. No reconstruction from mixed rows.
-   Try older valid dates explicitly; otherwise report details unavailable.
-5. Disclose the selected source, date, run, completion time and warnings,
-   distinguishing the latest successful execution from available valid data.
-   State the fallback freshness limitation (stale after 48 hours by default)
-   and respect any stricter user threshold. Limit historical detail to stored
-   fields or safe derivations: no invalid-current enrichment, invented account
-   metadata/regions/liabilities, or account balances reconstructed from positions.
-6. Use validated `portfolio_daily.gross_assets_eur` as authoritative. A daily
-   aggregate passing its own evidence checks may remain usable without position
-   detail; report its separate run/date if it differs from the detail fallback.
-7. Validate liability details independently against the latest successful
-   `COMPLETE` run: full-table unique keys and flags, matching active run IDs and
-   `liabilities_count`, and consistent amounts and observation time. Allow
-   retained inactive rows and newer incomplete asset runs, including same-day
-   daily replacement. Failed complete writes invalidate details; there is no
-   liability-history fallback. Zero requires successful COMPLETE evidence plus
-   valid zero count and total. Disclose separate liability provenance; never
-   combine older liabilities and newer assets as authoritative current net worth.
-8. Treat blank currency and numeric cells as unknown, never zero. Describe
-   allocation as the known-EUR subset when coverage is partial. Use enabled
-   manual targets and overrides according to the documented semantics, without
-   applying today's metadata retroactively to historical positions. For combined
-   exposure checks, state the scope and denominator; certification is indeterminate
-   when required values, membership/classification or the denominator are unknown.
-   A zero subset percentage does not prove zero exposure. Follow the
-   [combined exposure rules](finary-portfolio-data-knowledge.md#combined-exposure-checks).
-9. Distinguish valuation changes from investment performance when cashflows
-   are incomplete. Reject observed inconsistencies or changes during sequential
-   reads and repeat full reads after writes settle; these checks do not create
-   a transactional snapshot, even when repeated reads agree.
+Debt detail is unavailable. Reported liabilities and net worth may still be
+known from the official overview; retain their currency and debt valuation
+qualifiers. Never infer debt detail or combine earlier liabilities with later
+assets as an authoritative current total. Historical fallback never borrows
+later current account metadata.
 
-The repository provides a test-only executable specification, not a deployed
-consumer validator. It does not automatically enforce these checks inside
-ChatGPT. If retrieval cannot supply enough data to validate completeness, report
-the requested data unavailable.
+No connector retrieval makes sequential Sheets reads atomic. If complete tables,
+headers or membership are unavailable, describe the limitation instead of
+certifying a complete current portfolio. Update the uploaded knowledge reference
+when the workbook contract changes; repository changes do not update it automatically.
 
-A validated `positions_count = 0` accepts an empty active set and zero same-run
-history members. Retained inactive positions and earlier runs' history are not
-current holdings. Require all evidence checks above; missing or failed evidence
-never proves zero. Positive account balances remain authoritative. See
-[zero-position interpretation](finary-portfolio-data-knowledge.md#zero-positions-with-successful-evidence).
+## Connection and revocation boundaries
 
-With incomplete liability coverage, liabilities and net worth are unknown, not
-zero.
-
-The workbook can support summaries, calculations, allocation comparisons, and
-descriptive explanations. It does not establish personalized suitability by
-itself and does not authorize automated purchases, sales, or transfers.
-
-## Useful first queries
-
-Start with interpretation checks before requesting investment analysis:
-
-- “Identify the latest valid synchronization and report its run ID, completion
-  time, status, warnings, and liability coverage.”
-- “State gross assets, liabilities, and net worth. Explain every unknown value
-  without replacing it with zero.”
-- “Validate current account and position membership, then list accepted
-  holdings or an explicitly dated historical fallback and explain EUR coverage.”
-- “Compare current known-EUR allocation with enabled allocation targets and
-  disclose the calculation denominator.”
-- “Explain whether the available history is sufficient to calculate investment
-  performance after external cashflows.”
-
-A correct response should cite workbook tabs or rows, preserve blank/null
-meaning, avoid adding positions to account balances, and avoid treating an empty
-liability table as proof of zero liabilities.
-
-## Adopt the corrected consumer instructions
-
-The workbook `README` is initialized from the canonical schema; portfolio
-synchronization does not automatically rewrite it. Follow the
-[operator adoption checklist](operations.md#consumer-validation-adoption)
-to update the changed README entries and replace the uploaded
-`finary-portfolio-data-knowledge.md` reference. Update existing Project reading
-instructions that merely filter active rows. A local repository update alone
-does not change the live workbook or an already uploaded Project source.
-
-## Access revocation
-
-To remove ChatGPT access:
-
-1. remove the workbook source from the Project;
-2. disconnect or revoke the ChatGPT Google Drive connection;
-3. confirm a new Project query can no longer retrieve the workbook;
-4. review Google account connection activity and workbook sharing.
-
-This does not revoke the separate Google OAuth credential stored in n8n. Revoke
-that credential independently when synchronization access must also stop.
-
-If the Project is shared with another person, that person may see retrieved
-portfolio content according to ChatGPT and Google access controls. Keep the
-Project private unless that disclosure is intentional.
+The n8n Google Sheets OAuth credential and the ChatGPT Google Drive connection
+are independent. Removing ChatGPT access does not revoke the separate Google
+OAuth credential stored in n8n or the independently authorized Finary connection.
+Keep the workbook private. This integration does not authorize automated
+purchases, sales, or transfers.

@@ -29,9 +29,16 @@ failure cannot fail the portfolio route.
 ## Workbook acceptance
 
 [The canonical workbook contract](google-sheets-schema.json) owns fields and
-bindings. The executable reference is
+bindings for layout 4.0, generated from the source contract's `current_workbook`
+section. Prior layouts are rejected; [fresh initialization](operations.md#fresh-workbook-initialization)
+is required. The executable reference is
 [`app/mcp_consumer.py`](../finary-bridge/app/mcp_consumer.py). It accepts complete
-physical row reads, checks duplicate keys before selecting membership, requires
+physical inventories with actual ordered headers, current README and writer control,
+validates every automated row against its schema and exactly one matching
+stored terminal (successful or failed) before selecting membership. Orphan or
+malformed rows invalidate the inventory, including rows outside the selected
+observation. Manual sheets have unique keys and typed literal values; only
+notes may contain formulas. Validation never writes to manual sheets. It requires
 one successful terminal for the observation/run, validates per-table expected
 counts, reconstructs typed records and applies the production snapshot rules to
 a complete current selection. Null counts mean unavailable/unwritten; zero
@@ -40,8 +47,8 @@ for the newest successful observation. Duplicate terminal evidence is invalid.
 
 Current account/position rows carry their last actual observation, including
 when retained inactive. Never relabel them with a later run. Historical holdings
-retain observation-qualified keys, so two observations on the same Paris date,
-including a source cutover, cannot overwrite each other. Historical fallback
+retain observation-qualified keys, so two observations on the same Paris date
+cannot overwrite each other. Historical fallback
 never borrows later current account balances or metadata. Account balances are
 not a retained account time series in this schema; fallback can retain official
 figures and validated holding history without claiming complete historical
@@ -53,8 +60,7 @@ account metadata never disables those checks or authorizes borrowing later data.
 Compare only compatible provider, API/workbook major versions, source contract,
 view/scope, ownership basis, metric and currency. A missing or incompatible
 baseline creates a **series break**. No percentage change alert is emitted from
-an incompatible series. Unknown legacy provenance remains unknown; equal-looking
-IDs, names, tickers, ISINs and row order are never crosswalk evidence.
+an incompatible series. Equal-looking IDs, names, tickers, ISINs and row order never prove identity.
 
 A current source with an old last successful bank synchronization remains old.
 A recently failed connection remains broken even when its entity update or
@@ -66,14 +72,12 @@ window, not an atomic upstream snapshot.
 Reported debt is not verified loan detail. An `assets_only` overview with count
 zero does not prove zero debt. A complete overview with unvalued liabilities is
 not complete debt valuation. Even a complete zero-debt overview cannot clear
-unverified loans. The current MCP writer never writes or inactivates loan rows.
+unverified loans. The workbook has no debt-detail table.
 Member amounts can be null and member net worth can be negative; ordinals are
 unique only within the observation.
 
 Official allocation and custom `AssetClass` analysis remain separate. An exact
-enabled MCP override affects custom classification only. Deliberately carrying a
-legacy override requires the migration helper's exact legacy/MCP pair, `VERIFIED`
-state, dated review and evidence reference. Unresolved entries remain unapplied.
+enabled MCP override affects custom classification only. The override uses the exact `source_asset_id` directly, without any identity mapping.
 Native amount/currency evidence controls valuation completeness. Nullable EUR
 projections require their own basis; account EUR evidence never converts the
 overview. Store exact decimal strings as RAW text, including known zero.

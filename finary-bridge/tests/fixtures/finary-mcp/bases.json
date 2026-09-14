@@ -370,7 +370,7 @@
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "1.1.0",
+      "source_contract_version": "2.0.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",
@@ -493,7 +493,7 @@
     "generated_at": "2026-09-11T07:30:20+02:00",
     "provenance": {
       "provider": "finary_official_mcp",
-      "source_contract_version": "1.1.0",
+      "source_contract_version": "2.0.0",
       "scope": "household",
       "ownership_basis": "direct",
       "metric": "gross_assets",
@@ -655,33 +655,6 @@
       ]
     },
     "isError": false
-  },
-  "migration": {
-    "legacy_account_id": "42",
-    "mcp_account_id": "42",
-    "legacy_account_key": "finary:account:42",
-    "mcp_account_key": "mcp:account:assets:42",
-    "snapshot_date": "2026-09-11",
-    "observation_id": "00000000-0000-4000-8000-000000000001",
-    "legacy_daily_key": "2026-09-11",
-    "mcp_daily_key": "mcp:daily:2026-09-11:00000000-0000-4000-8000-000000000001",
-    "legacy_history_key": "2026-09-11:finary:42:asset:security:7",
-    "mcp_history_key": "mcp:history:2026-09-11:00000000-0000-4000-8000-000000000001:mcp:account:assets:42:holding:security-holdings:7",
-    "legacy_override": {"source_asset_id": "security:7", "asset_class": "EQUITY", "enabled": true},
-    "mcp_source_asset_id": "mcp:holding:security-holdings:7",
-    "crosswalk": {
-      "legacy_key": "security:7",
-      "mcp_key": null,
-      "state": "UNRESOLVED",
-      "evidence_reference": null,
-      "reviewed_at": null
-    },
-    "apply_legacy_override": false,
-    "series_comparable": false,
-    "rollback_schema": "2.1",
-    "preserve_new_observations": true,
-    "preserve_manual_edits": true,
-    "mcp_position_key": "mcp:account:assets:42:holding:security-holdings:7"
   },
   "sanitized-mcp_auth_unavailable": {
     "error": {

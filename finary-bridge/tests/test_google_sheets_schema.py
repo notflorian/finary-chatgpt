@@ -1,269 +1,242 @@
-"""Contract tests for the Google Sheets schema definition."""
-
-from __future__ import annotations
+"""Self-contained current layout and executable fresh initialization."""
 
 import json
+import subprocess
+import sys
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, cast
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema-v2.json"
-DOCUMENTATION_PATH = REPOSITORY_ROOT / "docs" / "data-model.md"
+import pytest
 
-REQUIRED_SHEETS = (
+from app.mcp_workbook import SCHEMA, google_create, headers, initialize, native_inventory, records
+
+ROOT = Path(__file__).parents[2]
+EXPECTED_SHEETS = [
     "README",
+    "writer_control",
+    "sync_runs",
     "accounts_current",
     "positions_current",
-    "liabilities_current",
     "positions_history",
     "portfolio_daily",
+    "account_ownership",
+    "source_connections",
+    "position_rates",
+    "official_allocation_categories",
+    "official_allocation_types",
+    "portfolio_members",
+    "observations",
+    "source_warnings",
+    "unsupported_details",
     "allocation_targets",
     "asset_overrides",
     "cashflows",
-    "sync_runs",
-)
-ALLOWED_TYPES = {"STRING", "NUMBER", "BOOLEAN", "DATE", "DATETIME", "ENUM"}
-ALLOWED_OWNERS = {"automated", "manual", "derived"}
-EXPECTED_HEADERS = {
-    "README": ("key", "value", "description"),
-    "accounts_current": (
-        "account_key", "source", "source_account_id", "name", "institution",
-        "account_type", "owner", "currency", "market_value_eur", "last_seen_at",
-        "last_seen_run_id", "is_active",
-    ),
-    "positions_current": (
-        "position_key", "source", "source_asset_id", "account_key", "account_name",
-        "account_type", "institution", "name", "ticker", "isin", "asset_class",
-        "asset_subclass", "region", "quantity", "unit_price", "currency",
-        "fx_to_eur", "market_value_native", "market_value_eur", "cost_basis_eur",
-        "unrealized_pnl_eur", "unrealized_pnl_pct", "weight_portfolio",
-        "last_seen_at", "last_seen_run_id", "is_active",
-    ),
-    "liabilities_current": (
-        "liability_key", "source", "source_liability_id", "name", "liability_type",
-        "institution", "outstanding_eur", "interest_rate", "monthly_payment_eur",
-        "end_date", "last_seen_at", "last_seen_run_id", "is_active",
-    ),
-    "positions_history": (
-        "history_key", "snapshot_date", "generated_at", "position_key",
-        "account_key", "source_asset_id", "name", "ticker", "isin", "asset_class",
-        "asset_subclass", "quantity", "unit_price", "currency", "fx_to_eur",
-        "market_value_eur", "cost_basis_eur", "run_id",
-    ),
-    "portfolio_daily": (
-        "snapshot_date", "generated_at", "gross_assets_eur", "liability_coverage",
-        "liabilities_eur", "net_worth_eur", "financial_assets_eur", "equity_eur", "bond_eur",
-        "cash_eur", "real_estate_eur", "scpi_eur", "private_equity_eur",
-        "crypto_eur", "commodity_eur", "life_insurance_fund_eur", "other_eur",
-        "equity_pct", "bond_pct", "cash_pct", "real_estate_pct", "scpi_pct",
-        "private_equity_pct", "crypto_pct", "commodity_pct",
-        "life_insurance_fund_pct", "other_pct", "pea_eur", "cto_eur",
-        "life_insurance_eur", "cash_accounts_eur", "run_id",
-    ),
-    "allocation_targets": (
-        "target_key", "asset_class", "asset_subclass", "target_pct", "min_pct",
-        "max_pct", "notes", "enabled",
-    ),
-    "asset_overrides": (
-        "override_key", "source_asset_id", "isin", "ticker", "name_match",
-        "custom_asset_class", "custom_asset_subclass", "custom_region", "notes",
-        "enabled",
-    ),
-    "cashflows": (
-        "cashflow_key", "date", "account_key", "amount_eur", "type", "notes",
-        "source",
-    ),
-    "sync_runs": (
-        "run_id", "started_at", "completed_at", "status", "accounts_count",
-        "positions_count", "liabilities_count", "liability_coverage", "gross_assets_eur",
-        "liabilities_eur", "net_worth_eur", "previous_net_worth_eur",
-        "net_worth_change_pct", "duration_ms", "bridge_version", "schema_version",
-        "warning_count", "error_code", "error_message",
-    ),
-}
+]
 
 
-def _schema() -> dict[str, Any]:
-    return cast(
-        dict[str, Any],
-        json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
-    )
-
-
-def _column_names(sheet: dict[str, Any]) -> list[str]:
-    return [column["name"] for column in sheet["columns"]]
-
-
-def test_required_sheets_and_order_are_canonical() -> None:
-    schema = _schema()
-
-    assert schema["workbook_name"] == "Finary Portfolio Data"
-    assert tuple(schema["sheets"]) == REQUIRED_SHEETS
-    assert schema["timezone"] == "Europe/Paris"
-    assert schema["reference_currency"] == "EUR"
-    assert schema["null_cell"] == ""
-    assert schema["boolean_values"] == ["TRUE", "FALSE"]
-    assert schema["key_formats"] == {
-        "account_key": "finary:account:{account_id}",
-        "source_asset_id": "{position_kind}:{asset_id}",
-        "position_key": "finary:{account_id}:asset:{position_kind}:{asset_id}",
-        "history_key": "{snapshot_date}:{position_key}",
-        "portfolio_daily": "{snapshot_date}",
-        "run_id": (
-            "opaque n8n-run:{execution_id}:{uuid_v4}; "
-            "retained n8n-execution and timestamp identifiers remain valid strings"
-        ),
-    }
-    assert [entry["key"] for entry in schema["readme_entries"]] == [
-        "reference_currency",
-        "timezone",
-        "current_state_rule",
-        "history_rule",
-        "override_rule",
-        "null_rule",
-        "eur_rule",
-        "gross_assets_rule",
-        "failed_snapshot_rule",
-        "liability_rule",
-        "partial_liability_rule",
-        "unavailable_liability_rule",
-        "last_known_liability_rule",
-        "allocation_rule",
-        "last_success_rule",
-        "performance_rule",
-    ]
-    for sheet_name, expected_headers in EXPECTED_HEADERS.items():
-        assert tuple(_column_names(schema["sheets"][sheet_name])) == expected_headers
-
-
-def test_columns_have_deterministic_valid_definitions() -> None:
-    for sheet in _schema()["sheets"].values():
-        names = _column_names(sheet)
-
-        assert names
-        assert len(names) == len(set(names))
-        assert sheet["unique_key"] in names
-        assert sheet["sheet_ownership"] in ALLOWED_OWNERS
-        for column in sheet["columns"]:
-            assert set(column) == {
-                "name",
-                "type",
-                "nullable",
-                "ownership",
-                "source",
-            }
-            assert column["type"] in ALLOWED_TYPES
-            assert isinstance(column["nullable"], bool)
-            assert column["ownership"] in ALLOWED_OWNERS
-            assert column["source"]
-
-
-def test_manual_and_automated_sheet_ownership_is_explicit() -> None:
-    sheets = _schema()["sheets"]
-
-    for name in ("allocation_targets", "asset_overrides", "cashflows"):
-        assert sheets[name]["sheet_ownership"] == "manual"
-        assert {column["ownership"] for column in sheets[name]["columns"]} == {
-            "manual"
+def test_fresh_initialization_is_complete_deterministic_and_paused():
+    book = initialize("synthetic-writer", 7)
+    assert book == initialize("synthetic-writer", 7)
+    assert list(book["sheets"]) == EXPECTED_SHEETS
+    assert book["schema_version"] == "4.0"
+    values = records(book)
+    assert values["writer_control"] == [
+        {
+            "row_key": "singleton",
+            "workbook_schema": "4.0",
+            "provider": "finary_official_mcp",
+            "generation": 7,
+            "writer_id": "synthetic-writer",
+            "state": "PAUSED",
         }
-
-    for name in (
-        "README",
-        "accounts_current",
-        "positions_current",
-        "liabilities_current",
-        "positions_history",
-    ):
-        assert sheets[name]["sheet_ownership"] == "automated"
-
-
-def test_nullable_eur_and_currency_fields_preserve_unknown_values() -> None:
-    schema = _schema()
-    sheets = schema["sheets"]
-    position_columns = {
-        column["name"]: column for column in sheets["positions_current"]["columns"]
-    }
-    daily_columns = {
-        column["name"]: column for column in sheets["portfolio_daily"]["columns"]
-    }
-
-    for name in ("currency", "fx_to_eur", "market_value_eur", "cost_basis_eur"):
-        assert position_columns[name]["nullable"] is True
-    for name in ("liabilities_eur", "net_worth_eur", "financial_assets_eur"):
-        assert daily_columns[name]["nullable"] is True
-    assert schema["null_cell"] == ""
-
-
-def test_category_aware_key_contract_is_documented() -> None:
-    markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
-    compact_markdown = " ".join(markdown.split())
-
-    assert "source_asset_id = {position_kind}:{asset_id}" in compact_markdown
-    assert (
-        "position_key = finary:{account_id}:asset:{position_kind}:{asset_id}"
-        in compact_markdown
+    ]
+    assert all(
+        not rows for name, rows in values.items() if name not in ["README", "writer_control"]
     )
-    assert "{snapshot_date}:{position_key}" in compact_markdown
-    assert "equal numeric IDs" in compact_markdown
-
-
-def test_manual_enums_and_percentage_representation_are_complete() -> None:
-    schema = _schema()
-
-    assert schema["percentage_representation"] == "decimal_fraction"
-    assert schema["allocation_target_constraint"] == (
-        "0 <= min_pct <= target_pct <= max_pct <= 1"
-    )
-    assert schema["override_matching_precedence"] == [
+    request = google_create(book)
+    assert native_inventory(request) == book
+    assert request["sheets"][0]["data"][0]["rowData"][1]["values"][1] == {
+        "userEnteredValue": {"stringValue": "4.0"}
+    }
+    assert headers()["asset_overrides"] == [
+        "override_key",
         "source_asset_id",
-        "isin",
-        "ticker",
-        "name_match",
+        "custom_asset_class",
+        "notes",
+        "enabled",
     ]
-    assert schema["enums"]["cashflow_type"] == [
-        "CONTRIBUTION",
-        "WITHDRAWAL",
-        "DIVIDEND",
-        "INTEREST",
-        "FEE",
-        "TAX",
-        "TRANSFER",
+    assert headers()["cashflows"] == [
+        "cashflow_key",
+        "date",
+        "account_key",
+        "amount_eur",
+        "type",
+        "notes",
+        "source",
     ]
-    assert schema["enums"]["sync_status"] == [
-        "SUCCESS",
-        "SUCCESS_WITH_WARNINGS",
-        "FAILED",
+    assert SCHEMA["percentage_representation"] == "decimal_fraction"
+    assert headers()["allocation_targets"] == [
+        "target_key",
+        "asset_class",
+        "target_pct",
+        "min_pct",
+        "max_pct",
+        "notes",
+        "enabled",
     ]
-    assert schema["cashflow_sign_convention"]["positive"] == [
-        "CONTRIBUTION",
-        "DIVIDEND",
-        "INTEREST",
+    assert SCHEMA["allocation_target_constraint"] == "0 <= min_pct <= target_pct <= max_pct <= 1"
+
+
+@pytest.mark.parametrize(
+    "writer,generation",
+    [
+        ("", 1),
+        ("   ", 1),
+        ("writer", 0),
+        ("writer", -1),
+        ("writer", True),
+        ("writer", 1.5),
+        ("writer", 9007199254740992),
+    ],
+)
+def test_initialization_rejects_invalid_control(writer, generation):
+    with pytest.raises(ValueError):
+        initialize(writer, generation)
+
+
+@pytest.mark.parametrize(
+    "mode",
+    ["version", "missing", "reordered", "extra", "metadata", "control", "duplicate", "table_order"],
+)
+def test_physical_layout_rejects_incompatible_readback(mode):
+    book = initialize("synthetic-writer", 1)
+    if mode == "version":
+        book["schema_version"] = "3.0"
+    if mode == "missing":
+        book["sheets"]["positions_current"]["headers"].pop()
+    if mode == "reordered":
+        book["sheets"]["positions_current"]["headers"].reverse()
+    if mode == "extra":
+        book["sheets"]["positions_current"]["headers"].append("obsolete_value")
+    if mode == "metadata":
+        book["sheets"]["README"]["rows"][0]["value"] = "3.0"
+    if mode == "control":
+        book["sheets"]["writer_control"]["rows"][0]["workbook_schema"] = "3.0"
+    if mode == "duplicate":
+        book["sheets"]["writer_control"]["rows"] *= 2
+    if mode == "table_order":
+        book["sheets"] = dict(reversed(list(book["sheets"].items())))
+    with pytest.raises(ValueError):
+        records(book)
+
+
+def test_cli_and_clean_generation_without_removed_dependencies(tmp_path):
+    output = tmp_path / "fresh.json"
+    command = [
+        sys.executable,
+        str(ROOT / "scripts/initialize-workbook.py"),
+        "--writer-id",
+        "synthetic-writer",
+        "--generation",
+        "1",
+        "--output",
+        str(output),
     ]
-    assert schema["cashflow_sign_convention"]["negative"] == [
-        "WITHDRAWAL",
-        "FEE",
-        "TAX",
+    subprocess.run(command, check=True)
+    assert json.loads(output.read_text()) == google_create(initialize("synthetic-writer", 1))
+    original = output.read_bytes()
+    assert subprocess.run(command, capture_output=True).returncode != 0
+    assert output.read_bytes() == original
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/build-workflow-validation.py"), "--check"], check=True
+    )
+    for path in [
+        "docs/google-sheets-schema-v2.json",
+        "scripts/migrate-workbook.py",
+        "scripts/migrate-google-workbook.py",
+    ]:
+        assert not (ROOT / path).exists()
+
+
+def test_native_decoder_rejects_automated_formulas_and_extra_data():
+    native = google_create(initialize("synthetic-writer", 1))
+    for value in [{"formulaValue": "=1+2"}, {"numberValue": 4}]:
+        broken = deepcopy(native)
+        broken["sheets"][0]["data"][0]["rowData"][1]["values"][1]["userEnteredValue"] = value
+        with pytest.raises(ValueError):
+            native_inventory(broken)
+
+
+def test_clean_generation_reproduces_all_supported_artifacts(tmp_path):
+    import shutil
+
+    artifacts = [
+        "docs/google-sheets-schema.json",
+        "finary-bridge/app/workbook-schema.json",
+        "finary-bridge/app/mcp-contract.json",
+        "finary-bridge/app/mcp_models.py",
+        "n8n/workflows/finary-mcp-sync.json",
     ]
-    markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
-    assert "0 <= min_pct <= target_pct <= max_pct <= 1" in markdown
-    assert "`0.75` means 75%" in markdown
+    inputs = [
+        "docs/finary-mcp-contract.json",
+        "scripts/build-workflow-validation.py",
+        "scripts/build-mcp-models.py",
+        "scripts/build-mcp-workbook.py",
+        "scripts/build-mcp-workflow.py",
+        "scripts/initialize-workbook.py",
+        "n8n/mcp-workbook.js",
+        "n8n/mcp-validation.js",
+        *[
+            "n8n/code-nodes/finary-mcp-sync/" + name + ".js"
+            for name in [
+                "initialize-mcp-run",
+                "validate-mcp-snapshot",
+                "prepare-mcp-rows",
+                "finalize-mcp-success",
+                "finalize-mcp-failure",
+            ]
+        ],
+    ]
+    for name in inputs:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
+    for name in ["__init__.py", "mcp_validation.py", "mcp_workbook.py"]:
+        target = tmp_path / "finary-bridge/app" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / "finary-bridge/app" / name, target)
+    (tmp_path / "n8n/workflows").mkdir()
+    subprocess.run(
+        [sys.executable, str(tmp_path / "scripts/build-workflow-validation.py")], check=True
+    )
+    for name in artifacts:
+        assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
+    subprocess.run(
+        [
+            sys.executable,
+            str(tmp_path / "scripts/initialize-workbook.py"),
+            "--writer-id",
+            "synthetic-writer",
+            "--generation",
+            "1",
+            "--format",
+            "inventory",
+            "--output",
+            str(tmp_path / "new.json"),
+        ],
+        check=True,
+    )
+    assert json.loads((tmp_path / "new.json").read_text()) == initialize("synthetic-writer", 1)
 
 
-def test_data_model_documents_canonical_schema_without_field_duplication() -> None:
-    schema = _schema()
-    markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
-    compact_markdown = " ".join(markdown.split())
-
-    assert "single machine-readable source" in compact_markdown
-    for sheet_name in schema["sheets"]:
-        assert f"`{sheet_name}`" in markdown
-
-
-def test_definition_is_data_only_and_has_no_google_credentials() -> None:
-    schema_text = SCHEMA_PATH.read_text(encoding="utf-8").lower()
-
-    assert SCHEMA_PATH.suffix == ".json"
-    assert "client_secret" not in schema_text
-    assert "private_key" not in schema_text
-    assert "refresh_token" not in schema_text
-    assert "https://" not in schema_text
+@pytest.mark.parametrize("table", ["accounts_current", "cashflows", "writer_control"])
+def test_create_request_rejects_populated_or_activated_inventories_without_changes(table):
+    book = initialize("synthetic-writer", 1)
+    if table == "writer_control":
+        book["sheets"][table]["rows"][0]["state"] = "ACTIVE"
+    else:
+        book["sheets"][table]["rows"] = [{"operator": "=1+2"}]
+    before = deepcopy(book)
+    with pytest.raises(ValueError):
+        google_create(book)
+    assert book == before

@@ -13,13 +13,10 @@ The private API adapter, password/session/MFA configuration and V1/V2 snapshot
 routes have been removed. Neither Sheets nor ChatGPT receives Finary credentials
 or raw upstream payloads.
 
-This branch is part of the [next-major release preparation](https://github.com/notflorian/finary-chatgpt/issues/100).
-Workbook self-containment and migration/legacy-writer removal remain under
-[#102](https://github.com/notflorian/finary-chatgpt/issues/102); broader test and
-documentation cleanup remain under #103 and #104. The retained legacy workflow
-exports are frozen and cannot synchronize against this bridge. Do not activate
-them. Existing operator data is untouched; the final major release requires a
-fresh supported workbook, without conversion from workbook 2.1.
+Workbook **4.0** is self-contained and uses source contract **2.0.0**. This is a
+breaking fresh-installation requirement: initialize a new workbook using the
+current schema. No conversion from previous layouts is supplied, and existing
+operator data is untouched.
 
 ## Requirements
 
@@ -60,18 +57,15 @@ Expected response: `{"status":"ok","service":"finary-bridge","version":"2.0.0"}`
 Health requires no OAuth or network access. The bridge and n8n bind localhost.
 An authorized snapshot without usable OAuth returns `503 MCP_AUTH_UNAVAILABLE`.
 
-Use the [canonical workbook schema](docs/google-sheets-schema.json) and
-`n8n/workflows/finary-mcp-sync.json` for the retained MCP writer. Keep imports
-inactive; its writer ID/generation/control row must agree before a manual sync.
-Workbook initialization is being simplified under #102; the existing
-[operator runbook](docs/mcp-operations.md) contains transitional workbook
-procedures, not a finished 2.0.0 installation guide. Release readiness also
-requires the operator acceptance described there.
+Follow [Operations](docs/operations.md) to generate the fresh workbook, create it
+with independent Google authorization, configure the writer ID/generation,
+explicitly activate its PAUSED control row, import the inactive workflow and
+verify a full manual synchronization before publishing the schedule.
 
 ## ChatGPT
 
 Use a private workbook connection and the [MCP consumer rules](docs/mcp-consumer.md).
-The older workbook 2.1 knowledge reference is not the MCP contract. A newer failed
+A newer failed
 sync does not replace the latest validated success. Qualify detail, ownership,
 currency, freshness and unavailable debt separately from official overview totals.
 
@@ -99,7 +93,7 @@ Normal tests never contact Finary or Google; live diagnostics remain opt-in.
 - [MCP operations](docs/mcp-operations.md): OAuth and isolated operator acceptance.
 - [MCP contract](docs/finary-mcp-contract.md): financial and transport semantics.
 - [MCP consumer](docs/mcp-consumer.md): observation interpretation.
-- [Operations](docs/operations.md): local service controls and retained workbook procedures.
+- [Operations](docs/operations.md): fresh initialization, synchronization and recovery.
 
 ## Security and limitations
 

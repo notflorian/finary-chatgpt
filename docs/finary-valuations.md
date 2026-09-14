@@ -1,5 +1,8 @@
 # Verified SCPI and crypto valuation evidence
 
+Historical private-adapter evidence only; this implementation was removed.
+For the supported MCP valuation rules, use [the current contract](finary-mcp-contract.md).
+
 The bridge recognizes two current dedicated-collection formats: `user_crypto`
 with `owning_type` equal to `hodled` or `staked`, and `user_scpi` with
 `property_type` equal to `full_ownership`, `bare_ownership` or `usufruct`. This
@@ -194,7 +197,7 @@ null → known → null cell clearing for all five supported ownership states,
 retained cost, current/history identity,
 same-day upserts, prior-day history, inactivation and manual-sheet preservation.
 The combined-category worked example in the
-[consumer knowledge](finary-portfolio-data-knowledge.md#combined-exposure-checks)
+[consumer knowledge](finary-portfolio-data-knowledge.md#manual-inputs-and-analytical-limits)
 has executable coverage, including missing values, membership/classification
 uncertainty and a zero denominator.
 

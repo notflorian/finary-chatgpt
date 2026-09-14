@@ -1,1 +1,0 @@
-return [{ json: { has_rows: $('Prepare Validated Rows').first().json.position_rows.length > 0 } }];

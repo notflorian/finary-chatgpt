@@ -1,4 +1,4 @@
-"""Reference interpretation of complete physical v3 workbook reads.
+"""Reference interpretation of complete physical current-workbook reads.
 
 The caller supplies a coherent read of all tables. Successful membership checks
 cannot make sequential Google reads atomic. Never combine this selection with
@@ -18,8 +18,9 @@ from app.mcp_validation import (
     validate_money,
     validate_position,
 )
+from app.mcp_workbook import VERSION, records, validate_row
 
-TABLES = CONTRACT["workbook_migration"]["tables"]
+TABLES = CONTRACT["current_workbook"]["tables"]
 COUNTS = TABLES["sync_runs"]["count_columns"]
 CHILD_KEYS = {
     "account_ownership": ("account_key", "owner_key"),
@@ -104,44 +105,36 @@ def compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
     )
 
 
-def observation(
+def _observation(
     workbook: dict[str, list[dict[str, Any]]], terminal: dict[str, Any], *, now: datetime
 ) -> dict[str, Any]:
     require(now.utcoffset() is not None)
     require(terminal.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"})
     require(terminal.get("provider") == "finary_official_mcp")
-    require(terminal.get("schema_version") == terminal.get("workbook_schema") == "3.0")
+    terminal = validate_row("sync_runs", terminal)
+    require(terminal["api_schema"] == CONTRACT["implemented"]["api_schema"])
+    require(terminal["workbook_schema"] == VERSION)
     require(terminal.get("source_contract_version") == CONTRACT["contract_version"])
     run_id, observation_id = terminal["run_id"], terminal["observation_id"]
     require(sum(r.get("run_id") == run_id for r in workbook["sync_runs"]) == 1)
     require(sum(r.get("observation_id") == observation_id for r in workbook["sync_runs"]) == 1)
+    stored = next(row for row in workbook["sync_runs"] if row.get("run_id") == run_id)
+    require(validate_row("sync_runs", stored) == terminal)
+    require(terminal[COUNTS["positions_current"]] == terminal[COUNTS["positions_history"]])
     members: dict[str, list[dict[str, Any]] | None] = {}
     for table, column in COUNTS.items():
         rows = workbook[table]
-        key = (
-            "history_key"
-            if table == "positions_history"
-            else "daily_key"
-            if table == "portfolio_daily"
-            else "observation_id"
-            if table == "observations"
-            else "account_key"
-            if table == "accounts_current"
-            else "position_key"
-            if table == "positions_current"
-            else "liability_key"
-            if table == "liabilities_current"
-            else "row_key"
-        )
+        key = TABLES[table]["key"]
+        require(all(isinstance(r.get(key), str) and bool(r[key]) for r in rows))
         unique(rows, (key,))
+        if not table.endswith("_current"):
+            for row in rows:
+                validate("uuid", row.get("observation_id"))
+                require(isinstance(row.get("run_id"), str) and bool(row["run_id"]))
+                if table == "observations":
+                    normalized(table, row)
         selected = [r for r in rows if r.get("observation_id") == observation_id]
-        require(
-            all(
-                r.get("run_id") == run_id
-                and r.get("provider", "finary_official_mcp") == "finary_official_mcp"
-                for r in selected
-            )
-        )
+        require(all(r.get("run_id") == run_id for r in selected))
         expected = blank(terminal.get(column))
         if expected is None:
             require(not selected)
@@ -149,28 +142,30 @@ def observation(
             continue
         expected = count(expected)
         if table.endswith("_current"):
-            physical = [
-                row
-                for row in rows
-                if row.get("provider") == "finary_official_mcp"
-                or row.get("source") == "finary_official_mcp"
-                or str(row.get(key, "")).startswith("mcp:")
-            ]
+            physical = rows
             active = [r for r in physical if activity(r.get("is_active")) is True]
-            consistent = all(
-                activity(r.get("is_active")) is not None
-                and r.get("source") == r.get("provider") == "finary_official_mcp"
-                for r in physical
-            ) and all(
-                r.get("observation_id") == observation_id and r.get("run_id") == run_id
-                for r in active
-            )
+            try:
+                for row in physical:
+                    validate_row(table, row)
+                consistent = all(
+                    r["observation_id"] == observation_id and r["run_id"] == run_id for r in active
+                ) and all(
+                    r["generated_at"]
+                    == next(
+                        o["generated_at"]
+                        for o in workbook["observations"]
+                        if o["observation_id"] == observation_id and o["run_id"] == run_id
+                    )
+                    for r in active
+                )
+            except (ValueError, TypeError, KeyError, StopIteration):
+                consistent = False
             # Current rows may have moved on. Historical membership must never
             # borrow their later balances or metadata.
             members[table] = active if consistent and len(active) == expected else None
         else:
             require(len(selected) == expected)
-            members[table] = selected
+            members[table] = [validate_row(table, row) for row in selected]
     require(members["observations"] is not None and len(members["observations"]) == 1)
     require(members["portfolio_daily"] is not None and len(members["portfolio_daily"]) == 1)
     observation_rows, daily_rows = members["observations"], members["portfolio_daily"]
@@ -204,6 +199,10 @@ def observation(
             }
         )
     )
+    daily = daily_rows[0]
+    require(daily["daily_key"] == f"mcp:daily:{context['snapshot_date']}:{observation_id}")
+    require(daily["snapshot_date"] == context["snapshot_date"])
+    require(daily["generated_at"] == context["generated_at"])
     completed = instant(terminal["completed_at"])
     require(instant(context["generated_at"]) <= completed <= now)
     from urllib.parse import quote
@@ -258,6 +257,18 @@ def observation(
             row["snapshot_date"] == context["snapshot_date"]
             and row["generated_at"] == context["generated_at"]
         )
+    history_keys = {p["position_key"] for p in positions or []}
+    require(all(r["position_key"] in history_keys for r in detail["position_rates"] or []))
+    require(terminal["warning_count"] == len(detail["source_warnings"] or []))
+    require(
+        terminal["status"] == ("SUCCESS_WITH_WARNINGS" if terminal["warning_count"] else "SUCCESS")
+    )
+    for dimension, table in (("accounts", "accounts_current"), ("holdings", "positions_history")):
+        permitted = context["coverage"][dimension] == "COMPLETE"
+        if dimension == "holdings":
+            permitted &= context["coverage"]["accounts"] == "COMPLETE"
+            permitted &= context["coverage"]["detail_semantics"] in {"SUPPORTED", "UNVERIFIED"}
+        require((terminal[COUNTS[table]] is not None) == permitted)
     accounts = members["accounts_current"]
     current = accounts is not None and members["positions_current"] is not None
     if current:
@@ -268,7 +279,7 @@ def observation(
         # Use the production semantic validator to validate the complete current
         # observation, including diagnostics, ownership and native valuation.
         snapshot = {
-            "schema_version": "3.0",
+            "schema_version": CONTRACT["implemented"]["api_schema"],
             **context,
             "overview": overview,
             "accounts": account_values,
@@ -307,23 +318,28 @@ def observation(
     }
 
 
-def select(workbook: dict[str, list[dict[str, Any]]], *, now: datetime) -> dict[str, Any]:
+def observation(
+    inventory: dict[str, Any], terminal: dict[str, Any], *, now: datetime
+) -> dict[str, Any]:
+    return _observation(records(inventory), terminal, now=now)
+
+
+def select(inventory: dict[str, Any], *, now: datetime) -> dict[str, Any]:
+    workbook = records(inventory)
+    # Inventory-wide validation precedes fallback selection, including failed rows.
     candidates = [
-        r
-        for r in workbook["sync_runs"]
-        if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
-        and r.get("provider") == "finary_official_mcp"
+        r for r in workbook["sync_runs"] if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
     ]
     unique(candidates, ("completed_at",))
     candidates.sort(key=lambda r: instant(r["completed_at"]), reverse=True)
     for index, terminal in enumerate(candidates):
         try:
-            result = observation(workbook, terminal, now=now)
+            result = _observation(workbook, terminal, now=now)
             result["dated_fallback"] |= index > 0
             result["series_break"] = True
             for prior in candidates[index + 1 :]:
                 try:
-                    previous = observation(workbook, prior, now=now)
+                    previous = _observation(workbook, prior, now=now)
                     result["series_break"] = not compatible(
                         result["context"]["provenance"], previous["context"]["provenance"]
                     )

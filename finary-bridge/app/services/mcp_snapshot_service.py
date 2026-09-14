@@ -1,4 +1,4 @@
-"""Authoritative observation assembly, separate from legacy detail-sum semantics."""
+"""Authoritative overview assembly with independently qualified detail."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ class McpSnapshotService:
         try:
             return McpSnapshotV3.model_validate(
                 {
-                    "schema_version": "3.0",
+                    "schema_version": CONTRACT["implemented"]["api_schema"],
                     "observation_id": str(uuid4()),
                     "snapshot_date": generated.astimezone(ZoneInfo("Europe/Paris"))
                     .date()

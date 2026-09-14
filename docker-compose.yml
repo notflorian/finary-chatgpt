@@ -31,7 +31,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./docs/google-sheets-schema.json:/usr/share/nginx/html/google-sheets-schema.json:ro
-      - ./docs/google-sheets-schema-v2.json:/usr/share/nginx/html/google-sheets-schema-v2.json:ro
     healthcheck:
       test:
         [
@@ -56,8 +55,6 @@ services:
       EXECUTIONS_TIMEOUT_MAX: ${N8N_EXECUTIONS_TIMEOUT_MAX:-300}
       FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
       FINARY_BRIDGE_URL: ${FINARY_BRIDGE_URL:-http://finary-bridge:8000}
-      FINARY_GOOGLE_SHEET_ID: ${FINARY_GOOGLE_SHEET_ID:-}
-      FINARY_SCHEMA_URL: ${FINARY_SCHEMA_URL:-http://schema-server/google-sheets-schema-v2.json}
       FINARY_MCP_SCHEMA_URL: ${FINARY_MCP_SCHEMA_URL:-http://schema-server/google-sheets-schema.json}
       FINARY_MCP_GOOGLE_SHEET_ID: ${FINARY_MCP_GOOGLE_SHEET_ID:-}
       FINARY_MCP_WRITER_ID: ${FINARY_MCP_WRITER_ID:-}

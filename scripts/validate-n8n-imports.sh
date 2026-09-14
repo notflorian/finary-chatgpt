@@ -24,8 +24,6 @@ log_directory="$(mktemp -d "${TMPDIR:-/tmp}/finary-n8n-import.XXXXXX")"
 trap 'rm -rf "$log_directory"' EXIT
 
 workflows=(
-  "n8n/workflows/finary-daily-sync.json"
-  "n8n/workflows/finary-error-handler.json"
   "n8n/workflows/finary-mcp-sync.json"
 )
 

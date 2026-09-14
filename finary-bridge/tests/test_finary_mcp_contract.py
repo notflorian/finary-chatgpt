@@ -1,6 +1,6 @@
 """Offline schema and cross-record checks for the planned MCP contract.
 
-This is a fixture oracle, not a transport client, normalizer or migration engine.
+This is a fixture oracle, not a transport client, normalizer or workbook writer.
 Declared connector payloads and project acceptance have separate validation.
 """
 
@@ -36,6 +36,20 @@ def validator(reference):
     return Draft202012Validator(
         {"$ref": reference, "$defs": CONTRACT["$defs"]}, format_checker=FORMATS
     )
+
+
+def test_removed_migration_warning_is_rejected_by_contract_and_model():
+    from pydantic import ValidationError
+
+    from app.mcp_models import McpWarning
+
+    warning = {"code": "STALE_SOURCE", "entity_key": None}
+    assert validator("#/$defs/warning").is_valid(warning)
+    assert McpWarning.model_validate(warning).code == "STALE_SOURCE"
+    warning["code"] = "UNRESOLVED_CROSSWALK"
+    assert not validator("#/$defs/warning").is_valid(warning)
+    with pytest.raises(ValidationError):
+        McpWarning.model_validate(warning)
 
 
 def materialize(case):
@@ -192,13 +206,10 @@ def snapshot_error(value):
             return "IDENTITY"
         if error := money_error(row["native_balance"]):
             return error
-        if (
-            row["native_balance"]["eur_basis"] == "SOURCE_CONVERSION"
-            and (
-                row["native_balance"]["amount_eur"] is None
-                or row["full_value_eur"] is None
-                or Decimal(row["native_balance"]["amount_eur"]) != Decimal(row["full_value_eur"])
-            )
+        if row["native_balance"]["eur_basis"] == "SOURCE_CONVERSION" and (
+            row["native_balance"]["amount_eur"] is None
+            or row["full_value_eur"] is None
+            or Decimal(row["native_balance"]["amount_eur"]) != Decimal(row["full_value_eur"])
         ):
             return "CURRENCY_EVIDENCE"
     connections = {row["connection_key"] for row in value["connections"]}
@@ -271,55 +282,6 @@ def snapshot_error(value):
     return None
 
 
-def migration_error(value):
-    expected_daily = identity(
-        "daily_key", snapshot_date=value["snapshot_date"], observation_id=value["observation_id"]
-    )
-    if value["mcp_account_key"] != identity("account_key", account_id=value["mcp_account_id"]):
-        return "MIGRATION_BOUNDARY"
-    if value["legacy_account_key"] == value["mcp_account_key"]:
-        return "MIGRATION_BOUNDARY"
-    if (
-        value["legacy_daily_key"] == value["mcp_daily_key"]
-        or value["mcp_daily_key"] != expected_daily
-    ):
-        return "MIGRATION_BOUNDARY"
-    expected_history = identity(
-        "history_key",
-        snapshot_date=value["snapshot_date"],
-        observation_id=value["observation_id"],
-        position_key=value["mcp_position_key"],
-    )
-    if value["mcp_history_key"] != expected_history:
-        return "MIGRATION_BOUNDARY"
-    if value["legacy_history_key"] == value["mcp_history_key"]:
-        return "MIGRATION_BOUNDARY"
-    crosswalk = value["crosswalk"]
-    documented = (
-        crosswalk["mcp_key"] is not None
-        and bool((crosswalk["evidence_reference"] or "").strip())
-        and crosswalk["reviewed_at"] is not None
-    )
-    if crosswalk["state"] == "VERIFIED" and not documented:
-        return "MIGRATION_BOUNDARY"
-    if value["apply_legacy_override"] and (
-        crosswalk["state"] != "VERIFIED"
-        or not documented
-        or crosswalk["legacy_key"] != value["legacy_override"]["source_asset_id"]
-        or crosswalk["mcp_key"] != value["mcp_source_asset_id"]
-        or not value["legacy_override"]["enabled"]
-    ):
-        return "MIGRATION_BOUNDARY"
-    if (
-        value["series_comparable"]
-        or value["rollback_schema"] != CONTRACT["workbook_migration"]["from"]
-    ):
-        return "MIGRATION_BOUNDARY"
-    if not value["preserve_manual_edits"] or not value["preserve_new_observations"]:
-        return "MIGRATION_BOUNDARY"
-    return None
-
-
 def period_error(value):
     if "start_date" not in value:
         return None
@@ -339,7 +301,6 @@ def wrapper_error(value):
 CHECKS = {
     "pagination": pagination_error,
     "snapshot": snapshot_error,
-    "migration": migration_error,
     "period": period_error,
     "wrapper": wrapper_error,
     "decimal": lambda value: None if Decimal(value).is_finite() else "DECIMAL",
@@ -408,7 +369,6 @@ def test_every_manifest_quality_expectation_is_exercised():
     [
         "empty-holdings",
         "official-totals-differ-from-details",
-        "cross-provider-collision-same-day-cutover",
     ],
 )
 def test_quality_evidence_cannot_skip_required_cross_record_check(case_id):
@@ -430,7 +390,8 @@ def test_duplicate_warning_keys_fail_schema_and_semantic_validation(entity_key):
 @pytest.mark.parametrize("count_delta", [0, 1])
 def test_duplicate_diagnostic_keys_ignore_count_in_identity(count_delta):
     case = next(
-        case for case in MANIFEST["cases"]
+        case
+        for case in MANIFEST["cases"]
         if case["id"] == "unknown-detail-retained-with-qualified-overview"
     )
     value = materialize(case)
@@ -533,7 +494,10 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
         second["source_asset_id"] = identity("source_asset_id", **args)
         second["position_key"] = identity("position_key", account_id="synthetic-a", **args)
     second[rule["money_field"]] = {
-        "amount": None, "currency": None, "amount_eur": None, "eur_basis": "UNAVAILABLE"
+        "amount": None,
+        "currency": None,
+        "amount_eur": None,
+        "eur_basis": "UNAVAILABLE",
     }
     value[rule["rows"]].append(second)
     for state in ("COMPLETE", "UNAVAILABLE", "PARTIAL"):
@@ -559,45 +523,11 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
     assert snapshot_error(value) is None
 
 
-@pytest.mark.parametrize(
-    "field,replacement,schema_valid",
-    [
-        ("state", "UNRESOLVED", False),
-        ("state", "REJECTED", False),
-        ("mcp_key", None, False),
-        ("evidence_reference", None, False),
-        ("evidence_reference", " \t ", False),
-        ("reviewed_at", None, False),
-        ("legacy_key", "security:8", True),
-        ("mcp_key", "mcp:holding:security-holdings:8", True),
-    ],
-)
-def test_override_application_requires_documented_exact_pair(field, replacement, schema_valid):
-    case = next(
-        case for case in MANIFEST["cases"]
-        if case["id"] == "verified-exact-crosswalk-allows-enabled-override"
-    )
-    value = materialize(case)
-    value["crosswalk"][field] = replacement
-    assert validator("#/$defs/migration_case").is_valid(value) == schema_valid
-    assert migration_error(value) == "MIGRATION_BOUNDARY"
-
-
-def test_disabled_override_cannot_apply_even_with_verified_crosswalk():
-    case = next(
-        case for case in MANIFEST["cases"]
-        if case["id"] == "verified-exact-crosswalk-allows-enabled-override"
-    )
-    value = materialize(case)
-    value["legacy_override"]["enabled"] = False
-    assert not validator("#/$defs/migration_case").is_valid(value)
-    assert migration_error(value) == "MIGRATION_BOUNDARY"
-
-
 @pytest.mark.parametrize("zero", ["0", "0.0", "0.00", "-0.00", "0.000000000000000000"])
 def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
     case = next(
-        case for case in MANIFEST["cases"]
+        case
+        for case in MANIFEST["cases"]
         if case["id"] == "independent-empty-debt-enumeration-design-only"
     )
     value = materialize(case)
@@ -609,14 +539,17 @@ def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
 @pytest.mark.parametrize(
     "amount",
     [
-        "0.01", "-0.01",
+        "0.01",
+        "-0.01",
         "0." + "0" * (CONTRACT["numeric_policy"]["limits"]["fractional_digits"] + 1),
-        "00", "0e0",
+        "00",
+        "0e0",
     ],
 )
 def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
     case = next(
-        case for case in MANIFEST["cases"]
+        case
+        for case in MANIFEST["cases"]
         if case["id"] == "independent-empty-debt-enumeration-design-only"
     )
     value = materialize(case)
@@ -638,7 +571,8 @@ def test_independent_empty_debt_rejects_nonzero_or_invalid_decimal(amount):
 )
 def test_eur_conversion_compares_exact_decimal_values(eur, full, expected):
     case = next(
-        case for case in MANIFEST["cases"]
+        case
+        for case in MANIFEST["cases"]
         if case["id"] == "verified-account-native-to-eur-conversion"
     )
     value = materialize(case)
@@ -754,46 +688,9 @@ def test_overview_authority_is_not_a_detail_sum_constraint():
     assert snapshot["coverage"]["debt_detail"] == "UNAVAILABLE"
     assert snapshot["overview"]["reported_liabilities"]["amount"] == "200.00"
     assert snapshot["debt_details"] == []
-    assert snapshot["coverage"]["detail_semantics"] in CONTRACT["write_gates"][
-        "allowed_position_semantics"
-    ]
-
-
-def test_workbook_delta_and_legacy_versions_remain_separate():
-    active = json.loads((ROOT / "docs" / "google-sheets-schema-v2.json").read_text())
-    delta = CONTRACT["workbook_migration"]
-    assert active["schema_version"] == delta["from"] == "2.1"
-    assert CONTRACT["implemented"] == {
-        "api_schema": "3.0",
-        "canonical_route": "/v3/snapshot",
-        "workbook_schema": "3.0",
-        "application_version": "2.0.0",
-    }
-    assert delta["to"] == "3.0" and delta["status"] == "PLANNED_DELTA_ONLY"
-    assert delta["manual_sheets"] == ["allocation_targets", "asset_overrides", "cashflows"]
-    assert delta["currency_storage"] == "DECIMAL_TEXT_NATIVE_WITH_NULLABLE_EUR"
-    assert delta["preserve_sheet_order"]
-    for table, definition in delta["tables"].items():
-        if "row_schema" in definition:
-            assert definition["row_schema"].split("/")[-1] in CONTRACT["$defs"]
-        assert (table in active["sheets"]) == (definition["mode"] != "append_table")
-    for name in (
-        "accounts",
-        "holdings",
-        "debt_detail",
-        "account_valuation",
-        "holding_valuation",
-        "debt_valuation",
-        "overview_quality",
-        "detail_semantics",
-        "source_freshness",
-    ):
-        assert name in CONTRACT["$defs"]["coverage"]["required"]
-    ordering = delta["ordering"]
     assert (
-        ordering.index("drain_disable_old_writer_and_error_handlers")
-        < ordering.index("apply_append_only_schema_delta_once")
-        < ordering.index("operator_activate_new_schedule")
+        snapshot["coverage"]["detail_semantics"]
+        in CONTRACT["write_gates"]["allowed_position_semantics"]
     )
 
 
@@ -805,31 +702,6 @@ def schema_leaves(schema, path=""):
             yield from schema_leaves(value, path + "/" + key)
     else:
         yield path
-
-
-def test_workbook_column_bindings_cover_each_normalized_leaf_without_collisions():
-    active = json.loads((ROOT / "docs" / "google-sheets-schema-v2.json").read_text())
-    for table, definition in CONTRACT["workbook_migration"]["tables"].items():
-        if "row_schema" not in definition:
-            continue
-        schema = CONTRACT["$defs"][definition["row_schema"].split("/")[-1]]
-        bindings = definition["column_bindings"]
-        assert set(bindings.values()) == set(schema_leaves(schema))
-        assert len(bindings) == len(set(bindings.values()))
-        if table in active["sheets"]:
-            existing = {column["name"] for column in active["sheets"][table]["columns"]}
-            for column in bindings:
-                assert column not in existing or column in {
-                    "account_key",
-                    "source_account_id",
-                    "position_key",
-                    "source_asset_id",
-                    "asset_class",
-                }
-    assert (
-        "mcp_quantity"
-        in CONTRACT["workbook_migration"]["tables"]["positions_current"]["column_bindings"]
-    )
 
 
 def test_declared_unknowns_do_not_acquire_false_upstream_requirements():
@@ -847,3 +719,12 @@ def test_declared_unknowns_do_not_acquire_false_upstream_requirements():
     assert CONTRACT["input_policy"]["scheduled_prompt"] == "OMIT"
     attributes = CONTRACT["$defs"]["holding_observed"]["properties"]["attributes"]
     assert "annual_yield_percent" not in attributes["properties"]
+
+
+def test_workbook_column_bindings_cover_each_normalized_leaf_without_collisions():
+    for definition in CONTRACT["current_workbook"]["tables"].values():
+        schema = CONTRACT["$defs"][definition["row_schema"].split("/")[-1]]
+        bindings = definition["column_bindings"]
+        assert set(bindings.values()) == set(schema_leaves(schema))
+        assert len(bindings) == len(set(bindings.values()))
+        assert not bindings.keys() & definition["workbook_columns"].keys()
