@@ -161,9 +161,10 @@ def test_native_decoder_rejects_automated_formulas_and_extra_data():
             native_inventory(broken)
 
 
-def test_clean_generation_reproduces_all_supported_artifacts(tmp_path):
+def test_clean_generation_reproduces_all_supported_artifacts(tmp_path, monkeypatch):
     import shutil
 
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     artifacts = [
         "docs/google-sheets-schema.json",
         "finary-bridge/app/workbook-schema.json",
@@ -205,6 +206,35 @@ def test_clean_generation_reproduces_all_supported_artifacts(tmp_path):
     )
     for name in artifacts:
         assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
+    source_directory = tmp_path / "n8n/code-nodes/finary-mcp-sync"
+    assert {path.relative_to(tmp_path).as_posix() for path in source_directory.iterdir()} == {
+        name for name in inputs if name.startswith("n8n/code-nodes/")
+    }
+
+    def inventory():
+        return {
+            path.relative_to(tmp_path): (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in tmp_path.rglob("*")
+            if path.is_file()
+        }
+
+    command = [sys.executable, str(tmp_path / "scripts/build-workflow-validation.py")]
+    before = inventory()
+    subprocess.run(command, check=True)
+    assert {name: data for name, (data, _) in inventory().items()} == {
+        name: data for name, (data, _) in before.items()
+    }
+    before = inventory()
+    subprocess.run([*command, "--check"], check=True)
+    assert inventory() == before
+
+    export = tmp_path / "n8n/workflows/finary-mcp-sync.json"
+    export.write_bytes(export.read_bytes() + b"\n")
+    before = inventory()
+    result = subprocess.run([*command, "--check"], capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "MCP workflow is stale" in result.stderr
+    assert inventory() == before
     subprocess.run(
         [
             sys.executable,
