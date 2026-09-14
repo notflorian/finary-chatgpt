@@ -2,8 +2,7 @@
 
 import os
 import secrets
-from threading import Lock
-from typing import Annotated, Final, Literal, NamedTuple
+from typing import Annotated, Literal, NamedTuple
 
 from fastapi import Depends, FastAPI, Header, Request, status
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -12,16 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from app.config import SERVICE_NAME, SERVICE_VERSION
-from app.finary_client import (
-    FinaryApiClient,
-    FinaryAuthenticationError,
-    FinaryClient,
-    FinaryClientError,
-    FinaryFeatureUnavailableError,
-    FinaryMalformedResponseError,
-    FinaryUpstreamError,
-    FinaryUpstreamTimeoutError,
-)
+from app.errors import ErrorDetail, ErrorResponse
 from app.mcp_client import McpFailure, NativeMcpClient
 from app.mcp_logging import protect_access_logs
 from app.mcp_models import McpSnapshotV3
@@ -33,10 +23,7 @@ from app.mcp_optional import (
     SearchRequest,
     SearchResponse,
 )
-from app.models import ErrorDetail, ErrorResponse, PortfolioSnapshot, PortfolioSnapshotV2
-from app.normalizer import SnapshotNormalizationError
 from app.services.mcp_snapshot_service import McpSnapshotService, paris_now
-from app.services.snapshot_service import SnapshotService
 
 
 class HealthResponse(BaseModel):
@@ -65,54 +52,6 @@ class _ApiErrorSpec(NamedTuple):
     retryable: bool
 
 
-_UPSTREAM_ERROR_SPECS: Final[tuple[tuple[type[FinaryClientError], _ApiErrorSpec], ...]] = (
-    (
-        FinaryAuthenticationError,
-        _ApiErrorSpec(
-            status.HTTP_502_BAD_GATEWAY,
-            "FINARY_AUTH_FAILED",
-            "Unable to authenticate with Finary",
-            False,
-        ),
-    ),
-    (
-        FinaryUpstreamTimeoutError,
-        _ApiErrorSpec(
-            status.HTTP_504_GATEWAY_TIMEOUT,
-            "FINARY_TIMEOUT",
-            "Finary request timed out",
-            True,
-        ),
-    ),
-    (
-        FinaryMalformedResponseError,
-        _ApiErrorSpec(
-            status.HTTP_502_BAD_GATEWAY,
-            "FINARY_MALFORMED_RESPONSE",
-            "Finary returned a malformed response",
-            False,
-        ),
-    ),
-    (
-        FinaryFeatureUnavailableError,
-        _ApiErrorSpec(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "FINARY_FEATURE_UNAVAILABLE",
-            "Required Finary data is unavailable",
-            False,
-        ),
-    ),
-    (
-        FinaryUpstreamError,
-        _ApiErrorSpec(
-            status.HTTP_502_BAD_GATEWAY,
-            "FINARY_UPSTREAM_ERROR",
-            "Unable to retrieve data from Finary",
-            True,
-        ),
-    ),
-)
-
 _BRIDGE_AUTH_ERROR = _ApiErrorSpec(
     status.HTTP_401_UNAUTHORIZED,
     "BRIDGE_AUTH_FAILED",
@@ -140,48 +79,6 @@ def require_bridge_api_key(
         raise BridgeAuthenticationError
 
 
-_finary_client: FinaryClient | None = None
-_finary_client_lock = Lock()
-
-
-def get_finary_client() -> FinaryClient:
-    """Reuse one non-interactive adapter and refresh lock for the process lifetime."""
-
-    global _finary_client
-    with _finary_client_lock:
-        if _finary_client is None:
-            _finary_client = FinaryApiClient.from_environment()
-        return _finary_client
-
-
-def _reset_finary_client_for_tests() -> None:
-    """Reset only the instance; all test workers must have finished first.
-
-    Persisted sessions and credentials are untouched. Concurrent runtime reset
-    and coordination between processes are intentionally unsupported.
-    """
-
-    global _finary_client
-    with _finary_client_lock:
-        _finary_client = None
-
-
-def get_authenticated_finary_client(
-    _: Annotated[None, Depends(require_bridge_api_key)],
-) -> FinaryClient:
-    """Construct the Finary client only after bridge authentication succeeds."""
-
-    return get_finary_client()
-
-
-def get_snapshot_service(
-    client: Annotated[FinaryClient, Depends(get_authenticated_finary_client)],
-) -> SnapshotService:
-    """Create the request-scoped snapshot orchestration service."""
-
-    return SnapshotService(client)
-
-
 def _error_response(spec: _ApiErrorSpec) -> JSONResponse:
     payload = ErrorResponse(
         error=ErrorDetail(
@@ -203,41 +100,6 @@ async def handle_bridge_authentication_error(
     return _error_response(_BRIDGE_AUTH_ERROR)
 
 
-@app.exception_handler(FinaryClientError)
-async def handle_finary_error(request: Request, exception: FinaryClientError) -> JSONResponse:
-    """Translate adapter exceptions without exposing upstream messages."""
-
-    del request
-    for error_type, spec in _UPSTREAM_ERROR_SPECS:
-        if isinstance(exception, error_type):
-            return _error_response(spec)
-    return _error_response(
-        _ApiErrorSpec(
-            status.HTTP_502_BAD_GATEWAY,
-            "FINARY_UPSTREAM_ERROR",
-            "Unable to retrieve data from Finary",
-            True,
-        )
-    )
-
-
-@app.exception_handler(SnapshotNormalizationError)
-async def handle_snapshot_validation_error(
-    request: Request, exception: SnapshotNormalizationError
-) -> JSONResponse:
-    """Return a stable error when upstream data cannot be normalized safely."""
-
-    del request, exception
-    return _error_response(
-        _ApiErrorSpec(
-            status.HTTP_502_BAD_GATEWAY,
-            "SNAPSHOT_VALIDATION_FAILED",
-            "Unable to build a valid portfolio snapshot",
-            False,
-        )
-    )
-
-
 @app.get("/health", response_model=HealthResponse, status_code=status.HTTP_200_OK)
 def get_health() -> HealthResponse:
     """Return service metadata without contacting any upstream system."""
@@ -245,38 +107,10 @@ def get_health() -> HealthResponse:
     return HealthResponse()
 
 
-@app.get(
-    "/v1/snapshot",
-    response_model=PortfolioSnapshot,
-    status_code=status.HTTP_200_OK,
-)
-def get_snapshot(
-    service: Annotated[SnapshotService, Depends(get_snapshot_service)],
-) -> PortfolioSnapshot:
-    """Return one validated snapshot containing no private upstream payloads."""
-
-    return service.get_snapshot()
-
-
-@app.get(
-    "/v2/snapshot",
-    response_model=PortfolioSnapshotV2,
-    status_code=status.HTTP_200_OK,
-)
-def get_snapshot_v2(
-    service: Annotated[SnapshotService, Depends(get_snapshot_service)],
-) -> PortfolioSnapshotV2:
-    """Return a coverage-aware snapshot without private upstream payloads."""
-
-    return service.get_snapshot_v2()
-
-
 def get_authenticated_mcp_client(
     _: Annotated[None, Depends(require_bridge_api_key)],
 ) -> NativeMcpClient:
-    """Freeze explicit provider selection after local authorization, before I/O."""
-    if os.getenv("FINARY_PROVIDER", "private_api") != "finary_official_mcp":
-        raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
+    """Construct the official MCP client only after bridge authorization."""
     return NativeMcpClient()
 
 

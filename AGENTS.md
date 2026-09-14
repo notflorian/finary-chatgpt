@@ -63,11 +63,11 @@ finary-chatgpt/
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py
-│   │   ├── finary_client.py
-│   │   ├── finary_session_store.py
-│   │   ├── models.py
-│   │   ├── normalizer.py
-│   │   └── services/snapshot_service.py
+│   │   ├── mcp_client.py
+│   │   ├── mcp_auth.py
+│   │   ├── mcp_models.py
+│   │   ├── mcp_adapter.py
+│   │   └── services/mcp_snapshot_service.py
 │   └── tests/
 ├── n8n/workflows/
 │   ├── finary-daily-sync.json
@@ -88,7 +88,7 @@ Do not add new top-level structure without a clear architectural reason.
 ## Technical baseline
 
 - Python 3.12+, FastAPI, Pydantic v2, Uvicorn
-- `curl-cffi` inside the Finary adapter
+- Pinned native MCP SDK inside the official adapter
 - pytest, Ruff, mypy
 - self-hosted n8n using standard nodes
 - Google Sheets schema `2.1` for legacy and `3.0` for the MCP candidate
@@ -106,50 +106,22 @@ behavior, constraint, or rationale directly; issue references become obsolete.
 
 ### Provider boundaries
 
-The default provider is the private API. The official MCP candidate contract
-is defined in [docs/finary-mcp-contract.md](docs/finary-mcp-contract.md) and its
-linked machine-readable artifact. API/workbook 3.0 have an executable candidate
-path; production acceptance remains an operator gate.
-Select one explicit provider per observation/run and one active writer/provider
-per workbook. Never mix providers, supplement fields or silently fall back.
-Transport, authentication, upstream relationships and error translation stay
-inside each adapter; n8n receives normalized bridge data only.
-
-### Legacy private Finary adapter
-
-All private Finary authentication, endpoints, response shapes, and exception
-translation belong in `finary_client.py`, `finary_session_store.py`, or a closely
-related adapter module. No other module may import an upstream Finary library or
-depend on raw response schemas.
-
-Do not invent endpoints, fields, authentication flows, pagination, currencies,
-or liability support. Base adapter changes on the installed client, upstream
-source, anonymized fixtures, or an explicitly authorized live check.
+The bridge supports only official Finary MCP. The contract is defined in
+[docs/finary-mcp-contract.md](docs/finary-mcp-contract.md) and its linked
+machine-readable artifact. Keep fixed official-source provenance on every
+observation; never add a provider selector or fallback.
+Transport, OAuth, upstream relationships and error translation stay inside the
+MCP adapter boundary; n8n receives normalized bridge data only.
 
 ### Normalization
 
-`normalizer.py` performs pure category-specific transformations. The snapshot
-service orchestrates adapter calls, cross-reference validation, totals, and
-stable model construction. FastAPI route functions remain HTTP boundaries only.
-
-For the legacy private provider, use dedicated adapter position collections as
-the canonical position source.
-Never also normalize nested account asset arrays. Associate positions only with
-the verified `holdings_account_id`; do not silently fall back to nested account
-objects.
-
-Legacy private-provider canonical keys are:
-
-```text
-account_key     = finary:account:{account_id}
-source_asset_id = {position_kind}:{asset_id}
-position_key    = finary:{account_id}:asset:{position_kind}:{asset_id}
-history_key     = {snapshot_date}:{position_key}
-```
-
-For these legacy keys, canonicalize upstream identifiers to strings. Position
-kind is mandatory because numeric IDs can collide across private collections.
-MCP IDs use the separate opaque-string encoding in the planned contract.
+`mcp_adapter.py` owns resource joins, identifiers, currency and ownership.
+`services/mcp_snapshot_service.py` assembles authoritative overview totals and
+qualified detail. FastAPI routes remain HTTP boundaries only.
+Do not invent endpoints, fields, authentication flows or financial semantics.
+Use the supported contract and synthetic fixtures. Live checks require explicit
+operator authorization. MCP IDs remain opaque strings with contract-defined
+encoding; names or equal numeric IDs never prove identity.
 
 ### Currency and totals
 
@@ -158,23 +130,13 @@ conversion exists. Never treat `display_*` fields as proof of EUR. Preserve
 unknown numeric values as null/blank, not zero or text placeholders. Reject
 non-finite values.
 
-For the legacy private provider, non-collection account balances are
-authoritative for `gross_assets_eur`.
-Positions are analytical components. Never add position totals to account
-balances.
-
-Legacy liability coverage is explicit: `COMPLETE`, `PARTIAL`, or `UNAVAILABLE`. Only
-`COMPLETE` can establish liability totals or update liability current state.
-Empty embedded loan arrays do not prove zero liabilities. With incomplete
-coverage, liabilities and net worth remain null.
-
 MCP overview totals and official allocation have separate authority;
 account/holding detail never replaces them. Retrieval, debt detail, valuation,
 semantic confidence and source freshness have independent coverage. Follow the
 focused MCP contract for native currency, ownership and provider-isolated IDs.
 
 Classify assets conservatively. Do not guess from names or tickers. The stable
-top-level classes are defined by `AssetClass`; enabled exact provider-specific
+top-level classes are defined by the MCP contract; enabled exact provider-specific
 `asset_overrides` rows are authoritative for that custom classification after
 normalization. They never rewrite official MCP allocation.
 
@@ -182,29 +144,31 @@ normalization. They never rewrite official MCP allocation.
 
 - `GET /health` returns service metadata without contacting Finary or reading
   authentication state.
-- `GET /v2/snapshot` is canonical and returns schema `2.0` normalized data with
-  explicit liability coverage.
-- `GET /v1/snapshot` is a strict legacy route that remains fail-safe when a
-  complete snapshot cannot be built.
+- `GET /v3/snapshot` is canonical and returns the MCP schema `3.0`.
+- `GET /v3/budget`, `GET /v3/spending-search` and `GET /v3/goals` remain
+  independent optional reads outside portfolio synchronization.
+- `/v1/snapshot` and `/v2/snapshot` are removed and must return 404.
 - Structured errors use `{error: {code, message, retryable}}` and never expose
   raw upstream details.
 
-Keep `/v2/snapshot` backward compatible within schema major version `2`. Make a
+Preserve the supported MCP contracts. Make a
 coordinated schema, workflow, workbook, tests, and documentation change for any
 breaking downstream contract revision.
 
 ### Google Sheets and n8n
 
 `docs/google-sheets-schema.json` is the canonical 3.0 machine-readable workbook
-contract. The retained legacy writer explicitly uses the frozen 2.1
+contract. The frozen legacy writer awaits removal and is not supported by this bridge.
+Its retained tests explicitly use the frozen 2.1
 `docs/google-sheets-schema-v2.json`; never mix these writer/schema bindings.
 Preserve each contract's sheet order, headers, types, nullability, ownership,
 enums, and key formats. Documentation summarizes it but must not become a second
 field-level source of truth.
 
 Current sheets use deterministic upserts. Missing accounts or positions become
-`is_active = FALSE`; they are not deleted. Historical rows are never deleted,
-and same-day history uses `history_key` to update rather than duplicate.
+`is_active = FALSE`; they are not deleted. Historical rows are never deleted.
+MCP retries upsert the same observation keys; distinct observations remain
+immutable and separate, including multiple observations on the same day.
 
 The synchronization workflow must validate the complete snapshot and prepared
 rows before portfolio writes. A failed or malformed snapshot may write sanitized
@@ -229,11 +193,12 @@ API key protects snapshot routes from other local-network clients. The bridge is
 bound to localhost by default and must not be made public without an explicit
 security design.
 
-The legacy private-provider session store may persist only the verified minimum
-Clerk restart state:
-the session identifier and production `__client` cookie. Bearer JWTs remain
-memory-only. The session volume is bridge-only, mode-restricted, excluded from
-backups, and cleared when rejected. HTTP routes must never prompt interactively.
+Official MCP OAuth requires explicit operator consent and protected renewable
+state in the bridge-only MCP volume. Its verified issuer is
+`https://clerk.finary.com`; preserve issuer validation and endpoint allowlisting.
+This is independent OAuth, not the removed private password/cookie/MFA flow.
+Access tokens remain memory-only; preserve bounded renewal, atomic writes,
+rotation ownership and concurrency leases. HTTP routes never prompt or bootstrap.
 
 Finary authentication material must not enter n8n. Google OAuth material must
 not enter the bridge, workflow exports, or repository files.
@@ -245,7 +210,7 @@ Never save live responses to repository files and then attempt to redact them.
 
 - The Compose stack owns `finary-bridge`, `schema-server`, and `n8n` on one
   private network; only bridge and n8n bind localhost ports.
-- `finary_session_data`, `finary_mcp_data`, and `n8n_data` are separate named volumes.
+- `finary_mcp_data` and `n8n_data` are separate named volumes.
 - The schema server exposes the canonical JSON to n8n without credentials.
 - The scheduled workflow runs at 07:30 `Europe/Paris` when published.
 - `SUCCESS` and `SUCCESS_WITH_WARNINGS` are valid completed sync states. A later
@@ -253,7 +218,7 @@ Never save live responses to repository files and then attempt to redact them.
 - A state older than 48 hours is operationally stale.
 - Google and n8n errors written to telemetry must be sanitized and bounded.
 - Back up n8n state and the encryption key separately. Do not routinely use
-  `docker compose down -v` and do not back up Finary session state.
+  `docker compose down -v` and do not back up Finary OAuth state.
 
 ## Testing
 

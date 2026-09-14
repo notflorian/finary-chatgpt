@@ -1,9 +1,9 @@
 # Operations
 
-For the official MCP candidate, use the separate [operator runbook](mcp-operations.md).
-It covers independent OAuth, 3.0 migration, writer draining, shadow acceptance,
-cutover and preservation-based rollback. The procedures below remain the legacy
-private-provider/2.1 path unless explicitly stated otherwise.
+Application 2.0.0 supports only official MCP; use the [operator runbook](mcp-operations.md)
+for independent OAuth and MCP synchronization. Workbook 2.1 adoption/recovery
+sections below are frozen references pending removal, not setup instructions for
+this bridge. Its legacy workflow exports cannot call the removed V1/V2 routes.
 
 ## Operating model
 
@@ -13,11 +13,11 @@ One Docker Compose project owns the local runtime:
 - `n8n` on `127.0.0.1:5678`;
 - `schema-server` on the private `finary-stack` network.
 
-The repository workflow exports are inactive for safe import. In normal running
-state, the deployed **Finary - Daily Sync** workflow is published and active at
-07:30 `Europe/Paris`; a new installation publishes it only after a successful
-manual run. **Finary - Error Handler** is published so n8n can select it, but it
-has no schedule or public trigger.
+The repository workflow exports are inactive for safe import. The supported
+**Finary MCP Portfolio Sync** runs at 07:30 `Europe/Paris` when published, with
+sanitized failure handling inside its own graph. Publish only after operator
+acceptance and a successful manual run. Do not activate the frozen legacy daily
+workflow or its separate error handler against this bridge.
 
 ## Start, verify, and stop
 
@@ -44,7 +44,7 @@ docker compose down
 ```
 
 Do not use `docker compose down -v` during routine operation. It deletes n8n
-state and the protected Finary session volume.
+state and protected MCP OAuth state.
 
 ### Automatic restart and its limits
 
@@ -66,7 +66,7 @@ Verify `/health`, the schema endpoint, and n8n's `/healthz` after recovery.
 To deploy only this policy change, an operator can run
 `docker compose up -d --no-deps finary-bridge` from the existing project. This
 may recreate the bridge and briefly interrupt requests, while reusing its
-`finary_session_data` volume and leaving `n8n_data` separate. A plain
+`finary_mcp_data` volume and leaving `n8n_data` separate. A plain
 `docker compose restart` does not apply a changed Compose configuration.
 
 ### Isolated recovery verification
@@ -80,7 +80,7 @@ inactive and use only local health endpoints. Do not mount any existing session
 or n8n volume or store sentinel data as a session file.
 
 1. Start the disposable bridge with the canonical image/build, health check,
-   and restart policy. Write a synthetic sentinel to its dedicated session
+   and restart policy. Write a synthetic sentinel to its dedicated synthetic state
    volume and another to the separate test n8n volume using a network-disabled
    helper. Record the container ID and `RestartCount` with `docker inspect`.
 2. Wait for `/health` and at least 10 seconds of continuous container uptime.
@@ -117,8 +117,7 @@ separation is:
 
 | Secret or identifier | Owner | Storage |
 | --- | --- | --- |
-| Finary email/password | bridge | local `.env` / Compose environment |
-| Finary restart session | bridge | `finary_session_data` volume |
+| Independent MCP renewable OAuth state | bridge | `finary_mcp_data` volume |
 | optional bridge API key | bridge and n8n | local `.env` / environment |
 | Google OAuth credential | n8n | encrypted `n8n_data` only |
 | n8n encryption key | operator | local `.env` plus separate secure backup |
@@ -127,128 +126,16 @@ separation is:
 Never copy Finary authentication material into n8n or Google Sheets. Never put
 Google OAuth material or n8n credential IDs in workflow exports.
 
-## Finary session bootstrap
+## Independent MCP OAuth bootstrap
 
-The bridge API is intentionally non-interactive. Bootstrap or replace its Clerk
-session from a terminal using a dedicated adapter. Use `bootstrap_session()` to
-force a fresh password/MFA sign-in even when an existing session is still valid:
-
-```bash
-docker compose exec -e FINARY_MFA_CODE= finary-bridge python -c '
-import getpass
-from app.finary_client import FinaryApiClient
-
-client = FinaryApiClient.from_environment(
-    second_factor_code_provider=lambda strategy: getpass.getpass(
-        f"Enter the one-time Finary {strategy} code: "
-    )
-)
-client.bootstrap_session()
-print("Verified session replacement published")
-'
-```
-
-The command verifies the candidate with an accounts GET before publishing it.
-An MFA, upstream, or verification failure leaves existing persisted state intact.
-Do not clear state before bootstrapping: a failed candidate must not destroy a
-usable session. A storage failure reports failure and may have changed the
-revision; if it occurs after atomic file replacement, the new state may already
-be present. Check the running bridge before deciding to repeat bootstrap.
-Never resume synchronization solely because the command exited successfully.
-
-This writes only the verified session identifier and `__client` cookie to the
-bridge-only volume. Bearer JWTs remain memory-only. The session file must remain
-mode `0600`. Its mode `0600` sibling `session.json.lock` holds only a non-secret
-revision and a cross-process advisory lock. Keep both in the same private mode
-`0700` directory on a local filesystem supporting POSIX `flock` and atomic
-rename. The configured `FINARY_SESSION_PATH` must resolve to the same shared
-volume path for every participating process.
-
-### Replacement protocol and rollout
-
-Hot replacement is supported **only when every writer uses this version of the
-adapter/store**. Before the first rollout, unpublish daily sync, stop the old
-bridge, and finish or terminate all older bootstrap/helper processes. Rebuild
-and recreate the bridge with this version before using the replacement command.
-No old writer may remain attached to the volume. Do not remove the volume.
-Existing version `1` session JSON is loaded unchanged; the store creates the
-revision sidecar on first access. No bearer token or additional authentication
-material is added to either file.
-
-Bootstrap signs in and verifies accounts without holding the storage lock,
-including while waiting for interactive MFA. Publishing takes a short exclusive
-lock and creates a new revision. Every successful renewal and rejection cleanup
-compares its observed revision and full state under that same lock before
-writing or deleting. Deliberate `clear()` and explicit `save()` also advance the
-revision, even for an absent file or identical session/cookie. A competing
-bootstrap is an explicit replacement: the last successful publication wins.
-
-Replacement becomes effective for **persisted state at publication**. It does
-not cancel an upstream request, revoke an already-issued bearer token, or make
-a whole snapshot transactional. The running adapter may continue using its
-cached token until its next renewal boundary (normally a 45-second token age,
-or an entity 401). If that renewal belongs to an older revision, it cannot
-change the replacement file: its access state is invalidated and the current
-snapshot can fail with the existing generic authentication error. The next
-snapshot's `authenticate()` loads and renews the replacement without another
-manual bootstrap. There is no unbounded retry or password/MFA replay in entity
-recovery. For immediate adoption, an operator may restart the bridge after
-publication; no test-only singleton reset is a runtime recovery mechanism.
-
-The lock order is the adapter's process-local authentication lock, then the
-storage lock. Storage methods never acquire the adapter lock or recursively
-acquire the storage lock. Network calls and MFA hold no storage lock. Storage
-lock acquisition waits at most two seconds by default and reports a sanitized
-authentication failure if busy. `/health` and API-key rejection do not use it.
-
-Never edit, copy over, unlink, or restore either session file or lock sidecar
-while writers are active. In particular, never delete the lock file: replacing
-its inode breaks coordination. Use only the commands here, and exclude the
-entire session volume from backups. Network filesystems and older/uncoordinated
-writers are unsupported. For damaged permissions or revision metadata, stop
-all bridge and helper processes before repairing the private directory; do not
-use a raw file deletion as an online recovery shortcut.
-
-Verify the running bridge with a snapshot without printing its portfolio body:
-
-```bash
-curl --silent --output /dev/null --write-out '%{http_code}\n' \
-  http://127.0.0.1:8000/v2/snapshot
-```
-
-Add `-H "X-API-Key: $FINARY_BRIDGE_API_KEY"` when the API key is enabled. A
-successful HTTP 200 can legitimately report incomplete liability coverage.
-A first authentication failure may be the old adapter abandoning its superseded
-revision: retry this check once. For guaranteed verification with B immediately,
-restart the bridge before this check; otherwise a still-fresh cached token can
-pass it with A. If verification still fails, keep the daily workflow unpublished,
-inspect sanitized logs, and resolve the reported category before retrying.
-Run one manual sync and inspect `sync_runs` before republishing the schedule.
-
-Repeat bootstrap when authentication returns `FINARY_AUTH_FAILED`, after
-password/MFA changes, after explicit session revocation, or after loss of the
-session volume. Do not automate TOTP generation or persist TOTP secrets or
-backup codes.
-
-To clear rejected state deliberately:
-
-```bash
-docker compose exec finary-bridge python -c '
-import os
-from app.finary_session_store import FileFinarySessionStore
-FileFinarySessionStore(os.environ["FINARY_SESSION_PATH"]).clear()
-print("Finary session cleared")
-'
-```
-
-This supersedes pending renewals and sign-ins; it does not immediately revoke
-cached bearer tokens or cancel in-flight requests. Stop the bridge as well if
-activity must cease immediately. Use deliberate clearing only when discarding
-the current session is intended, then bootstrap again. Ordinary recovery uses
-the verified replacement command directly, preserving old state on candidate
-failure. Malformed/unsupported state is rejected without automatic deletion
-because the adapter cannot establish ownership; inspect the storage failure
-before using deliberate clearing or offline repair.
+Use the [official OAuth procedure](mcp-operations.md#backups-and-independent-oauth).
+The verified issuer and required endpoints on `https://clerk.finary.com` remain
+allowlisted. They are official OAuth, distinct from the removed private Clerk
+password/cookie/MFA implementation. No private credential variables, private
+bootstrap/replacement commands or session-clearing CLI remain supported.
+Routes never prompt, register a client or request consent. Protect the renewable
+state and preserve its CAS/lease controls; access tokens remain memory-only.
+Old private session volumes are operator data: do not read, convert or delete them.
 
 ## Workbook schema 2.1 migration
 
@@ -555,18 +442,10 @@ Docker volumes. Confirm the schedule is inactive before any risky repair.
 
 ### Finary authentication failure
 
-1. Confirm the bridge health endpoint still returns 200.
-2. Inspect sanitized bridge logs for an authentication category, not secrets.
-3. Unpublish the daily workflow if failures will repeat.
-4. Perform the verified interactive replacement above without pre-clearing state.
-   If bootstrap fails, keep synchronization unpublished and fix that failure.
-5. restart the bridge for immediate adoption, then call `/v2/snapshot` without
-   printing its body; require success before continuing;
-6. run one manual synchronization and inspect `sync_runs`;
-7. republish only after success.
-
-An authentication failure occurs before portfolio writes and must not alter
-current or history sheets.
+Verify local `/health`, pause MCP synchronization, and inspect only sanitized
+`MCP_AUTH_UNAVAILABLE` diagnostics. Follow the independent OAuth runbook for an
+explicitly authorized connection replacement. Verify `/v3/snapshot` and a full
+manual MCP sync before resuming the schedule. Never fall back to private auth.
 
 ### Google credential failure
 
@@ -745,8 +624,8 @@ Back up:
 - the private Google workbook through an access-controlled Google export or
   copy appropriate to your recovery policy.
 
-Do **not** back up `finary_session_data`. A restored environment must use a
-fresh interactive Finary bootstrap.
+Do **not** back up `finary_mcp_data`. A restored environment must use a
+fresh independently authorized MCP OAuth connection.
 
 Before backing up, unpublish the schedule, drain daily and error executions
 as described above, and stop the Compose project cleanly.
@@ -766,8 +645,8 @@ Restore into an isolated, unpublished stack first:
 3. adopt both current exports and the crypto setting while unpublished; verify
    the Google bindings and local n8n API credential. A fresh installation needs
    its own API credential; an old key may require replacement after restoration;
-4. start Compose, verify health and perform a fresh Finary bootstrap;
-5. confirm `/v2/snapshot` structurally succeeds;
+4. start Compose, verify health and establish independent MCP OAuth;
+5. confirm `/v3/snapshot` structurally succeeds;
 6. start one full new manual sync. A reused database execution number now gets a
    fresh UUID, so retained terminals/history remain distinct. Verify current,
    history, daily and independent liability membership and test error correlation;
@@ -776,10 +655,9 @@ Restore into an isolated, unpublished stack first:
 
 ## Credential rotation
 
-- **Finary password or MFA:** unpublish daily sync, update `.env`, recreate the
-  bridge with the updated environment, run the verified replacement without
-  pre-clearing, restart for immediate adoption, test a snapshot and manual sync,
-  then republish. Leave sync unpublished if any step fails.
+- **MCP OAuth:** pause synchronization and follow the independent OAuth runbook;
+  replacement and revocation require explicit operator intent. Verify an
+  authorized snapshot and manual sync before resuming.
 - **Bridge API key:** update bridge and n8n environment together, recreate both
   containers, then verify a manual run.
 - **Google OAuth:** reconnect in n8n and reassign every Sheets node before a

@@ -7,15 +7,13 @@ remain unchanged. See the [implementation matrix](mcp-acceptance.md) and
 not turn unresolved live semantics into verified evidence.
 
 
-**Decision status: planned, contract version 1.1.0, inspected 2026-09-11.**
+**Source-contract version 1.1.0; API/workbook schema 3.0.**
 This document and the [machine-readable contract](finary-mcp-contract.json)
-prepare API schema **3.0** at **`GET /v3/snapshot`** and workbook schema **3.0**.
-They do not implement a client, authorization, normalization, route, writer or
-migration engine. The implemented application remains 1.1.0, `/v2/snapshot`
-remains canonical with API 2.0, and the active
-[legacy workbook contract](google-sheets-schema-v2.json) remains 2.1.
-The canonical [candidate workbook contract](google-sheets-schema.json) is 3.0. `/v1` and `/v2`
-retain their existing behavior.
+define API schema **3.0** at **`GET /v3/snapshot`** and workbook schema **3.0**.
+Application 2.0.0 supports only official MCP. `/v3/snapshot` is canonical;
+V1/V2 routes are removed and return 404. The canonical workbook is 3.0;
+its retained migration/legacy-layout dependencies await separate removal.
+Application and source-contract versions are independent.
 
 ## Reading the artifacts
 
@@ -100,27 +98,20 @@ schema, protocol revision, transport negotiation or standalone OAuth lifecycle.
 
 ## Provider and authorization boundaries
 
-The existing private `FinaryClient` interface continues to authenticate and
-return its `FinaryRaw*` collections to the existing snapshot service. Its
-account-balance authority, numeric collection identities, `holdings_account_id`
-relationships and Clerk restart state remain **legacy provider semantics**.
-`PortfolioSnapshotV2` still requires complete liabilities to equal the detailed
-liability sum; these rules must not be reused as the MCP overview definition.
-
-The planned MCP adapter owns transport, catalog discovery, authentication,
+The MCP adapter owns transport, catalog discovery, authentication,
 typed action inputs, result decoding, included-resource joins, pagination and
 sanitized error translation. Its service returns only `snapshot_v3` to HTTP.
 No raw resources, notes, transport envelopes or authentication material enter
 n8n. Optional services use separate typed outputs and cannot become portfolio
 prerequisites.
 
-Freeze exactly one provider and contract version before each collection/run.
-There is no mixed-provider observation, fallback, field supplementation or
-implicit switch. Future `/v3` requires explicit MCP selection and rejects a
-configuration mismatch before constructing a client. It must neither initialize
-the private adapter nor require private email/password/MFA. Legacy routes remain
-pinned to their current provider and initialize it only when called. Bridge API
-key validation precedes either provider; `/health` remains metadata-only.
+Every observation carries fixed official MCP provenance and its source-contract
+version. There is no provider selector, fallback, or field supplementation.
+Bridge API-key validation precedes MCP client construction and OAuth access;
+`/health` and OpenAPI remain metadata-only. The official OAuth issuer remains
+`https://clerk.finary.com`; keep verified issuer checks and endpoint allowlisting.
+This independently authorized OAuth is distinct from the removed private
+password/session-cookie/MFA flow. Never reuse assistant/plugin tokens.
 
 Standalone authorization is a verification gate for the
 [client implementation](https://github.com/notflorian/finary-chatgpt/issues/87).

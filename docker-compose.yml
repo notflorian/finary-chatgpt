@@ -5,11 +5,6 @@ services:
     restart: unless-stopped
     environment:
       FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
-      FINARY_EMAIL: ${FINARY_EMAIL:-}
-      FINARY_MFA_CODE: ${FINARY_MFA_CODE:-}
-      FINARY_PASSWORD: ${FINARY_PASSWORD:-}
-      FINARY_SESSION_PATH: ${FINARY_SESSION_PATH:-/var/lib/finary-session/state/session.json}
-      FINARY_PROVIDER: ${FINARY_PROVIDER:-private_api}
       FINARY_MCP_STATE_PATH: ${FINARY_MCP_STATE_PATH:-/var/lib/finary-mcp/state/oauth.json}
       TZ: ${TZ:-Europe/Paris}
     ports:
@@ -29,7 +24,6 @@ services:
     networks:
       - finary-stack
     volumes:
-      - finary_session_data:/var/lib/finary-session
       - finary_mcp_data:/var/lib/finary-mcp
 
   schema-server:
@@ -108,6 +102,5 @@ networks:
     driver: bridge
 
 volumes:
-  finary_session_data:
   finary_mcp_data:
   n8n_data:

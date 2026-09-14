@@ -1,61 +1,51 @@
-"""Tests for local diagnostics endpoints."""
+"""Local application metadata and installed-package version contract."""
 
-import asyncio
 import tomllib
 from pathlib import Path
 
-import pytest
-from httpx import ASGITransport, AsyncClient, Response
+from fastapi.testclient import TestClient
 
 from app.config import SERVICE_VERSION
-from app.main import _reset_finary_client_for_tests, app
-
-BRIDGE_ROOT = Path(__file__).parents[1]
+from app.main import app
 
 
-def test_package_and_service_versions_agree() -> None:
-    project = tomllib.loads(
-        (BRIDGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+def test_package_service_and_openapi_versions_agree():
+    project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    with TestClient(app) as client:
+        assert project["project"]["version"] == SERVICE_VERSION == "2.0.0"
+        assert client.get("/openapi.json").json()["info"]["version"] == SERVICE_VERSION
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "ok", "service": "finary-bridge", "version": SERVICE_VERSION,
+        }
+
+
+def test_application_import_and_startup_without_operator_configuration(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    probe = '''
+import socket
+from unittest.mock import patch
+
+def forbidden(*args, **kwargs):
+    raise AssertionError("Unexpected network or OAuth access")
+
+with patch.object(socket.socket, "connect", forbidden):
+    from app import main, mcp_auth
+    from fastapi.testclient import TestClient
+    with (
+        patch.object(main, "NativeMcpClient", forbidden),
+        patch.object(mcp_auth, "OAuthStore", forbidden),
+    ):
+        with TestClient(main.app) as client:
+            assert client.get("/health").status_code == 200
+            assert client.get("/openapi.json").status_code == 200
+'''
+    subprocess.run(
+        [sys.executable, "-I", "-c", probe], cwd=tmp_path,
+        env={"PATH": os.environ.get("PATH", os.defpath)}, check=True,
+        capture_output=True, text=True, timeout=30,
     )
-
-    assert project["project"]["version"] == SERVICE_VERSION == "1.1.0"
-
-
-def test_health_returns_expected_service_metadata() -> None:
-    """The health check remains local and exposes the documented response."""
-
-    async def request_health() -> Response:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://testserver"
-        ) as client:
-            return await client.get("/health")
-
-    response = asyncio.run(request_health())
-
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("application/json")
-    assert response.json() == {
-        "status": "ok",
-        "service": "finary-bridge",
-        "version": "1.1.0",
-    }
-
-
-def test_health_does_not_load_finary_session_state(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("FINARY_SESSION_PATH", "deliberately-relative-and-invalid")
-    _reset_finary_client_for_tests()
-    try:
-
-        async def request_health() -> Response:
-            async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver"
-            ) as client:
-                return await client.get("/health")
-
-        response = asyncio.run(request_health())
-    finally:
-        _reset_finary_client_for_tests()
-
-    assert response.status_code == 200

@@ -133,9 +133,9 @@ def test_failures_sanitized_through_api(code, monkeypatch):
         app.dependency_overrides.clear()
 
 
-def test_auth_precedes_provider_and_health(monkeypatch):
+def test_auth_precedes_oauth_and_health(monkeypatch):
     monkeypatch.setenv("FINARY_BRIDGE_API_KEY", "synthetic-bridge-key")
-    monkeypatch.setenv("FINARY_PROVIDER", "finary_official_mcp")
+    monkeypatch.delenv("FINARY_PROVIDER", raising=False)
     monkeypatch.delenv("FINARY_MCP_STATE_PATH", raising=False)
     client = TestClient(app)
     assert client.get("/v3/snapshot").status_code == 401
@@ -171,7 +171,7 @@ def test_native_conflicting_payloads(text):
 def test_generated_model_and_package_parity():
     root = Path(__file__).parents[2]
     subprocess.run(
-        [sys.executable, str(root / "scripts/build-mcp-models.py"), "--check"], check=True
+        [sys.executable, str(root / "scripts/build-workflow-validation.py"), "--check"], check=True
     )
     assert (root / "docs/finary-mcp-contract.json").read_bytes() == (
         root / "finary-bridge/app/mcp-contract.json"

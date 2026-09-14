@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, cast, get_args
-
-from app.models import Account, AssetClass, Liability, Position
+from typing import Any, cast
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPOSITORY_ROOT / "docs" / "google-sheets-schema-v2.json"
@@ -196,37 +194,6 @@ def test_nullable_eur_and_currency_fields_preserve_unknown_values() -> None:
     assert schema["null_cell"] == ""
 
 
-def test_stable_models_map_without_raw_metadata_columns() -> None:
-    sheets = _schema()["sheets"]
-    account_columns = set(_column_names(sheets["accounts_current"]))
-    position_columns = set(_column_names(sheets["positions_current"]))
-    liability_columns = set(_column_names(sheets["liabilities_current"]))
-
-    assert set(Account.model_fields) - {"metadata"} <= account_columns
-    assert set(Position.model_fields) - {"metadata"} <= position_columns
-    assert set(Liability.model_fields) - {"metadata"} <= liability_columns
-    for sheet in sheets.values():
-        names = set(_column_names(sheet))
-        assert "metadata" not in names
-        assert "metadata_json" not in names
-
-
-def test_entity_nullability_matches_stable_models() -> None:
-    schema = _schema()["sheets"]
-    mappings = (
-        (Account, schema["accounts_current"]),
-        (Position, schema["positions_current"]),
-        (Liability, schema["liabilities_current"]),
-    )
-
-    for model, sheet in mappings:
-        columns = {column["name"]: column for column in sheet["columns"]}
-        for field_name, field in model.model_fields.items():
-            if field_name == "metadata":
-                continue
-            assert columns[field_name]["nullable"] is (type(None) in get_args(field.annotation))
-
-
 def test_category_aware_key_contract_is_documented() -> None:
     markdown = DOCUMENTATION_PATH.read_text(encoding="utf-8")
     compact_markdown = " ".join(markdown.split())
@@ -253,7 +220,6 @@ def test_manual_enums_and_percentage_representation_are_complete() -> None:
         "ticker",
         "name_match",
     ]
-    assert schema["enums"]["asset_class"] == [item.value for item in AssetClass]
     assert schema["enums"]["cashflow_type"] == [
         "CONTRIBUTION",
         "WITHDRAWAL",

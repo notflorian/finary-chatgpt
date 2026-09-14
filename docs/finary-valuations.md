@@ -159,11 +159,11 @@ n8n validator also rejects aggregate arithmetic overflow before any writes.
 
 ## Regression evidence and adoption
 
-[The synthetic fixture](../finary-bridge/tests/fixtures/finary/verified-valuations.json)
+[The synthetic fixture](https://github.com/notflorian/finary-chatgpt/blob/3e98248ee1b00c58bf1e92c3f2fd7a34baa56819/finary-bridge/tests/fixtures/finary/verified-valuations.json)
 contains minimal fields from the verified current structures, with invented
 identifiers/names/amounts and deliberately different display values. It is not a
 captured private payload. The additional
-[ownership fixture](../finary-bridge/tests/fixtures/finary/verified-ownership-valuations.json)
+[ownership fixture](https://github.com/notflorian/finary-chatgpt/blob/3e98248ee1b00c58bf1e92c3f2fd7a34baa56819/finary-bridge/tests/fixtures/finary/verified-ownership-valuations.json)
 contains staked crypto, bare ownership and usufruct with the enum/amount fields
 supported by the primary-source branches above. Tests derive missing, conflicting
 and unrecognized variants as negative or adversarial cases. The original legacy

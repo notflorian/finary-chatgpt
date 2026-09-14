@@ -1,95 +1,47 @@
-"""Regression checks for the protected authentication boundary."""
+"""Package and configuration exclude private authentication and isolate OAuth."""
 
-from __future__ import annotations
-
-import inspect
+import ast
 import json
+import tomllib
 from pathlib import Path
 
-from app.finary_client import FinaryApiClient, FinaryCredentials
-
-_BRIDGE_ROOT = Path(__file__).parents[1]
-_REPOSITORY_ROOT = _BRIDGE_ROOT.parent
-
-
-def test_adapter_has_no_stronger_credential_persistence_path() -> None:
-    source = inspect.getsource(FinaryApiClient)
-
-    for prohibited in (
-        "pickle",
-        "FINARY_TOTP_SECRET",
-        "FINARY_BACKUP_CODE",
-        "FINARY_REFRESH_TOKEN",
-        "otpauth://",
-    ):
-        assert prohibited not in source
+ROOT = Path(__file__).parents[2]
+OBSOLETE = {
+    "FINARY_EMAIL", "FINARY_PASSWORD", "FINARY_MFA_CODE", "FINARY_SESSION_PATH", "FINARY_PROVIDER",
+}
 
 
-def test_no_totp_generator_or_persistent_auth_configuration_exists() -> None:
-    credential_fields = set(FinaryCredentials.__dataclass_fields__)
-    assert credential_fields == {"email", "password", "mfa_code"}
-
-    environment_lines = {
-        line.split("=", maxsplit=1)[0]
-        for line in (_REPOSITORY_ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
-        if line and not line.startswith("#") and "=" in line
-    }
-    assert environment_lines.isdisjoint(
-        {
-            "FINARY_TOTP_SECRET",
-            "FINARY_BACKUP_CODE",
-            "FINARY_SESSION_COOKIE",
-            "FINARY_SESSION_TOKEN",
-            "FINARY_REFRESH_TOKEN",
-        }
-    )
-
-    project = (_BRIDGE_ROOT / "pyproject.toml").read_text(encoding="utf-8").lower()
-    assert "pyotp" not in project
+def test_supported_configuration_has_no_private_authentication():
+    for name in (".env.example", "docker-compose.yml", "docker-compose.mcp-test.yml"):
+        text = (ROOT / name).read_text()
+        assert all(variable not in text for variable in OBSOLETE)
+        assert "finary_session_data" not in text
+    compose = (ROOT / "docker-compose.yml").read_text()
+    bridge, downstream = compose.split("  schema-server:", 1)
+    assert "finary_mcp_data:/var/lib/finary-mcp" in bridge
+    assert "FINARY_MCP_STATE_PATH" in bridge
+    assert "FINARY_MCP_STATE_PATH" not in downstream
+    assert "/var/lib/finary-mcp" not in downstream
+    assert "/home/node/.n8n" not in bridge
 
 
-def test_finary_authentication_material_is_not_passed_to_n8n() -> None:
-    compose = (_REPOSITORY_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    n8n_environment = compose.split("  n8n:", maxsplit=1)[1].split("    ports:", maxsplit=1)[0]
-
-    for variable in (
-        "FINARY_EMAIL",
-        "FINARY_PASSWORD",
-        "FINARY_MFA_CODE",
-        "FINARY_TOTP_SECRET",
-        "FINARY_SESSION_TOKEN",
-    ):
-        assert variable not in n8n_environment
-
-
-def test_session_volume_is_mounted_only_into_bridge() -> None:
-    compose = (_REPOSITORY_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    bridge_section = compose.split("  finary-bridge:", maxsplit=1)[1].split(
-        "  schema-server:", maxsplit=1
-    )[0]
-    schema_section = compose.split("  schema-server:", maxsplit=1)[1].split("  n8n:", maxsplit=1)[0]
-    n8n_section = compose.split("  n8n:", maxsplit=1)[1].split("networks:", maxsplit=1)[0]
-
-    assert "finary_session_data:/var/lib/finary-session" in bridge_section
-    assert "finary_session_data" not in schema_section
-    assert "finary_session_data" not in n8n_section
+def test_package_has_only_supported_modules_and_dependencies():
+    bridge = ROOT / "finary-bridge"
+    project = tomllib.loads((bridge / "pyproject.toml").read_text())["project"]
+    requirements = " ".join(project["dependencies"]).lower()
+    assert "curl-cffi" not in requirements and "finary_uapi" not in requirements
+    for name in ("finary_client.py", "finary_session_store.py", "normalizer.py",
+                 "models.py", "services/snapshot_service.py"):
+        assert not (bridge / "app" / name).exists()
+    for path in (bridge / "app").rglob("*.py"):
+        source = path.read_text()
+        ast.parse(source)
+        assert all(variable not in source for variable in OBSOLETE)
+        assert "curl_cffi" not in source
 
 
-def test_production_daily_workflow_remains_inactive() -> None:
-    workflow = json.loads(
-        (_REPOSITORY_ROOT / "n8n/workflows/finary-daily-sync.json").read_text(encoding="utf-8")
-    )
-
-    assert workflow["active"] is False
-
-
-def test_session_security_boundary_is_documented() -> None:
-    architecture = (_REPOSITORY_ROOT / "docs/architecture.md").read_text(encoding="utf-8")
-    operations = (_REPOSITORY_ROOT / "docs/operations.md").read_text(encoding="utf-8")
-
-    assert "Clerk session identifier" in architecture
-    assert "production `__client` cookie" in architecture
-    assert "bearer JWTs remain in memory" in architecture
-    assert "session file uses mode\n`0600`" in architecture
-    assert "Do **not** back up `finary_session_data`" in operations
-    assert "fresh interactive Finary bootstrap" in operations
+def test_workflow_exports_remain_inactive_and_credential_free():
+    for path in (ROOT / "n8n/workflows").glob("*.json"):
+        source = path.read_text()
+        assert json.loads(source)["active"] is False
+        assert '"credentials"' not in source

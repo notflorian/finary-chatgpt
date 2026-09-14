@@ -13,8 +13,8 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 ```
 
-The application uses FastAPI, Pydantic v2, Uvicorn, and `curl-cffi`. Do not add a
-direct Finary dependency outside the adapter boundary.
+The application uses FastAPI, Pydantic v2, Uvicorn and the pinned native MCP SDK.
+Keep source-specific dependencies inside the adapter boundary.
 
 Run the bridge without Docker:
 
@@ -25,21 +25,21 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 `GET /health` requires no credentials. Snapshot routes require the environment
 described in `.env.example` unless a fake adapter is injected in tests.
 
-For memory-only use outside Docker, leave `FINARY_SESSION_PATH` absent or empty.
-After `authenticate()` establishes renewable state, the same adapter renews
-tokens without another password/MFA sign-in and creates no session or lock files.
-Exiting or reloading the process loses that state. The operator-only
-`bootstrap_session()` command requires configured storage to publish a session
-for other processes; it cannot seed another process's memory.
+Set `FINARY_MCP_STATE_PATH` only to independently authorized, protected OAuth
+state. No provider selector or private credentials are used. Follow the
+[OAuth runbook](mcp-operations.md#backups-and-independent-oauth). Health and
+OpenAPI access require no OAuth state; routes never initiate consent.
 
 ## Required local checks
 
 Run normal tests and static analysis from `finary-bridge`:
 
 ```bash
+python -m pytest --collect-only -q
 python -m pytest -m "not live" --ignore=tests/live
-ruff check app tests
-mypy app
+python -m ruff check .
+python -m mypy app
+python -m build
 ```
 
 Run repository contracts from the repository root:
@@ -90,13 +90,8 @@ mapping expressions and append conversion remain real. A network-disabled Node
 process is reused within each test worker; no n8n server, database, credentials
 or project volumes are needed. This required gate covers all eight write paths,
 known/null transitions, same-day history, retries, zero/false preservation and
-consumer acceptance. The `test_verified_scpi_crypto_null_known_null_clears_actual_cells`
-case starts with adapter-owned fixtures, constructs real snapshots, and verifies
-SCPI/crypto null → known → null transitions through the exported JavaScript and
-installed connector, including held/staked crypto, full/bare SCPI ownership and
-usufruct, retained costs and prior-day history. Its
-null-versus-empty-string countercheck demonstrates why
-auto-mapped null retains an old cell even with `allowEmptyValues=true`.
+consumer acceptance. The MCP connector cases cover native exact-decimal
+null → zero → null transitions and accepted observation membership.
 
 When `pytest-xdist` runs with `-n auto`, worker count comes from
 `tests/conftest.py`: local runs default to `2`, while CI scales to available CPU
@@ -145,69 +140,30 @@ remain applicable.
 
 ## Workflow validation maintenance
 
-The shared [validation source](../n8n/validation.js) is embedded in both workflow
-exports by [build-workflow-validation.py](../scripts/build-workflow-validation.py).
-The build reads `PortfolioSnapshotV2.model_json_schema()` and the verified empty
-metadata default factories; it does not maintain another API field list. Its
-small schema interpreter supports only the vocabulary used by these models.
-Source-field constraints are also reused for the workbook columns that reference
-those fields, alongside the fetched canonical workbook schema. The export is
-self-contained and requires no additional n8n package or runtime endpoint.
-
-After changing models or shared validation, run from the repository root with
-the bridge development environment active:
+The common entry point generates and checks all supported MCP artifacts:
 
 ```bash
 python scripts/build-workflow-validation.py
 python scripts/build-workflow-validation.py --check
-python -m pytest -q finary-bridge/tests/test_prewrite_validation.py
+python -m pytest -q finary-bridge/tests/test_mcp_integration.py finary-bridge/tests/test_mcp_workflow.py
 ```
 
-Contract-parity tests compare every embedded copy with the generated source and
-the model/workbook enums. The field matrix uses Pydantic as an independent input
-oracle and executes the exported JavaScript. Separate output mutations exercise
-every column, including missing keys and JavaScript `undefined` before JSON
-serialization, batch structure, enum/date/number rules, and retained-row decoding.
-Legacy workbook fixture IDs remain valid as read data; newly prepared fixture
-runs now use realistic execution identities and timing origins. Import tests,
-individual Code-node execution, workbook simulation and real n8n engine execution
-are complementary evidence, not interchangeable checks.
-
-Code-node logic lives in checked-in sources under `n8n/code-nodes/`, grouped by
-workflow export stem and a lowercase hyphenated node name. For example,
-`n8n/code-nodes/finary-daily-sync/prepare-validated-rows.js` is the source of
-the **Prepare Validated Rows** Code node in
-`n8n/workflows/finary-daily-sync.json`.
-
-Edit those `.js` files directly, then regenerate the portable workflow exports:
-
-```bash
-python scripts/build-workflow-validation.py
-python scripts/build-workflow-validation.py --check
-```
-
-The build rewrites every `parameters.jsCode` field from the checked-in source
-files and prepends the generated contract block only for the nodes that use the
-shared validation helpers. The workflow JSON remains the self-contained import
-artifact for the pinned n8n version; n8n never reads repository files at
-runtime.
-
-The build also embeds [sheets-serialization.js](../n8n/sheets-serialization.js)
-only in the eight Code nodes immediately before Sheets upserts. This separate
-prelude is necessary because ordinary row selectors do not receive the contract
-validation prelude. Contract validation and the all-batch portfolio gate run
-before serialization. Internal nullable values remain null; outgoing null cells
-become explicit empty strings, with absent/undefined fields and required blanks
-rejected at the boundary. Edit this shared source and the readable Code nodes,
-then regenerate both exports with the same build command.
+It invokes the model/packaged-contract, workbook and workflow generators and
+propagates every failure. MCP Code-node sources live under
+`n8n/code-nodes/finary-mcp-sync`; exports are self-contained for pinned n8n.
+The legacy exports are frozen pending workbook removal. Their removed Pydantic
+API generator and model-parity tests are not part of supported generation.
+Static workbook and engine regressions remain until that cleanup. Shared helpers
+in legacy-named tests still serve the MCP runtime gate; keep them importable.
 
 ## Test design
 
 The normal suite is deterministic and credential-free:
 
 - adapter tests use fake HTTP sessions and application-level exception checks;
-- normalization tests use synthetic anonymized fixtures;
-- API tests inject fake `FinaryClient` implementations;
+- MCP adapter/service tests use synthetic anonymized fixtures;
+- HTTP tests retain the authorization dependency and client factory, replacing
+  only transports with synthetic peers;
 - schema tests compare stable models, JSON definitions, and documented
   semantics;
 - workflow tests execute exported n8n Code-node JavaScript in Node.js and check
@@ -221,51 +177,11 @@ shape is needed, create an anonymized fixture directly: replace IDs, names,
 institutions, values, account details, and correlation data while retaining only
 the necessary structure.
 
-## Opt-in live Finary checks
+## Opt-in live MCP checks
 
-Live tests are excluded from CI and skipped unless their explicit opt-in flag is
-set. Load credentials from a mode-restricted untracked file; never place them in
-the command line or test output.
-
-Adapter/entity smoke test:
-
-```bash
-cd finary-bridge
-source .venv/bin/activate
-set -a
-source ../.env.live
-set +a
-unset FINARY_MFA_CODE
-FINARY_LIVE_TEST=1 python -m pytest \
-  -m live tests/live/test_finary_live.py -vv -s --tb=no
-```
-
-The test prompts for a one-time factor and reports structural assertions only.
-
-Protected session lifecycle test:
-
-```bash
-SESSION_DIR="$(mktemp -d /private/tmp/finary-session-test.XXXXXX)"
-(
-  set -a
-  source ../.env.live
-  set +a
-  unset FINARY_MFA_CODE
-  export FINARY_SESSION_PATH="$SESSION_DIR/session.json"
-  FINARY_LIVE_SESSION_TEST=1 python -m pytest \
-    -m live tests/live/test_finary_session_live.py -vv -s --tb=no
-)
-stat -f 'session permissions: %Sp' "$SESSION_DIR/session.json"
-```
-
-Use a new empty temporary path on each run. Delete the temporary directory after
-the check. Never point the test at a production session file or commit the
-result.
-
-Live output must not print account names, balances, positions, cookies, tokens,
-or authentication payloads. A live check is evidence about the current private
-API only; update code and anonymized fixtures together when its structure has
-genuinely changed.
+Normal CI excludes live diagnostics. They require explicit isolated operator
+OAuth and sanitized structural output. See the [MCP runbook](mcp-operations.md).
+No private password/MFA/session tests or commands remain.
 
 ## Continuous integration
 
@@ -275,7 +191,7 @@ read-only repository permissions. It has five bounded jobs:
 | Job | Checks |
 | --- | --- |
 | `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
-| `session-validation-python314` | Python 3.14 session and upstream-response validation, including real payloads and injected decoder/copy failures |
+| `mcp-validation-python314` | Python 3.14 MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
@@ -294,8 +210,7 @@ runtime regression execution so parallel workers reuse a warm local image cache.
 Before submitting a change:
 
 1. keep Finary-specific behavior inside the adapter;
-2. preserve `/v2/snapshot` schema `2.0` and workbook schema `2.1` unless the
-   change explicitly coordinates a versioned contract revision;
+2. preserve MCP API/workbook contracts and fixed source provenance;
 3. update `docs/google-sheets-schema.json`, workflows, tests, and documentation
    together for a workbook contract change;
 4. keep workflow exports credential-free and inactive;
@@ -307,55 +222,14 @@ Before submitting a change:
 Do not weaken coverage, currency, null, identity, or idempotency rules to make a
 test pass.
 
-## Publishing 1.1.0
+## Preparing application 2.0.0
 
-Release preparation is separate from upgrading an operator's running stack.
-Review and merge the release PR through the normal protected workflow. Require
-all five CI jobs to succeed on the exact merged commit: `tests`,
-`session-validation-python314`, `static-analysis`, `repository-contracts`, and
-`n8n-import`. An earlier green run is not evidence for a later commit, and CI
-does not validate a production workbook or live credentials.
-
-From a clean maintainer checkout with normal GitHub write access:
-
-```bash
-git fetch origin main --tags
-git status --short
-git rev-parse origin/main
-git tag --list v1.1.0
-```
-
-Stop if local changes would be overwritten or if the tag/release already exists;
-inspect it rather than moving a tag or publishing a duplicate. Select the full
-merged commit SHA that passed the five jobs, check out that exact commit, and
-verify `app/config.py`, `pyproject.toml`, `/health` expectations, release notes,
-and the migration guide all describe `1.1.0`. Do not tag the pre-merge PR head or
-silently select a newer unvalidated `main`.
-
-Once that exact commit is checked out and approved for publication:
-
-```bash
-git tag -a v1.1.0 -m "Finary Portfolio Data 1.1.0" HEAD
-git push origin refs/tags/v1.1.0
-gh release create v1.1.0 \
-  --repo notflorian/finary-chatgpt \
-  --verify-tag \
-  --title "Finary Portfolio Data 1.1.0" \
-  --notes-file docs/release-1.1.0.md \
-  --latest
-```
-
-Stop at any rejected operation; do not bypass tag rules or branch protections.
-`--verify-tag` requires the tag to exist remotely instead of implicitly creating
-one on a potentially different commit. The notes file is the reviewed release
-body, including the tag-pinned migration link. See the
-[GitHub CLI release documentation](https://cli.github.com/manual/gh_release_create).
-
-Verify the published release title, tag commit, source archives, rendered notes,
-and migration link. Do not attach `.env`, credential-bearing workflow exports,
-session state, workbook backups, or real portfolio data. Operators can then
-follow the [migration runbook](migration-1.0-to-1.1.md); publishing the release
-does not deploy it or migrate any installation.
+The breaking application version is 2.0.0; API/workbook remain 3.0 and
+source-contract remains 1.1.0. Workbook self-containment, migration/legacy-writer
+removal, broader test consolidation and the documentation rewrite must finish
+before release. Require all five CI jobs on the exact release commit. A package
+build, tag or green CI does not authorize deployment, workflow activation or
+operator data changes. This cleanup does not publish or tag a release.
 
 ## Official MCP evidence boundaries
 

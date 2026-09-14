@@ -1,5 +1,8 @@
 # Migrate from 1.0.0 to 1.1.0
 
+Historical application 1.1.0 instructions only. Application 2.0.0 removes private
+authentication and V1/V2 routes; do not apply this runbook to the current bridge.
+
 This operator runbook upgrades an existing `v1.0.0` Compose installation and its
 existing workbook. Follow it in order during a maintenance window, after the
 `v1.1.0` tag has been published. It is not an automatic migration and no command
@@ -172,7 +175,7 @@ workflow JSON alone does neither. Confirm the daily workflow is still unpublishe
 
 Existing version `1` session JSON remains readable; a valid session does not
 require MFA solely because of this upgrade. If the session is absent, expired,
-or rejected, use the [interactive bootstrap command](../README.md#4-bootstrap-the-finary-session)
+or rejected, use the [interactive bootstrap command](https://github.com/notflorian/finary-chatgpt/blob/3e98248ee1b00c58bf1e92c3f2fd7a34baa56819/README.md#4-bootstrap-the-finary-session)
 from this release. It verifies a fresh sign-in before publishing its replacement.
 Do not pre-clear a usable session. Restart the bridge after replacement for
 immediate adoption:

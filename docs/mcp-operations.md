@@ -12,23 +12,29 @@ and must never be inspected, copied, revoked or used by these commands.
 
 ## Version and writer selection
 
-| Provider | Bridge route | Workbook | Schema delivery | Workflow |
+| Source | Bridge route | Workbook | Schema delivery | Workflow |
 | --- | --- | --- | --- | --- |
-| `private_api` (default) | `/v1/snapshot`, `/v2/snapshot` | 2.1 | `google-sheets-schema-v2.json` | `finary-daily-sync.json` and its legacy error handler |
-| `finary_official_mcp` | `/v3/snapshot` | 3.0 | `google-sheets-schema.json` | `finary-mcp-sync.json`, with in-graph sanitized failure handling |
+| Official MCP | `/v3/snapshot` | 3.0 | `google-sheets-schema.json` | `finary-mcp-sync.json`, with in-graph sanitized failure handling |
 
-Set `FINARY_PROVIDER=finary_official_mcp` only for the candidate bridge. Local API
-key authorization runs before either provider is constructed. The MCP provider
-requires no private credentials. `/health` neither constructs a provider nor
-reads authorization state. Legacy routes retain their binding and fail-safe
-behavior. The optional `/v3/budget`, `/v3/spending-search` and `/v3/goals` are
-protected read-only requests, independent of the scheduled portfolio path.
+Application 2.0.0 is MCP-only. No provider selector is used. Local API-key
+comparison runs before client construction or OAuth access. `/health` and
+OpenAPI access neither constructs a client nor reads authorization state.
+V1/V2 routes are removed and return 404. Optional `/v3/budget`,
+`/v3/spending-search` and `/v3/goals` remain protected, separate reads.
+
+The official OAuth issuer is `https://clerk.finary.com`. Its verified issuer
+checks and required OAuth endpoints remain intact. This is independently
+consented OAuth, distinct from the removed private Clerk password, session-cookie,
+bearer-renewal and MFA flow. Never replace the issuer, relax endpoint allowlisting
+or reuse assistant/plugin tokens.
 
 Set the candidate's distinct `FINARY_MCP_GOOGLE_SHEET_ID`, nonblank
 `FINARY_MCP_WRITER_ID`, and positive `FINARY_MCP_WRITER_GENERATION`. The control row
 must match all three version/provider/writer-generation constraints and be
-`ACTIVE` before writes. A migrated copy starts `PAUSED`. Leave the legacy writer
-on its original 2.1 workbook; neither writer silently accepts the other's schema.
+`ACTIVE` before writes. A migrated copy starts `PAUSED`. The retained legacy
+exports are frozen and cannot run against this bridge.
+Workbook migration/cutover material below awaits removal; it does not restore
+private-provider support in 2.0.0.
 
 ## Production target register and approval stages
 
@@ -167,8 +173,9 @@ Finary payloads. No backup/recovery step uses `docker compose down -v`.
    isolated environment. Never use production volumes in test containers.
    Preserve native Google workbook copies so formulas, formats, protections and
    manual notes survive. Do not use `docker compose down -v`.
-3. Do not back up either renewable Finary store. Clerk and MCP have distinct
-   bridge-only named volumes. The MCP store persists only client registration
+3. Do not back up renewable Finary state. MCP has its own bridge-only named
+   volume; old private state is no longer mounted. The MCP store persists only
+   client registration
    metadata needed by the SDK (`client_id`, issuer, redirect URIs and public
    token authentication method), a renewable refresh token, SDK-effective scope
    and a rotation generation. That scope can be explicitly returned or inferred
@@ -621,15 +628,10 @@ Rollback criteria include a mismatched revision/binding, failed migration or
 preservation guard, overlapping writer, unavailable authorization preventing
 approved recovery, or failed manual/scheduled membership or semantic acceptance.
 Pause first and preserve evidence; execute rollback only within approved targets
-and reconciliation scope. Restore `FINARY_PROVIDER=private_api`, `/v2/snapshot`,
-`FINARY_GOOGLE_SHEET_ID` for the reconciled copy and
-`FINARY_SCHEMA_URL=http://schema-server/google-sheets-schema-v2.json` together.
-Restore both reviewed inactive legacy workflows and their Google/local n8n API
-bindings, then their error-workflow relationship. Keep MCP unpublished/PAUSED.
-Use [legacy first-run checks](operations.md#first-run-verification) and independent
-scheduled verification before accepting recovery. Existing legacy authorization
-is not guaranteed usable; if new consent is needed, remain paused until its
-separate authorization and successful recovery.
+and reconciliation scope. Application 2.0.0 cannot restore a private provider or
+V1/V2 routes. Keep synchronization paused and preserve operator data. Any rollback
+to an older application is a separate deployment decision outside this runbook's
+supported bridge configuration; do not transform private auth into OAuth state.
 
 Source contract 1.1.0 preserves up to 64 fractional digits as exact decimal text
 (24 integer digits). This is a bounded project policy, not an upstream maximum.
