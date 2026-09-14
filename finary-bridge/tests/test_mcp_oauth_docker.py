@@ -59,7 +59,10 @@ def test_rootful_linux_host_container_host_handoff(tmp_path):
     service = config["services"]["finary-bridge"]
     mount = service["volumes"][0]
     assert service["user"] == f"{os.getuid()}:{os.getgid()}"
-    assert mount["type"] == "bind" and not mount["bind"]["create_host_path"]
+    # Compose versions may omit the false boolean in resolved JSON.
+    assert mount["type"] == "bind"
+    assert mount.get("bind", {}).get("create_host_path", False) is False
+    assert "create_host_path: false" in (ROOT / "docker-compose.mcp-test.yml").read_text()
     assert mount["source"] == str(store.path.parent)
     fixtures = tmp_path / "fixtures"
     for relative in (

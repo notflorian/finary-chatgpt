@@ -213,7 +213,10 @@ def test_candidate_preflight_rejects_invalid_identity_without_mutation(tmp_path,
     assert result.stdout == ""
     assert "Invalid isolated ownership configuration" in result.stderr
     assert list(directory.iterdir()) == []
-    assert directory.stat() == before
+    after = directory.stat()
+    assert (after.st_ino, after.st_mode, after.st_uid, after.st_gid, after.st_mtime_ns) == (
+        before.st_ino, before.st_mode, before.st_uid, before.st_gid, before.st_mtime_ns
+    )
 
 
 @pytest.mark.parametrize("fault", ["permissions", "symlink", "missing"])
