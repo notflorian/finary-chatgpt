@@ -4336,8 +4336,7 @@
             "BROKEN_CONNECTION",
             "UNKNOWN_FRESHNESS",
             "MISSING_ENRICHMENT",
-            "BUDGET_HISTORY_INCONSISTENT",
-            "UNRESOLVED_CROSSWALK"
+            "BUDGET_HISTORY_INCONSISTENT"
           ],
           "x-field": {
             "authority": "bridge",
@@ -10542,8 +10541,7 @@
               "BROKEN_CONNECTION",
               "UNKNOWN_FRESHNESS",
               "MISSING_ENRICHMENT",
-              "BUDGET_HISTORY_INCONSISTENT",
-              "UNRESOLVED_CROSSWALK"
+              "BUDGET_HISTORY_INCONSISTENT"
             ],
             "x-field": {
               "authority": "bridge",

@@ -173,7 +173,6 @@ class McpWarning(ContractModel):
         "UNKNOWN_FRESHNESS",
         "MISSING_ENRICHMENT",
         "BUDGET_HISTORY_INCONSISTENT",
-        "UNRESOLVED_CROSSWALK",
     ]
     entity_key: str | None
 

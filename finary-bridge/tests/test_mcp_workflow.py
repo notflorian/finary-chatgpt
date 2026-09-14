@@ -212,6 +212,24 @@ def test_exported_diagnostic_and_currency_regressions(path):
         prepare(value)
 
 
+@pytest.mark.parametrize(
+    "stage", ["Validate MCP Snapshot", "Prepare MCP Rows", "Select source_warnings"]
+)
+def test_removed_migration_warning_cannot_reach_sheets(stage):
+    named = prepare()
+    warnings = {
+        "Validate MCP Snapshot": named["Fetch MCP Snapshot"][0]["body"]["warnings"][0],
+        "Prepare MCP Rows": named["Validate MCP Snapshot"][0]["snapshot"]["warnings"][0],
+        "Select source_warnings": named["Prepare MCP Rows"][0]["batches"]["source_warnings"][0],
+    }
+    warnings[stage]["code"] = "UNRESOLVED_CROSSWALK"
+    with pytest.raises(subprocess.CalledProcessError) as rejected:
+        _run_code_node(
+            WORKFLOW, stage, named_rows=named, input_rows=[{}], execution_id="mcp-test"
+        )
+    assert rejected.value.stderr == "MCP_VALIDATION_FAILED"
+
+
 def test_restored_context_and_terminal_collision_are_rejected():
     named = prepare()
     for mode in ("restored", "terminal", "mutated-batch"):

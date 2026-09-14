@@ -38,6 +38,20 @@ def validator(reference):
     )
 
 
+def test_removed_migration_warning_is_rejected_by_contract_and_model():
+    from pydantic import ValidationError
+
+    from app.mcp_models import McpWarning
+
+    warning = {"code": "STALE_SOURCE", "entity_key": None}
+    assert validator("#/$defs/warning").is_valid(warning)
+    assert McpWarning.model_validate(warning).code == "STALE_SOURCE"
+    warning["code"] = "UNRESOLVED_CROSSWALK"
+    assert not validator("#/$defs/warning").is_valid(warning)
+    with pytest.raises(ValidationError):
+        McpWarning.model_validate(warning)
+
+
 def materialize(case):
     value = deepcopy(BASES[case["base"]])
     for change in case["changes"]:
