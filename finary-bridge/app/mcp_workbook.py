@@ -9,6 +9,7 @@ from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from importlib.resources import files
 from typing import Any, cast
+from urllib.parse import quote
 
 from jsonschema import Draft202012Validator
 
@@ -16,6 +17,16 @@ from app.mcp_validation import CONTRACT, FORMATS, validate
 
 SCHEMA: dict[str, Any] = json.loads(files("app").joinpath("workbook-schema.json").read_text())
 VERSION: str = SCHEMA["schema_version"]
+CHILD_KEYS = {
+    "account_ownership": ("account_key", "owner_key"),
+    "source_connections": ("connection_key",),
+    "position_rates": ("position_key", "source_field"),
+    "official_allocation_categories": ("category",),
+    "official_allocation_types": ("category", "holding_type"),
+    "portfolio_members": ("member_ordinal",),
+    "source_warnings": ("code", "entity_key"),
+    "unsupported_details": ("account_key", "holding_type", "reason"),
+}
 
 
 def require(condition: bool) -> None:
@@ -90,6 +101,31 @@ def validate_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def validate_derived_key(table: str, row: dict[str, Any]) -> None:
+    """Check a decoded, schema-valid row using only its own retained identity."""
+    if table in CHILD_KEYS:
+        parts = []
+        for field in CHILD_KEYS[table]:
+            value = row[field]
+            if field == "entity_key":
+                part = "~null" if value is None else "~value" + quote(value, safe="-._~")
+            elif field == "member_ordinal":
+                # Schema-valid integral numbers, including Sheets 1.0, encode as 1.
+                part = str(int(value))
+            else:
+                part = quote(value, safe="-._~")
+            parts.append(part)
+        expected = row["observation_id"] + ":" + table + ":" + ":".join(parts)
+        require(row["row_key"] == expected)
+    elif table == "positions_history":
+        require(
+            row["history_key"]
+            == f"mcp:history:{row['snapshot_date']}:{row['observation_id']}:{row['position_key']}"
+        )
+    elif table == "portfolio_daily":
+        require(row["daily_key"] == f"mcp:daily:{row['snapshot_date']}:{row['observation_id']}")
+
+
 def initialize(writer_id: str, generation: int) -> dict[str, Any]:
     """Build a deterministic empty inventory; no credential or network access."""
     control = {
@@ -135,6 +171,7 @@ def records(inventory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         require(len(keys) == len(set(keys)))
     for table in SCHEMA["mcp_tables"]["sync_runs"]["count_columns"]:
         for row in result[table]:
+            validate_derived_key(table, row)
             terminals = [
                 r for r in result["sync_runs"] if r["observation_id"] == row["observation_id"]
             ]

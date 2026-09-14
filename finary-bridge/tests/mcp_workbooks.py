@@ -10,7 +10,7 @@ from mcp_artifacts import SCHEMA, WORKFLOW
 from mcp_snapshots import NOW, snapshot
 from n8n_code import _run_code_node
 
-from app.mcp_workbook import initialize
+from app.mcp_workbook import cell, google_create, initialize
 
 
 def empty_book():
@@ -127,19 +127,41 @@ def failure(named, book, execution="mcp-test"):
     ]
 
 
-def book_for_consumer():
+def book_for_consumer(value=None):
     book = empty_book()
-    for write in writes(prepare(book=book)):
+    for write in writes(prepare(value, book=book)):
         table = write["node"]["parameters"]["sheetName"]["value"]
         book[table] += write["rows"]
     return book
 
 
-def book_with_two_observations():
-    book = book_for_consumer()
-    for write in writes(prepare(book=book, execution="next"), execution="next"):
+def book_with_two_observations(value=None, next_value=None):
+    book = book_for_consumer(value)
+    for write in writes(prepare(next_value, book=book, execution="next"), execution="next"):
         table = write["node"]["parameters"]["sheetName"]["value"]
         key = SCHEMA["sheets"][table]["unique_key"]
         for row in write["rows"]:
             book[table] = [r for r in book[table] if r[key] != row[key]] + [row]
     return book
+
+
+def partial_book(value=None, tables=("source_warnings",)):
+    book = book_for_consumer()
+    named = prepare(value, book=book, execution="partial")
+    for write in writes(named, execution="partial"):
+        table = write["node"]["parameters"]["sheetName"]["value"]
+        if table in tables:
+            book[table] += write["rows"]
+    book["sync_runs"] += failure(named, book, execution="partial")
+    return book
+
+
+def native_observation(book=None):
+    book = book_for_consumer() if book is None else book
+    native = google_create(initialize("synthetic-writer", 1))
+    for sheet in native["sheets"]:
+        name = sheet["properties"]["title"]
+        grid = sheet["data"][0]["rowData"]
+        headers = [v["userEnteredValue"]["stringValue"] for v in grid[0]["values"]]
+        grid[1:] = [{"values": [cell(row.get(h)) for h in headers]} for row in book[name]]
+    return native, book["sync_runs"][0]["run_id"]

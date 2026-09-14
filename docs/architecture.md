@@ -76,9 +76,11 @@ manual and scheduled executions.
 
 The production consumer validates the complete physical inventory before choosing
 an observation: headers, metadata, schemas, keys, terminal membership, counts,
-references and financial semantics. Dated fallback can use independently valid
-history without borrowing later account metadata. The consumer is executable
-operator tooling; uploading instructions does not install it inside ChatGPT.
+references and financial semantics. Derived keys are checked against each retained
+row’s own fields, including partial FAILED writes, before selection or fallback.
+Dated fallback can use independently valid history without borrowing later
+account metadata. The consumer is executable operator tooling; uploading
+instructions does not install it inside ChatGPT.
 
 ## Contract ownership
 

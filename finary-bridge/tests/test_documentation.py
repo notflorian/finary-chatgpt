@@ -12,9 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 import pytest
 from mcp_snapshots import NOW
-from mcp_workbooks import book_for_consumer, book_with_two_observations
-
-from app.mcp_workbook import cell, google_create, initialize
+from mcp_workbooks import book_with_two_observations, native_observation, partial_book
 
 ROOT = Path(__file__).parents[2]
 
@@ -108,17 +106,6 @@ def test_local_documentation_links_and_anchors_resolve():
                 headings = re.findall(r"^#+ (.+)$", path.read_text(), flags=re.M)
                 anchors = {re.sub(r"[^\w\- ]", "", h.lower()).replace(" ", "-") for h in headings}
                 assert unquote(target.fragment) in anchors, (document, link)
-
-
-def native_observation(book=None):
-    book = book_for_consumer() if book is None else book
-    native = google_create(initialize("synthetic-writer", 1))
-    for sheet in native["sheets"]:
-        name = sheet["properties"]["title"]
-        grid = sheet["data"][0]["rowData"]
-        headers = [v["userEnteredValue"]["stringValue"] for v in grid[0]["values"]]
-        grid[1:] = [{"values": [cell(row.get(h)) for h in headers]} for row in book[name]]
-    return native, book["sync_runs"][0]["run_id"]
 
 
 def test_readback_command_checks_exported_rows_without_disclosing_values(
@@ -255,3 +242,31 @@ def test_documented_identity_exports_use_id_not_shell_uid(tmp_path):
         capture_output=True, text=True, timeout=5, check=True,
     )
     assert result.stdout == f"{os.getuid()}:{os.getgid()}"
+
+
+@pytest.mark.parametrize("retained", ["failed", "older_success"])
+@pytest.mark.parametrize("table", ["source_warnings", "positions_history", "portfolio_daily"])
+def test_readback_cli_rejects_unselected_derived_keys(tmp_path, retained, table):
+    book = partial_book(tables=(table,)) if retained == "failed" else book_with_two_observations()
+    if retained == "older_success":
+        book["sync_runs"][-1]["completed_at"] = "2026-09-11T08:00:01+00:00"
+    run_id = book["sync_runs"][0 if retained == "failed" else -1]["run_id"]
+    source = tmp_path / "synthetic-readback.json"
+    command = [sys.executable, str(ROOT / "scripts/check-workbook.py"),
+               "--input", str(source), "--run-id", run_id]
+    source.write_text(json.dumps(native_observation(book)[0]))
+    valid = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert valid.returncode == 0, valid.stderr
+    assert json.loads(valid.stdout)["status"] in {
+        "WORKBOOK_READBACK_VALIDATED", "WORKBOOK_READBACK_QUALIFIED",
+    }
+    key = {"source_warnings": "row_key", "positions_history": "history_key",
+           "portfolio_daily": "daily_key"}[table]
+    book[table][-1 if retained == "failed" else 0][key] = "synthetic-wrong-key"
+    source.write_text(json.dumps(native_observation(book)[0]))
+    before = source.read_bytes()
+    invalid = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert invalid.returncode != 0
+    assert invalid.stdout == ""
+    assert invalid.stderr.strip() == "WORKBOOK_READBACK_REVIEW_REQUIRED"
+    assert source.read_bytes() == before
