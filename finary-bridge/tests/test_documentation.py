@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 import pytest
 from mcp_snapshots import NOW
-from mcp_workbooks import book_for_consumer
+from mcp_workbooks import book_for_consumer, book_with_two_observations
 
 from app.mcp_workbook import cell, google_create, initialize
 
@@ -104,8 +104,8 @@ def test_local_documentation_links_and_anchors_resolve():
                 assert unquote(target.fragment) in anchors, (document, link)
 
 
-def native_observation():
-    book = book_for_consumer()
+def native_observation(book=None):
+    book = book_for_consumer() if book is None else book
     native = google_create(initialize("synthetic-writer", 1))
     for sheet in native["sheets"]:
         name = sheet["properties"]["title"]
@@ -192,3 +192,47 @@ def test_documented_shell_commands_parse_and_select_existing_files():
             ):
                 base = ROOT / "finary-bridge" if path.startswith("tests/") else ROOT
                 assert (base / path).is_file(), (document, path)
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_readback_cli_completion_ambiguity_with_fixed_clock(tmp_path, ambiguous):
+    book = book_with_two_observations()
+    book["sync_runs"][0]["completed_at"] = "2026-09-11T10:00:00+02:00"
+    book["sync_runs"][1]["completed_at"] = (
+        "2026-09-11T03:00:00-05:00" if ambiguous else "2026-09-11T03:00:01-05:00"
+    )
+    run_id = book["sync_runs"][1]["run_id"]
+    script = ROOT / "scripts/check-workbook.py"
+    launcher = (
+        "import datetime, runpy, sys\n"
+        "from unittest.mock import patch\n"
+        "class Clock(datetime.datetime):\n"
+        "    @classmethod\n"
+        "    def now(cls, tz=None):\n"
+        "        return cls.fromisoformat('2026-09-11T08:01:00+00:00')\n"
+        "with patch('datetime.datetime', Clock):\n"
+        "    sys.argv = sys.argv[1:]\n"
+        "    runpy.run_path(sys.argv[0], run_name='__main__')\n"
+    )
+    source = tmp_path / "readback.json"
+    for _ in range(2):
+        native, _ = native_observation(book)
+        source.write_text(json.dumps(native))
+        result = subprocess.run(
+            [sys.executable, "-c", launcher, str(script), "--input", str(source),
+             "--run-id", run_id],
+            cwd=tmp_path, capture_output=True, text=True, timeout=30,
+        )
+        if ambiguous:
+            assert result.returncode != 0
+            assert result.stdout == ""
+            assert result.stderr.strip() == "WORKBOOK_READBACK_REVIEW_REQUIRED"
+        else:
+            assert result.returncode == 0, result.stderr
+            assert result.stderr == ""
+            assert json.loads(result.stdout) == {
+                "status": "WORKBOOK_READBACK_VALIDATED",
+                "current_complete": True, "dated_fallback": False,
+                "stale": False, "series_break": False,
+            }
+        book["sync_runs"].reverse()

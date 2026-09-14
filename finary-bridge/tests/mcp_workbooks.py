@@ -133,3 +133,13 @@ def book_for_consumer():
         table = write["node"]["parameters"]["sheetName"]["value"]
         book[table] += write["rows"]
     return book
+
+
+def book_with_two_observations():
+    book = book_for_consumer()
+    for write in writes(prepare(book=book, execution="next"), execution="next"):
+        table = write["node"]["parameters"]["sheetName"]["value"]
+        key = SCHEMA["sheets"][table]["unique_key"]
+        for row in write["rows"]:
+            book[table] = [r for r in book[table] if r[key] != row[key]] + [row]
+    return book

@@ -330,8 +330,9 @@ def select(inventory: dict[str, Any], *, now: datetime) -> dict[str, Any]:
     candidates = [
         r for r in workbook["sync_runs"] if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
     ]
-    unique(candidates, ("completed_at",))
-    candidates.sort(key=lambda r: instant(r["completed_at"]), reverse=True)
+    completed = [(instant(row["completed_at"]), row) for row in candidates]
+    require(len(completed) == len({timestamp for timestamp, _ in completed}))
+    candidates = [row for _, row in sorted(completed, key=lambda item: item[0], reverse=True)]
     for index, terminal in enumerate(candidates):
         try:
             result = _observation(workbook, terminal, now=now)
