@@ -252,6 +252,55 @@ def test_clean_generation_reproduces_all_supported_artifacts(tmp_path, monkeypat
     )
     assert json.loads((tmp_path / "new.json").read_text()) == initialize("synthetic-writer", 1)
 
+    # Mutate only schema annotations, so unrelated validity/version failures cannot
+    # satisfy the dependency regression. Exercise the complete supported entry point.
+    import hashlib
+
+    from jsonschema import Draft202012Validator
+
+    subprocess.run(command, check=True)
+    source = tmp_path / "docs/finary-mcp-contract.json"
+    original_source = source.read_bytes()
+    downstream = [
+        name for name in artifacts if name.endswith(".json") and "mcp-contract" not in name
+    ]
+    baseline = {name: (tmp_path / name).read_bytes() for name in downstream}
+
+    def workbook_digest():
+        workbook = json.loads((tmp_path / downstream[0]).read_text())
+        digest = hashlib.sha256(
+            json.dumps(workbook, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest()
+        workflow = json.loads(export.read_text())
+        for node in workflow["nodes"]:
+            if node["name"] in {"Validate MCP Snapshot", "Finalize MCP Failure"}:
+                code = node["parameters"]["jsCode"]
+                inline, _ = json.JSONDecoder().raw_decode(code.split("const mcpWorkbook=", 1)[1])
+                assert inline == workbook
+                assert f"digest('hex')==='{digest}'" in code
+        return digest
+
+    baseline_digest = workbook_digest()
+    for name, changes_downstream in [("budget_output", False), ("decimal", True)]:
+        contract = json.loads(original_source)
+        contract["$defs"][name]["description"] = "Synthetic dependency mutation."
+        Draft202012Validator.check_schema(contract["$defs"][name])
+        source.write_text(json.dumps(contract, indent=2, ensure_ascii=False) + "\n")
+        subprocess.run(command, check=True)
+        assert (
+            tmp_path / "finary-bridge/app/mcp-contract.json"
+        ).read_bytes() == source.read_bytes()
+        assert (
+            json.loads(source.read_text())["$defs"][name]["description"]
+            == "Synthetic dependency mutation."
+        )
+        for artifact in downstream:
+            assert ((tmp_path / artifact).read_bytes() != baseline[artifact]) == changes_downstream
+        assert (workbook_digest() != baseline_digest) == changes_downstream
+        before = inventory()
+        subprocess.run([*command, "--check"], check=True)
+        assert inventory() == before
+
 
 @pytest.mark.parametrize("table", ["accounts_current", "cashflows", "writer_control"])
 def test_create_request_rejects_populated_or_activated_inventories_without_changes(table):

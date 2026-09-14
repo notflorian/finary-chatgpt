@@ -191,6 +191,24 @@ notes can contain formulas; allocation fractions must be ordered within 0–1.
 Automated amounts/quantities remain exact decimal text with RAW writes; nulls
 explicitly clear cells using empty strings. Known zero and false remain known.
 
+### Generated artifact adoption
+
+The workbook schema contains only downstream definitions; the full packaged MCP
+contract still validates bridge and optional-tool responses. This projection keeps
+application/source-contract `1.0.0` and API/workbook `1.0`, physical sheets, headers,
+rows and validation semantics unchanged. Existing compatible workbooks need no
+migration or data edits.
+
+The workflow binds the exact generated workbook metadata and digest, including
+an independent inline schema for failure finalization. To adopt changed artifacts,
+an operator must stop scheduled/manual executions, serve the matching canonical
+`docs/google-sheets-schema.json` through schema-server, and reimport the matching
+inactive workflow export. Restore runtime credential bindings and clear cached or
+pinned outputs before separately authorizing execution. Adopt both artifacts from
+the same commit: mixing old and new schemas/exports fails validation even when
+their version fields match. Do not bypass the digest check or initialize over an
+existing workbook. Workflow publication remains a separate operator action.
+
 ## Consumer readback verification
 
 After writes settle, use a temporary unpublished HTTP Request node with the same
