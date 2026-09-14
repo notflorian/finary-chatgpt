@@ -4,7 +4,8 @@ name: finary-mcp-candidate
 services:
   finary-bridge:
     build:
-      context: ./finary-bridge
+      context: .
+      dockerfile: finary-bridge/Dockerfile
     user: "${FINARY_MCP_CANDIDATE_UID:?Set the operator UID}:${FINARY_MCP_CANDIDATE_GID:?Set the operator GID}"
     restart: "no"
     environment:

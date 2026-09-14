@@ -36,10 +36,11 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
         "repository-contracts",
         "n8n-import",
         "oauth-ownership",
+        "release-artifacts",
     ):
         assert f"  {job}:\n" in ci
         assert f"    name: {job}\n" in ci
-    assert ci.count("timeout-minutes:") == 6
+    assert ci.count("timeout-minutes:") == 7
 
 
 def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
@@ -50,7 +51,7 @@ def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
     assert all(ACTION_REFERENCE.fullmatch(line) for line in action_lines)
     assert 'python-version: "3.12.14"' in ci
     assert 'node-version: "22.23.2"' in ci
-    assert ci.count("persist-credentials: false") == 6
+    assert ci.count("persist-credentials: false") == 7
 
 
 def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:

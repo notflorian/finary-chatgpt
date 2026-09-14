@@ -39,9 +39,6 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Check generated artifacts
         run: python scripts/build-workflow-validation.py --check
-      - name: Build the package
-        working-directory: finary-bridge
-        run: python -m build
       - name: Run credential-free tests
         working-directory: finary-bridge
         run: >-
@@ -185,3 +182,19 @@ jobs:
         env:
           FINARY_REQUIRE_OAUTH_DOCKER: "1"
         run: python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py
+
+  release-artifacts:
+    name: release-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+      - name: Validate installed wheel, sdist and actual bridge image
+        run: python scripts/validate-release-artifacts.py

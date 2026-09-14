@@ -20,6 +20,11 @@ cp -n .env.example .env
 chmod 600 .env
 ```
 
+The package build stages the root MIT notice automatically. Compose builds use
+the repository root and the explicit `finary-bridge/Dockerfile`; `.dockerignore`
+limits inputs to package sources, configuration and the notice. For a direct image
+build, run `docker build -f finary-bridge/Dockerfile .` from the repository root.
+
 Keep this environment active for repository scripts. Review `.env` locally; do
 not print its contents or resolved Compose configuration. Set a strong, stable
 `N8N_ENCRYPTION_KEY` and optionally `FINARY_BRIDGE_API_KEY` using a local password

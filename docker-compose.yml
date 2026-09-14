@@ -1,7 +1,8 @@
 services:
   finary-bridge:
     build:
-      context: ./finary-bridge
+      context: .
+      dockerfile: finary-bridge/Dockerfile
     restart: unless-stopped
     environment:
       FINARY_BRIDGE_API_KEY: ${FINARY_BRIDGE_API_KEY:-}
