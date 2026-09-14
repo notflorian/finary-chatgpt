@@ -4,23 +4,15 @@ from copy import deepcopy
 from subprocess import CalledProcessError
 
 import pytest
-from mcp_wire import SyntheticWire
+from mcp_snapshots import snapshot
+from mcp_wire import precise_wire
+from mcp_workbooks import prepare
 from pydantic import TypeAdapter, ValidationError
-from test_mcp_integration import snapshot
-from test_mcp_workflow import prepare
 
 from app.mcp_client import McpFailure
 from app.mcp_models import McpSnapshotV3
 from app.mcp_optional import DecimalText, ReadContext
 from app.mcp_validation import CONTRACT
-
-
-def precise_wire(amount):
-    wire = SyntheticWire()
-    account = wire.values["accounts"]["data"][0]["attributes"]
-    account["balance"] = account["full_value_eur"] = amount
-    wire.values["holdings"]["data"][0]["attributes"]["current_value"] = amount
-    return wire
 
 
 @pytest.mark.parametrize("scale", [18, 19, 28, 64])

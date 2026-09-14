@@ -4,7 +4,8 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from test_mcp_workflow import SCHEMA, WORKFLOW, empty_book, prepare
+from mcp_artifacts import SCHEMA, WORKFLOW
+from mcp_workbooks import empty_book, prepare
 
 spec = importlib.util.spec_from_file_location(
     "live_scenarios", Path(__file__).parents[2] / "scripts/build-mcp-live-scenarios.py"

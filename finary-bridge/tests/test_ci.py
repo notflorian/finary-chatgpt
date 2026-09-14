@@ -56,6 +56,10 @@ def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
 
     assert 'python -m pytest -m "not live" --ignore=tests/live' in ci
+    job = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+    assert (
+        "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
+    ) in " ".join(job.split())
     assert "FINARY_LIVE_TEST" not in ci
     assert "FINARY_LIVE_SESSION_TEST" not in ci
     assert "FINARY_LIVE_DESCRIBE" not in ci
@@ -121,13 +125,12 @@ def test_ci_requires_pinned_runtime_execution_after_import():
     ci = CI_PATH.read_text(encoding="utf-8")
     job = ci.split("  n8n-import:", 1)[1]
     assert 'FINARY_REQUIRE_N8N_RUNTIME: "1"' in job
-    assert "Pre-pull Compose-pinned n8n image for parallel runtime tests" in job
     assert 'docker pull "$n8n_image" >/dev/null' in job
     pytest_cmd = (
         "python -m pytest -q -n auto --maxprocesses 4 --dist worksteal "
         "--max-worker-restart 0 --durations=15"
     )
-    assert pytest_cmd in job
+    assert pytest_cmd in " ".join(job.split())
     assert "finary-bridge/tests/test_n8n_runtime_support.py" in job
     assert "finary-bridge/tests/test_mcp_runtime.py" in job
     assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
@@ -144,10 +147,12 @@ def test_python314_compatibility_job_runs_mcp_validation() -> None:
     assert 'python-version: "3.14.6"' in job
     assert "timeout-minutes: 10" in job
     assert 'python -m pip install -e ".[dev]"' in job
-    assert (
-        "python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py "
-        "tests/test_mcp_optional.py tests/test_mcp_precision.py "
-        "tests/test_http_boundary.py tests/test_health.py"
-    ) in job
+    selected = re.findall(r"tests/test_[a-z_]+\.py", job)
+    assert set(selected) == {
+        "tests/test_mcp_contract.py", "tests/test_mcp_auth.py", "tests/test_mcp_integration.py",
+        "tests/test_mcp_optional.py", "tests/test_mcp_precision.py",
+        "tests/test_http_boundary.py", "tests/test_health.py",
+    }
+    assert all((ROOT / "finary-bridge" / path).is_file() for path in selected)
     assert "docker" not in job
     assert "n8n" not in job

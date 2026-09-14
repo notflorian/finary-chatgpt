@@ -41,20 +41,27 @@ Schema layers have different meanings:
   quality and expected failures. Nothing was constructed by saving and redacting
   live responses. Synthetic cases never establish source support.
 
-The [offline tests](../finary-bridge/tests/test_finary_mcp_contract.py) validate
-schemas and examples, then check relationships and workbook invariants. They
-are an executable contract oracle, not proof of future runtime behavior.
+The [contract tests](../finary-bridge/tests/test_mcp_contract.py) compare schema
+validity with literal manifest expectations, exercise production semantic
+validators, and retain checks for relationships and workbook bindings. The model
+and exported JavaScript use these independent expected outcomes; tests do not
+reimplement normalization or calculate expected results with the implementation
+under test.
 
-Every manifest case compares its full schema validity, contract error and
-quality outcome. `fixture_quality_rules` names the quality dimension for each
-schema: pagination completeness, overview quality, connection freshness,
-budget assessment, ownership uncertainty. Declared
-examples use the action registry's evidence status, including historical and
-declaration-only support; defensive shapes do not upgrade that evidence.
-Rejected examples have `NOT_APPLICABLE` quality, except failed holdings
-pagination retains `PARTIAL` collection evidence. Inputs and schemas with no
-quality dimension explicitly use `NOT_APPLICABLE`. These rules do not replace
-the independent coverage checks or certify upstream semantics.
+Pagination and result-wrapper cases run through native production boundaries;
+optional date ranges use the production request models. An extra empty terminal
+page in a recorded transcript remains invalid evidence, while the client stops
+after its first valid terminal without requesting an extra page. Unsupported
+holding types qualify detail as `PARTIAL` while preserving the official overview.
+
+`fixture_quality_rules` identifies the dimension described by each example:
+pagination completeness, overview quality, connection freshness, budget
+assessment or ownership uncertainty. Declared examples retain registry evidence
+status; defensive shapes do not upgrade support. Schema validity, semantic
+validity, collection completeness and declared capability evidence are separate
+claims. Rejected examples have `NOT_APPLICABLE` quality, except incomplete or
+unsupported holdings retain `PARTIAL` evidence. Synthetic tests do not certify
+upstream semantics.
 
 ## Evidence and limits
 

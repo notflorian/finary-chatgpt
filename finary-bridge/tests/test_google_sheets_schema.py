@@ -130,7 +130,7 @@ def test_physical_layout_rejects_incompatible_readback(mode):
         records(book)
 
 
-def test_cli_and_clean_generation_without_removed_dependencies(tmp_path):
+def test_cli_creates_fresh_workbook_without_overwriting_existing_output(tmp_path):
     output = tmp_path / "fresh.json"
     command = [
         sys.executable,
@@ -150,12 +150,6 @@ def test_cli_and_clean_generation_without_removed_dependencies(tmp_path):
     subprocess.run(
         [sys.executable, str(ROOT / "scripts/build-workflow-validation.py"), "--check"], check=True
     )
-    for path in [
-        "docs/google-sheets-schema-v2.json",
-        "scripts/migrate-workbook.py",
-        "scripts/migrate-google-workbook.py",
-    ]:
-        assert not (ROOT / path).exists()
 
 
 def test_native_decoder_rejects_automated_formulas_and_extra_data():

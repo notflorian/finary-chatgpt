@@ -223,7 +223,8 @@ Never save live responses to repository files and then attempt to redact them.
 ## Testing
 
 Normal tests must be credential-free and must not contact Finary, Google, or
-public services. Inject fake clients at the FastAPI boundary and use anonymized
+public services. Shared helpers belong in focused `tests/mcp_*.py` support modules
+or the existing n8n/Sheets helpers; test modules must not import other test modules. Inject fake clients at the FastAPI boundary and use anonymized
 fixtures for adapter and normalization tests.
 
 Run the complete local gate from the repository root:
@@ -231,8 +232,8 @@ Run the complete local gate from the repository root:
 ```bash
 cd finary-bridge
 python -m pytest -m "not live" --ignore=tests/live
-ruff check app tests
-mypy app
+python -m ruff check .
+python -m mypy app
 cd ..
 python scripts/validate-json.py
 python scripts/build-workflow-validation.py --check

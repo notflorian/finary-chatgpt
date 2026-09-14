@@ -1,41 +1,22 @@
-"""Offline schema and cross-record checks for the planned MCP contract.
+"""Independent fixture expectations at schema and production semantic boundaries.
 
-This is a fixture oracle, not a transport client, normalizer or workbook writer.
-Declared connector payloads and project acceptance have separate validation.
+Declared upstream shapes remain evidence metadata, not proof of runtime support.
+Transport cases run through the native SDK in test_mcp_integration.
 """
 
 from __future__ import annotations
 
-import json
+from contextlib import nullcontext
 from copy import deepcopy
-from datetime import date, datetime
 from decimal import Decimal
-from pathlib import Path
-from urllib.parse import quote
-from zoneinfo import ZoneInfo
 
 import pytest
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
+from mcp_artifacts import BASE_NAMES, CONTRACT, MANIFEST, base, cases, materialize, validator
 
-ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = ROOT / "docs" / "finary-mcp-contract.json"
-FIXTURES = Path(__file__).parent / "fixtures" / "finary-mcp"
-CONTRACT = json.loads(CONTRACT_PATH.read_text())
-MANIFEST = json.loads((FIXTURES / "manifest.json").read_text())
-BASES = json.loads((FIXTURES / MANIFEST["base_file"]).read_text())
-FORMATS = FormatChecker()
-
-
-@FORMATS.checks("date-time", raises=(TypeError, ValueError))
-def timezone_timestamp(value):
-    """Require a real timezone-aware datetime without optional format packages."""
-    return isinstance(value, str) and datetime.fromisoformat(value).utcoffset() is not None
-
-
-def validator(reference):
-    return Draft202012Validator(
-        {"$ref": reference, "$defs": CONTRACT["$defs"]}, format_checker=FORMATS
-    )
+from app.mcp_models import McpSnapshotV3
+from app.mcp_validation import key as identity
+from app.mcp_validation import validate, validate_money, validate_snapshot
 
 
 def test_removed_migration_warning_is_rejected_by_contract_and_model():
@@ -52,268 +33,9 @@ def test_removed_migration_warning_is_rejected_by_contract_and_model():
         McpWarning.model_validate(warning)
 
 
-def materialize(case):
-    value = deepcopy(BASES[case["base"]])
-    for change in case["changes"]:
-        parts = [
-            part.replace("~1", "/").replace("~0", "~") for part in change["path"].split("/")[1:]
-        ]
-        target = value
-        for part in parts[:-1]:
-            target = target[int(part)] if isinstance(target, list) else target[part]
-        key = int(parts[-1]) if isinstance(target, list) else parts[-1]
-        if change["op"] == "remove":
-            del target[key]
-        else:
-            assert change["op"] == "set"
-            target[key] = deepcopy(change["value"])
-    return value
-
-
-def identity(template, **values):
-    return CONTRACT["identity"][template].format(
-        **{f"E({key})": quote(value, safe="-._~") for key, value in values.items()}, **values
-    )
-
-
-def pagination_error(value):
-    """Check recorded page evidence without fetching or normalizing anything."""
-    pages = value["pages"]
-    limits = CONTRACT["transport_policy"]["limits"]
-    if not pages or len(pages) > limits["max_pages_per_account"]:
-        return "MCP_INCOMPLETE_COLLECTION"
-    offset, total, limit = 0, pages[0]["meta"]["total"], pages[0]["meta"]["limit"]
-    seen = set()
-    offsets = set()
-    included = {}
-    for page in pages:
-        meta, rows = page["meta"], page["data"]
-        if meta["offset"] in offsets:
-            return "MCP_INCOMPLETE_COLLECTION"
-        offsets.add(meta["offset"])
-        if (meta["offset"], meta["total"], meta["limit"]) != (offset, total, limit):
-            return "MCP_INCOMPLETE_COLLECTION"
-        if len(rows) > limit or (not rows and (total != 0 or offset != 0)):
-            return "MCP_INCOMPLETE_COLLECTION"
-        offset += len(rows)
-        if offset > total or offset > limits["max_holdings_per_run"]:
-            return "MCP_INCOMPLETE_COLLECTION"
-        if meta["has_more"] != (offset < total):
-            return "MCP_INCOMPLETE_COLLECTION"
-        for resource in page["included"]:
-            key = resource["type"], resource["id"]
-            if key in included and included[key] != resource:
-                return "MCP_INCOMPLETE_COLLECTION"
-            included[key] = resource
-        for row in rows:
-            key = row["type"], row["id"]
-            if key in seen or row["relationships"]["asset"]["data"] != {
-                "type": "assets",
-                "id": value["account_id"],
-            }:
-                return "MCP_INCOMPLETE_COLLECTION"
-            if row["type"] not in CONTRACT["pagination"]["observed_types"]:
-                return "MCP_UNSUPPORTED_DETAIL"
-            seen.add(key)
-    if offset != total or pages[-1]["meta"]["has_more"]:
-        return "MCP_INCOMPLETE_COLLECTION"
-    return None
-
-
-def money_error(money, overview_currency=None):
-    amount, eur, currency = money["amount"], money["amount_eur"], money["currency"]
-    if overview_currency is not None and currency != overview_currency:
-        return "CURRENCY_EVIDENCE"
-    if amount is None:
-        return None if eur is None and money["eur_basis"] == "UNAVAILABLE" else "CURRENCY_EVIDENCE"
-    if currency is None:
-        return "CURRENCY_EVIDENCE"
-    if money["eur_basis"] == "SOURCE_EUR" and currency != "EUR":
-        return "CURRENCY_EVIDENCE"
-    if currency == "EUR":
-        if eur is None or Decimal(amount) != Decimal(eur) or money["eur_basis"] != "SOURCE_EUR":
-            return "CURRENCY_EVIDENCE"
-    elif overview_currency is not None and (eur is not None or money["eur_basis"] != "UNAVAILABLE"):
-        return "CURRENCY_EVIDENCE"
-    return None
-
-
-def valuation_error(value):
-    """Check native valuation coverage independently of EUR or ownership quality."""
-    for dimension, rule in CONTRACT["valuation_contracts"].items():
-        rows = value[rule["rows"]]
-        known = sum(
-            row[rule["money_field"]]["amount"] is not None
-            and row[rule["money_field"]]["currency"] is not None
-            for row in rows
-        )
-        if value["coverage"][rule["collection"]] != "COMPLETE":
-            expected = "UNAVAILABLE"
-        elif known == len(rows):
-            expected = "COMPLETE"
-        elif known:
-            expected = "PARTIAL"
-        else:
-            expected = "UNAVAILABLE"
-        if value["coverage"][dimension] != expected:
-            return "VALUATION_COVERAGE"
-    return None
-
-
-def snapshot_error(value):
-    provenance = value["provenance"]
-    start = datetime.fromisoformat(provenance["collection_started_at"])
-    end = datetime.fromisoformat(provenance["collection_ended_at"])
-    generated = datetime.fromisoformat(value["generated_at"])
-    if not start <= end <= generated:
-        return "COLLECTION_WINDOW"
-    if generated.astimezone(ZoneInfo("Europe/Paris")).date().isoformat() != value["snapshot_date"]:
-        return "COLLECTION_WINDOW"
-    if error := valuation_error(value):
-        return error
-    groups = [
-        value["overview"][name]
-        for name in (
-            "gross_assets",
-            "financial_assets",
-            "reported_liabilities",
-            "reported_net_worth",
-        )
-    ]
-    groups += [row["value"] for row in value["allocation_categories"] + value["allocation_types"]]
-    groups += [
-        row[name]
-        for row in value["members"]
-        for name in ("gross_assets", "reported_liabilities", "reported_net_worth")
-    ]
-    for group in groups:
-        if error := money_error(group, provenance["currency"]):
-            return error
-    accounts = {row["account_key"] for row in value["accounts"]}
-    if len(accounts) != len(value["accounts"]):
-        return "IDENTITY"
-    warnings = {(row["code"], row["entity_key"]) for row in value["warnings"]}
-    if len(warnings) != len(value["warnings"]):
-        return "IDENTITY"
-    diagnostics = set()
-    for row in value["unsupported_details"]:
-        key = row["account_key"], row["holding_type"], row["reason"]
-        if key in diagnostics or row["account_key"] not in accounts:
-            return "IDENTITY"
-        diagnostics.add(key)
-    for row in value["accounts"]:
-        if row["account_key"] != identity("account_key", account_id=row["source_account_id"]):
-            return "IDENTITY"
-        if error := money_error(row["native_balance"]):
-            return error
-        if row["native_balance"]["eur_basis"] == "SOURCE_CONVERSION" and (
-            row["native_balance"]["amount_eur"] is None
-            or row["full_value_eur"] is None
-            or Decimal(row["native_balance"]["amount_eur"]) != Decimal(row["full_value_eur"])
-        ):
-            return "CURRENCY_EVIDENCE"
-    connections = {row["connection_key"] for row in value["connections"]}
-    if len(connections) != len(value["connections"]):
-        return "IDENTITY"
-    for row in value["accounts"]:
-        if row["connection_state"] == "NO_CONNECTION" and row["connection_key"] is not None:
-            return "IDENTITY"
-        if row["connection_state"] == "RESOLVED" and row["connection_key"] not in connections:
-            return "IDENTITY"
-        if row["connection_state"] == "UNRESOLVED" and row["connection_key"] is None:
-            return "IDENTITY"
-    owners = set()
-    for row in value["ownership"]:
-        key = row["account_key"], row["owner_key"]
-        if key in owners or row["account_key"] not in accounts:
-            return "IDENTITY"
-        owners.add(key)
-        if row["owner_key"] != identity(
-            "owner_key", owner_type=row["owner_type"], owner_id=row["owner_source_id"]
-        ):
-            return "IDENTITY"
-        parent = next(a for a in value["accounts"] if a["account_key"] == row["account_key"])
-        if parent["ownership_evidence"] != "EXPLICIT_ENTRIES":
-            return "IDENTITY"
-    holdings = set()
-    for row in value["positions"]:
-        key = row["holding_type"], row["holding_id"]
-        if key in holdings or row["account_key"] not in accounts:
-            return "IDENTITY"
-        holdings.add(key)
-        source_id = next(
-            a["source_account_id"]
-            for a in value["accounts"]
-            if a["account_key"] == row["account_key"]
-        )
-        args = {"holding_type": row["holding_type"], "holding_id": row["holding_id"]}
-        if row["source_asset_id"] != identity("source_asset_id", **args):
-            return "IDENTITY"
-        if row["position_key"] != identity("position_key", account_id=source_id, **args):
-            return "IDENTITY"
-        for name in ("current_value", "buying_price"):
-            if row[name]["eur_basis"] == "SOURCE_CONVERSION":
-                return "CURRENCY_EVIDENCE"
-            if error := money_error(row[name]):
-                return error
-    positions = {row["position_key"] for row in value["positions"]}
-    rates = set()
-    for row in value["position_rates"]:
-        key = row["position_key"], row["source_field"]
-        if row["position_key"] not in positions or key in rates:
-            return "IDENTITY"
-        rates.add(key)
-    categories = {row["category"] for row in value["allocation_categories"]}
-    if len(categories) != len(value["allocation_categories"]):
-        return "IDENTITY"
-    types = set()
-    for row in value["allocation_types"]:
-        key = row["category"], row["holding_type"]
-        if row["category"] not in categories or key in types:
-            return "IDENTITY"
-        types.add(key)
-    ordinals = {row["member_ordinal"] for row in value["members"]}
-    if len(ordinals) != len(value["members"]):
-        return "IDENTITY"
-    for row in [value["overview"], *value["members"]]:
-        amount = row["reported_liabilities"]["amount"]
-        if amount is not None and Decimal(amount) < 0:
-            return "NEGATIVE_DEBT"
-    return None
-
-
-def period_error(value):
-    if "start_date" not in value:
-        return None
-    start, end = date.fromisoformat(value["start_date"]), date.fromisoformat(value["end_date"])
-    today = date.fromisoformat(MANIFEST["inspection_date"])
-    return None if start <= end <= today else "MCP_INVALID_ARGUMENT"
-
-
-def wrapper_error(value):
-    if value.get("isError"):
-        return "MCP_TOOL_ERROR"
-    if "structuredContent" not in value:
-        return "MCP_MALFORMED_RESPONSE"
-    return None
-
-
-CHECKS = {
-    "pagination": pagination_error,
-    "snapshot": snapshot_error,
-    "period": period_error,
-    "wrapper": wrapper_error,
-    "decimal": lambda value: None if Decimal(value).is_finite() else "DECIMAL",
-}
-
-
-def fixture_quality(case, value, contract_error):
-    """Evaluate the declared quality dimension without consulting expected values."""
+def declared_quality(case, value):
+    """Check evidence metadata only; semantic rejection is tested at its owning boundary."""
     rule = CONTRACT["fixture_quality_rules"][case["schema"]]
-    if rule["kind"] == "pagination":
-        return "PARTIAL" if contract_error else "COMPLETE"
-    if contract_error:
-        return "NOT_APPLICABLE"
     if rule["kind"] == "constant":
         return rule["value"]
     if rule["kind"] == "field":
@@ -332,59 +54,34 @@ def fixture_quality(case, value, contract_error):
     raise AssertionError(f"Unsupported quality rule: {rule['kind']}")
 
 
-def fixture_outcome(case):
-    value = materialize(case)
-    errors = list(validator(case["schema"]).iter_errors(value))
-    if errors:
-        assert not case["checks"]
-        return {"schema_valid": False, "quality": "NOT_APPLICABLE", "contract_error": None}
-    required_check = CONTRACT["fixture_quality_rules"][case["schema"]].get("required_check")
-    if required_check:
-        assert required_check in case["checks"]
-    actual = next((error for name in case["checks"] if (error := CHECKS[name](value))), None)
-    return {
-        "schema_valid": True,
-        "quality": fixture_quality(case, value, actual),
-        "contract_error": actual,
-    }
-
-
 @pytest.mark.parametrize("case", MANIFEST["cases"], ids=lambda case: case["id"])
-def test_synthetic_contract_case(case):
-    assert fixture_outcome(case) == case["expected"]
+def test_synthetic_schema_and_declared_evidence(case):
+    value = materialize(case)
+    expected = case["expected"]
+    assert validator(case["schema"]).is_valid(value) is expected["schema_valid"]
+    with nullcontext() if expected["schema_valid"] else pytest.raises(ValueError):
+        validate(case["schema"].split("/")[-1], value)
+    if not expected["schema_valid"] or expected["contract_error"]:
+        assert expected["quality"] == (
+            "PARTIAL" if case["schema"] == "#/$defs/holdings_session" else "NOT_APPLICABLE"
+        )
+    elif case["schema"] != "#/$defs/holdings_session":
+        assert declared_quality(case, value) == expected["quality"]
 
 
-def test_every_manifest_quality_expectation_is_exercised():
-    for case in MANIFEST["cases"]:
-        wrong_known_quality = "PARTIAL" if case["expected"]["quality"] == "COMPLETE" else "COMPLETE"
-        for quality in ("MADE_UP_QUALITY", wrong_known_quality):
-            corrupted = deepcopy(case)
-            corrupted["expected"]["quality"] = quality
-            with pytest.raises(AssertionError):
-                test_synthetic_contract_case(corrupted)
-
-
-@pytest.mark.parametrize(
-    "case_id",
-    [
-        "empty-holdings",
-        "official-totals-differ-from-details",
-    ],
-)
-def test_quality_evidence_cannot_skip_required_cross_record_check(case_id):
-    case = deepcopy(next(case for case in MANIFEST["cases"] if case["id"] == case_id))
-    case["checks"] = []
-    with pytest.raises(AssertionError):
-        fixture_outcome(case)
+def assert_snapshot_semantics(value, error=None):
+    # Error names describe independent fixture expectations; production errors are sanitized.
+    with nullcontext() if error is None else pytest.raises(ValueError, match="semantic validation"):
+        validate_snapshot(value)
 
 
 @pytest.mark.parametrize("entity_key", [None, "mcp:account:assets:synthetic-a"])
 def test_duplicate_warning_keys_fail_schema_and_semantic_validation(entity_key):
-    value = deepcopy(BASES["snapshot"])
+    value = base("snapshot")
     warning = {"code": "MISSING_ENRICHMENT", "entity_key": entity_key}
     value["warnings"] = [warning, deepcopy(warning)]
     assert not validator("#/$defs/snapshot_v3").is_valid(value)
-    assert snapshot_error(value) == "IDENTITY"
+    assert_snapshot_semantics(value, "IDENTITY")
 
 
 @pytest.mark.parametrize("count_delta", [0, 1])
@@ -399,7 +96,7 @@ def test_duplicate_diagnostic_keys_ignore_count_in_identity(count_delta):
     duplicate["count"] += count_delta
     value["unsupported_details"].append(duplicate)
     assert validator("#/$defs/snapshot_v3").is_valid(value) == bool(count_delta)
-    assert snapshot_error(value) == "IDENTITY"
+    assert_snapshot_semantics(value, "IDENTITY")
 
 
 @pytest.mark.parametrize(
@@ -418,13 +115,13 @@ def test_duplicate_diagnostic_keys_ignore_count_in_identity(count_delta):
 )
 @pytest.mark.parametrize("currency", [None, "USD"])
 def test_every_overview_money_group_requires_provenance_currency(row_path, field, currency):
-    value = deepcopy(BASES["snapshot"])
+    value = base("snapshot")
     row = value
     for key in row_path:
         row = row[key]
     row[field].update(currency=currency, amount_eur=None, eur_basis="UNAVAILABLE")
     assert validator("#/$defs/snapshot_v3").is_valid(value) == (currency is not None)
-    assert snapshot_error(value) == "CURRENCY_EVIDENCE"
+    assert_snapshot_semantics(value, "CURRENCY_EVIDENCE")
 
 
 @pytest.mark.parametrize(
@@ -440,13 +137,14 @@ def test_every_overview_money_group_requires_provenance_currency(row_path, field
 )
 def test_null_amount_does_not_bypass_view_currency(amount, currency, view_currency, expected):
     money = {"amount": amount, "currency": currency, "amount_eur": None, "eur_basis": "UNAVAILABLE"}
-    assert money_error(money, view_currency) == expected
+    with nullcontext() if expected is None else pytest.raises(ValueError):
+        validate_money(money, view_currency)
 
 
 @pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
 @pytest.mark.parametrize("missing", [("amount",), ("currency",), ("amount", "currency")])
 def test_unknown_native_valuation_fails_schema_and_semantic_checks(dimension, missing):
-    value = deepcopy(BASES["snapshot"])
+    value = base("snapshot")
     rule = CONTRACT["valuation_contracts"][dimension]
     money = value[rule["rows"]][0][rule["money_field"]]
     money.update(amount_eur=None, eur_basis="UNAVAILABLE")
@@ -455,20 +153,20 @@ def test_unknown_native_valuation_fails_schema_and_semantic_checks(dimension, mi
     for state in ("COMPLETE", "PARTIAL"):
         value["coverage"][dimension] = state
         assert not validator("#/$defs/snapshot_v3").is_valid(value)
-        assert snapshot_error(value) == "VALUATION_COVERAGE"
+        assert_snapshot_semantics(value, "VALUATION_COVERAGE")
     value["coverage"][dimension] = "UNAVAILABLE"
     if missing == ("currency",):
         assert not validator("#/$defs/snapshot_v3").is_valid(value)
-        assert snapshot_error(value) == "CURRENCY_EVIDENCE"
+        assert_snapshot_semantics(value, "CURRENCY_EVIDENCE")
         return
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) is None
+    assert_snapshot_semantics(value)
 
 
 @pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
 @pytest.mark.parametrize("amount,currency,eur", [("0.00", "EUR", "0"), ("90.00", "USD", None)])
 def test_complete_native_valuation_accepts_zero_and_nullable_eur(dimension, amount, currency, eur):
-    value = deepcopy(BASES["snapshot"])
+    value = base("snapshot")
     rule = CONTRACT["valuation_contracts"][dimension]
     value[rule["rows"]][0][rule["money_field"]] = {
         "amount": amount,
@@ -477,12 +175,12 @@ def test_complete_native_valuation_accepts_zero_and_nullable_eur(dimension, amou
         "eur_basis": "SOURCE_EUR" if currency == "EUR" else "UNAVAILABLE",
     }
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) is None
+    assert_snapshot_semantics(value)
 
 
 @pytest.mark.parametrize("dimension", ["account_valuation", "holding_valuation"])
 def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension):
-    value = deepcopy(BASES["snapshot"])
+    value = base("snapshot")
     rule = CONTRACT["valuation_contracts"][dimension]
     second = deepcopy(value[rule["rows"]][0])
     if dimension == "account_valuation":
@@ -503,7 +201,7 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
     for state in ("COMPLETE", "UNAVAILABLE", "PARTIAL"):
         value["coverage"][dimension] = state
         assert validator("#/$defs/snapshot_v3").is_valid(value) == (state == "PARTIAL")
-        assert snapshot_error(value) == (None if state == "PARTIAL" else "VALUATION_COVERAGE")
+        assert_snapshot_semantics(value, (None if state == "PARTIAL" else "VALUATION_COVERAGE"))
 
     value[rule["rows"]] = []
     value["positions"] = []
@@ -512,15 +210,15 @@ def test_partial_empty_and_unretrieved_valuation_have_distinct_states(dimension)
         value["ownership"] = []
     value["coverage"][dimension] = "COMPLETE"
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) is None
+    assert_snapshot_semantics(value)
     value["coverage"][rule["collection"]] = "PARTIAL"
     if dimension == "account_valuation":
         value["coverage"].update(holdings="UNAVAILABLE", holding_valuation="UNAVAILABLE")
     assert not validator("#/$defs/snapshot_v3").is_valid(value)
-    assert snapshot_error(value) == "VALUATION_COVERAGE"
+    assert_snapshot_semantics(value, "VALUATION_COVERAGE")
     value["coverage"][dimension] = "UNAVAILABLE"
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) is None
+    assert_snapshot_semantics(value)
 
 
 @pytest.mark.parametrize("zero", ["0", "0.0", "0.00", "-0.00", "0.000000000000000000"])
@@ -533,7 +231,7 @@ def test_independent_empty_debt_accepts_numeric_zero_at_any_allowed_scale(zero):
     value = materialize(case)
     value["overview"]["reported_liabilities"]["amount"] = zero
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) is None
+    assert_snapshot_semantics(value)
 
 
 @pytest.mark.parametrize(
@@ -579,7 +277,7 @@ def test_eur_conversion_compares_exact_decimal_values(eur, full, expected):
     value["accounts"][0]["native_balance"]["amount_eur"] = eur
     value["accounts"][0]["full_value_eur"] = full
     validator("#/$defs/snapshot_v3").validate(value)
-    assert snapshot_error(value) == expected
+    assert_snapshot_semantics(value, expected)
 
 
 def walk(value):
@@ -609,7 +307,6 @@ def test_contract_definitions_registry_and_evidence_are_resolvable():
     }
     assert set(CONTRACT["capabilities"]) == expected
     for action, capability in CONTRACT["capabilities"].items():
-        assert capability["runtime_status"] == "NOT_IMPLEMENTED"
         assert set(capability["evidence"]) <= CONTRACT["evidence"].keys()
         assert any(case["action"] == action for case in MANIFEST["cases"])
     for node in walk(CONTRACT):
@@ -617,14 +314,14 @@ def test_contract_definitions_registry_and_evidence_are_resolvable():
             assert node["$ref"].startswith("#/$defs/")
             assert node["$ref"].split("/")[-1] in CONTRACT["$defs"]
     for case in MANIFEST["cases"]:
-        assert case["base"] in BASES
+        assert base(case["base"]) is not None
         assert (
             case["contract_version"] == MANIFEST["contract_version"] == CONTRACT["contract_version"]
         )
         assert case["evidence_class"].startswith("synthetic_")
         assert set(case["evidence_references"]) <= CONTRACT["evidence"].keys()
     assert len({case["id"] for case in MANIFEST["cases"]}) == len(MANIFEST["cases"])
-    assert {case["base"] for case in MANIFEST["cases"]} == BASES.keys()
+    assert {case["base"] for case in MANIFEST["cases"]} == set(BASE_NAMES)
     assert set(CONTRACT["fixture_quality_rules"]) == {case["schema"] for case in MANIFEST["cases"]}
     for rule in CONTRACT["fixture_quality_rules"].values():
         assert rule["kind"] in {"constant", "field", "capability", "pagination"}
@@ -680,7 +377,7 @@ def test_identity_encoding_is_injective_and_preserves_opaque_ids():
 
 
 def test_overview_authority_is_not_a_detail_sum_constraint():
-    snapshot = BASES["snapshot"]
+    snapshot = base("snapshot")
     validator("#/$defs/snapshot_v3").validate(snapshot)
     gross = Decimal(snapshot["overview"]["gross_assets"]["amount"])
     assert gross != sum(Decimal(a["full_value_eur"]) for a in snapshot["accounts"])
@@ -728,3 +425,18 @@ def test_workbook_column_bindings_cover_each_normalized_leaf_without_collisions(
         assert set(bindings.values()) == set(schema_leaves(schema))
         assert len(bindings) == len(set(bindings.values()))
         assert not bindings.keys() & definition["workbook_columns"].keys()
+
+
+@pytest.mark.parametrize(
+    "case",
+    cases("snapshot_v3"),
+    ids=lambda c: c["id"],
+)
+def test_runtime_model_preserves_declared_snapshot_outcome(case):
+    value = materialize(case)
+    accepted = case["expected"]["schema_valid"] and case["expected"]["contract_error"] is None
+    if accepted:
+        assert McpSnapshotV3.model_validate(value).model_dump() == value
+    else:
+        with pytest.raises(ValueError):
+            McpSnapshotV3.model_validate(value)

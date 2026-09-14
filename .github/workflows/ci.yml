@@ -44,7 +44,9 @@ jobs:
         run: python -m build
       - name: Run credential-free tests
         working-directory: finary-bridge
-        run: python -m pytest -m "not live" --ignore=tests/live
+        run: >-
+          python -m pytest -m "not live" --ignore=tests/live
+          -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
 
   mcp-validation-python314:
     name: mcp-validation-python314
@@ -67,7 +69,11 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Check native MCP SDK and renewable state compatibility
         working-directory: finary-bridge
-        run: python -m pytest -q tests/test_mcp_auth.py tests/test_mcp_integration.py tests/test_mcp_optional.py tests/test_mcp_precision.py tests/test_http_boundary.py tests/test_health.py
+        run: >-
+          python -m pytest -q
+          tests/test_mcp_contract.py tests/test_mcp_auth.py tests/test_mcp_integration.py
+          tests/test_mcp_optional.py tests/test_mcp_precision.py
+          tests/test_http_boundary.py tests/test_health.py
 
   static-analysis:
     name: static-analysis
@@ -150,7 +156,7 @@ jobs:
           fi
           n8n_image="$(printf '%s\n' "$n8n_images" | awk 'NF { print; exit }')"
           docker pull "$n8n_image" >/dev/null
-      - name: Execute prewrite validation and zero-position paths in isolated pinned n8n
+      - name: Execute MCP graph and installed Sheets regressions in isolated pinned n8n
         env:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
         run: >-
