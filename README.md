@@ -47,9 +47,10 @@ Application **1.0.0**, source contract **1.0.0**, normalized API **1.0** and wor
 - `GET /v1/snapshot`: official overview and qualified portfolio detail.
 - `GET /v1/budget`, `/v1/spending-search`, `/v1/goals`: optional on-demand reads.
 
-All MCP routes use optional local `X-API-Key` protection. `/v2` and `/v3` routes
-are absent. Installation uses the checked-out source and matching generated
-artifacts; these instructions do not select a published tag.
+All MCP routes use optional local `X-API-Key` protection. Unsupported API majors
+return 404 without redirects or upstream access. Installation uses the checked-out
+source and matching generated artifacts; these instructions do not select a
+published tag.
 
 ## Limits
 

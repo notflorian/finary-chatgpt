@@ -1,4 +1,4 @@
-"""Exported v3 validation, deterministic batches and fresh workbook initialization."""
+"""Exported MCP validation, deterministic batches and fresh workbook initialization."""
 
 import subprocess
 from copy import deepcopy

@@ -34,8 +34,12 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", forbidden)
 
 
-def test_startup_health_openapi_and_removed_routes_are_local(monkeypatch):
-    monkeypatch.setenv("FINARY_BRIDGE_API_KEY", KEY)
+@pytest.mark.parametrize("configured_key", [None, KEY])
+def test_startup_health_openapi_and_unsupported_routes_are_local(monkeypatch, configured_key):
+    if configured_key is None:
+        monkeypatch.delenv("FINARY_BRIDGE_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("FINARY_BRIDGE_API_KEY", configured_key)
     monkeypatch.setenv("FINARY_MCP_STATE_PATH", "invalid-relative-path")
     monkeypatch.setattr(main, "NativeMcpClient", forbidden)
     monkeypatch.setattr(mcp_auth, "OAuthStore", forbidden)

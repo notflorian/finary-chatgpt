@@ -38,7 +38,9 @@ narrow fix may leave unhandled.
   semantics, deterministic workbook behavior, historical-row preservation, and
   manual-sheet ownership.
 - Verify only MCP routes are exposed: `/v1/snapshot` is canonical, with
-  optional budget/search/goals reads. Unsupported V2/V3 routes return 404.
+  optional `/v1/budget`, `/v1/spending-search` and `/v1/goals` reads. Unsupported
+  API majors return 404 without redirects, client construction, OAuth-state
+  access or upstream I/O. `/health` remains local metadata.
 - Preserve official OAuth issuer checks on `clerk.finary.com`; the removed
   private password/cookie/MFA flow must never return as a fallback.
 - Treat `docs/google-sheets-schema.json` as the machine-readable workbook
