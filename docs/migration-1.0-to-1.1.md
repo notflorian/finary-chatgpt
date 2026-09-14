@@ -1,6 +1,7 @@
 # Migrate from 1.0.0 to 1.1.0
 
-Historical application 1.1.0 instructions only. Application 2.0.0 removes private
+Historical application 1.1.0 instructions only; do not run against this checkout.
+Use the current [fresh installation](operations.md) for workbook 4.0. Application 2.0.0 removes private
 authentication and V1/V2 routes; do not apply this runbook to the current bridge.
 
 This operator runbook upgrades an existing `v1.0.0` Compose installation and its
@@ -85,7 +86,7 @@ Keep `finary_session_data` in place but **exclude it from backups**. Do not read
 or copy its secrets. A restore requires a fresh human Finary bootstrap. Do not
 copy a running SQLite database, rotate the encryption key, use `down -v`, prune
 volumes, or delete either session JSON or its stable `.lock` sibling. See
-[backup and restore](operations.md#backup-and-restore).
+[backup and restore](https://github.com/notflorian/finary-chatgpt/blob/v1.1.0/docs/operations.md).
 
 ## 3. Select the release and check configuration
 
@@ -210,7 +211,7 @@ PY
 
 Require HTTP 200. Health success alone does not verify session validity. If any
 step fails, keep synchronization unpublished and follow
-[authentication recovery](operations.md#finary-authentication-failure); do not
+[authentication recovery](https://github.com/notflorian/finary-chatgpt/blob/v1.1.0/docs/operations.md); do not
 clear session state or blindly repeat a failed replacement.
 
 ## 6. Adopt both workflows and restore runtime bindings
@@ -245,7 +246,7 @@ Before running anything:
 The handler needs original execution data to correlate failures. A missing
 credential or pruned source data fails closed and may leave no `FAILED` workbook
 row; absence of failure telemetry is not proof of success. Follow
-[identity adoption](operations.md#adopting-restore-safe-run-identities), including
+[identity adoption](https://github.com/notflorian/finary-chatgpt/blob/v1.1.0/docs/operations.md), including
 a controlled failure against an isolated test workbook with synthetic data,
 before production scheduling. Never inject a failure into production holdings.
 
@@ -266,7 +267,7 @@ automatic runtime enforcement layer inside ChatGPT.
 ## 8. Verify new runs, then resume the schedule
 
 Start one full manual daily execution and wait for it and any error handler to
-finish. Apply all [first-run checks](operations.md#first-run-verification):
+finish. Apply all [first-run checks](https://github.com/notflorian/finary-chatgpt/blob/v1.1.0/docs/operations.md):
 
 - exactly one terminal record for its new opaque `run_id`, with `SUCCESS` or
   `SUCCESS_WITH_WARNINGS`, bridge version `1.1.0`, and API schema `2.0`;
@@ -322,7 +323,7 @@ in the new coordination protocol. If a coordinated restore is necessary:
    workbook checkpoint. Do not simply delete column R on a populated workbook.
 3. Never restore a Finary session backup. Stop incompatible writers and perform
    fresh human authentication for the selected recovery version.
-4. Apply the [backup/restore protocol](operations.md#backup-and-restore) when
+4. Apply the [backup/restore protocol](https://github.com/notflorian/finary-chatgpt/blob/v1.1.0/docs/operations.md) when
    recovering onto 1.1.0, with new full execution identities. Do not replay
    saved old executions into a retained workbook.
 5. If returning to 1.0.0, treat its known data-integrity/authentication defects as

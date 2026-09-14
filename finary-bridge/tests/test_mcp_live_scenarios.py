@@ -37,7 +37,7 @@ def test_synthetic_live_workflows_preserve_production_writers(stage):
 
     payload = json.loads(fetch["parameters"]["jsCode"].split("body:", 1)[1].removesuffix("}}];"))
     prepared = prepare(payload, book, workflow=result)["Prepare MCP Rows"][0]
-    assert prepared["batches"]["positions_current"][0]["mcp_current_value_amount"] == (
+    assert prepared["batches"]["positions_current"][0]["current_value_amount"] == (
         "123.123456789012345678901234" if stage == "known" else None
     )
     assert set(prepared["batches"]) <= set(SCHEMA["sheets"])

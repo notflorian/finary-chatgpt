@@ -1,14 +1,15 @@
-"""Exported v3 validation, deterministic batches and migration compatibility."""
+"""Exported v3 validation, deterministic batches and fresh workbook initialization."""
 
-import importlib.util
 import json
 import subprocess
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from n8n_code import _run_code_node
 from test_mcp_integration import NOW, snapshot
-from test_n8n_workflow import _run_code_node
+
+from app.mcp_workbook import initialize
 
 ROOT = Path(__file__).parents[2]
 SCHEMA = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
@@ -16,19 +17,64 @@ WORKFLOW = json.loads((ROOT / "n8n/workflows/finary-mcp-sync.json").read_text())
 
 
 def empty_book():
-    book = {name: [] for name in SCHEMA["sheets"]}
-    book["writer_control"] = [
-        {
-            "row_key": "singleton",
-            "workbook_schema": "3.0",
-            "provider": "finary_official_mcp",
-            "generation": 1,
-            "writer_id": "synthetic-writer",
-            "migration_id": "synthetic-migration",
-            "state": "ACTIVE",
-        }
-    ]
-    return book
+    inventory = initialize("synthetic-writer", 1)
+    inventory["sheets"]["writer_control"]["rows"][0]["state"] = "ACTIVE"
+    return {name: sheet["rows"] for name, sheet in inventory["sheets"].items()}
+
+
+def test_exported_series_comparison_requires_known_compatible_dimensions():
+    from app.mcp_consumer import compatible
+
+    workflow = deepcopy(WORKFLOW)
+    node = next(n for n in workflow["nodes"] if n["name"] == "Validate MCP Snapshot")
+    body = (ROOT / "n8n/code-nodes/finary-mcp-sync/validate-mcp-snapshot.js").read_text()
+    assert node["parameters"]["jsCode"].endswith(body)
+    node["parameters"]["jsCode"] = (
+        node["parameters"]["jsCode"].removesuffix(body)
+        + """
+const {left,right}=$input.first().json;
+const previous={run_id:'prior',observation_id:'observation',status:'SUCCESS',
+  completed_at:'2026-09-11T08:00:00+02:00',provider:'finary_official_mcp',
+  workbook_schema:mcpWorkbook.schema_version,source_contract_version:mcpContract.contract_version};
+const row={run_id:previous.run_id,observation_id:previous.observation_id};
+for(const [column,path]of Object.entries(mcpWorkbook.mcp_tables.observations.column_bindings)){
+  if(path.startsWith('/provenance/'))row[column]=left[path.split('/').pop()];
+}
+return [{json:{series_break:mcpSeriesBreak({sync_runs:[previous],observations:[row]},right)}}];
+"""
+    )
+    original = snapshot()["provenance"]
+    pairs = [(original, original, False)]
+    for field in [
+        "provider",
+        "source_contract_version",
+        "scope",
+        "ownership_basis",
+        "metric",
+        "currency",
+    ]:
+        pairs.extend(
+            [
+                (original, {**original, field: "changed"}, True),
+                (original, {**original, field: None}, True),
+                ({**original, field: None}, {**original, field: None}, True),
+            ]
+        )
+    for left, right, expected in pairs:
+        result = _run_code_node(
+            workflow,
+            "Validate MCP Snapshot",
+            named_rows={},
+            input_rows=[{"left": left, "right": right}],
+        )[0]["json"]["series_break"]
+        assert result is expected and compatible(left, right) is not expected
+
+
+def readback(book):
+    inventory = initialize("synthetic-writer", 1)
+    for name, rows in book.items():
+        inventory["sheets"][name]["rows"] = deepcopy(rows)
+    return inventory
 
 
 def prepare(value=None, book=None, execution="mcp-test", workflow=None):
@@ -111,14 +157,14 @@ def writes(named, execution="mcp-test"):
 def test_exported_writer_preserves_totals_and_all_batches():
     named = prepare()
     prepared = named["Prepare MCP Rows"][0]
-    assert prepared["batches"]["portfolio_daily"][0]["mcp_gross_assets_amount"] == "1000.00"
-    assert prepared["batches"]["portfolio_daily"][0]["gross_assets_eur"] is None
+    assert prepared["batches"]["portfolio_daily"][0]["gross_assets_amount"] == "1000.00"
+    assert "gross_assets_eur" not in prepared["batches"]["portfolio_daily"][0]
     terminal = writes(named)[-1]["rows"][0]
     assert terminal["positions_current_expected_count"] == 1
-    assert terminal["liabilities_current_expected_count"] == ""
+    assert "liabilities_current_expected_count" not in terminal
     assert terminal["portfolio_members_expected_count"] == 1
     assert terminal["series_break"] is True
-    assert prepared["batches"]["positions_current"][0]["market_value_native"] is None
+    assert "market_value_native" not in prepared["batches"]["positions_current"][0]
     assert not WORKFLOW["active"]
 
 
@@ -166,66 +212,6 @@ def test_exported_diagnostic_and_currency_regressions(path):
         prepare(value)
 
 
-def test_migration_repeated_preserves_history_and_manual_cells(tmp_path):
-    spec = importlib.util.spec_from_file_location("migration", ROOT / "scripts/migrate-workbook.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    source = {
-        "schema_version": "2.1",
-        "workbook_reference": "synthetic-legacy",
-        "sheets": {
-            name: {"headers": [c["name"] for c in s["columns"]], "rows": [], "metadata": {}}
-            for name, s in module.LEGACY["sheets"].items()
-        },
-    }
-    source["sheets"]["portfolio_daily"]["rows"] = [
-        {"snapshot_date": "2026-09-11", "gross_assets_eur": 50, "run_id": "legacy-run"}
-    ]
-    source["sheets"]["asset_overrides"]["rows"] = [
-        {
-            "override_key": "manual",
-            "source_asset_id": "security:1",
-            "notes": "Synthetic manual note",
-            "enabled": True,
-        }
-    ]
-    source["sheets"]["asset_overrides"]["metadata"] = {
-        "format": {"color": "synthetic"},
-        "formula": "=1+2",
-    }
-    plan = module.plan(
-        source,
-        deepcopy(source),
-        "synthetic-candidate",
-        "migration-synthetic",
-        "synthetic-writer",
-        NOW.isoformat(),
-    )
-    migrated = module.apply(source, None, plan, writers_drained=True)
-    assert module.apply(source, migrated, plan, writers_drained=True) == migrated
-    assert migrated["sheets"]["asset_overrides"] == source["sheets"]["asset_overrides"]
-    assert migrated["sheets"]["portfolio_daily"]["rows"][0]["daily_key"] == "2026-09-11"
-    assert migrated["sheets"]["legacy_observations"]["rows"][0]["scope"] == ""
-    assert migrated["sheets"]["writer_control"]["rows"][0]["state"] == "PAUSED"
-    with pytest.raises(ValueError):
-        module.apply(source, None, plan, writers_drained=False)
-    broken = deepcopy(migrated)
-    broken["sheets"]["migration_ledger"]["rows"][0]["status"] = "PREPARED"
-    with pytest.raises(ValueError):
-        module.apply(source, broken, plan, writers_drained=True)
-
-
-def test_legacy_schema_is_frozen_and_new_columns_append():
-    legacy = json.loads((ROOT / "docs/google-sheets-schema-v2.json").read_text())
-    assert list(SCHEMA["sheets"])[: len(legacy["sheets"])] == list(legacy["sheets"])
-    for name, sheet in legacy["sheets"].items():
-        assert [c["name"] for c in SCHEMA["sheets"][name]["columns"]][: len(sheet["columns"])] == [
-            c["name"] for c in sheet["columns"]
-        ]
-    for name in ("allocation_targets", "asset_overrides", "cashflows"):
-        assert SCHEMA["sheets"][name] == legacy["sheets"][name]
-
-
 def test_restored_context_and_terminal_collision_are_rejected():
     named = prepare()
     for mode in ("restored", "terminal", "mutated-batch"):
@@ -240,20 +226,6 @@ def test_restored_context_and_terminal_collision_are_rejected():
             ] = "0"
         with pytest.raises(subprocess.CalledProcessError):
             writes(altered, execution="different-execution" if mode == "restored" else "mcp-test")
-
-
-def test_legacy_override_is_not_applied_without_deliberate_crosswalk():
-    book = empty_book()
-    book["asset_overrides"] = [
-        {
-            "override_key": "legacy",
-            "source_asset_id": "security:synthetic-h",
-            "enabled": True,
-            "custom_asset_class": "CRYPTO",
-        }
-    ]
-    result = prepare(book=book)["Prepare MCP Rows"][0]
-    assert result["batches"]["positions_current"][0]["asset_class"] == "OTHER"
 
 
 def test_retained_history_mixed_run_blocks_new_writes():
@@ -301,6 +273,111 @@ def test_retained_current_source_cannot_disagree_with_observation_provider():
     for write in writes(prepare(book=book)):
         table = write["node"]["parameters"]["sheetName"]["value"]
         book[table] += write["rows"]
-    book["positions_current"][0]["source"] = "finary_private_api"
+    book["observations"][0]["provenance_provider"] = "unsupported"
     with pytest.raises(subprocess.CalledProcessError):
         prepare(book=book, execution="next-execution")
+
+
+def failure(named, book, execution="mcp-test"):
+    named = deepcopy(named)
+    named["Failure Writer Control"] = book["writer_control"]
+    named["Failure Terminal Header"] = [
+        {c["name"]: c["name"] for c in SCHEMA["sheets"]["sync_runs"]["columns"]}
+    ]
+    named["Failure Terminal Read"] = book["sync_runs"] or [{}]
+    return [
+        item["json"]
+        for item in _run_code_node(
+            WORKFLOW,
+            "Finalize MCP Failure",
+            named_rows=named,
+            input_rows=[{}],
+            execution_id=execution,
+            now=NOW.isoformat(),
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "mode", ["missing", "version", "metadata", "header_missing", "header_reordered", "header_extra"]
+)
+def test_incompatible_layout_never_prepares_batches(mode):
+    named = prepare()
+    if mode == "missing":
+        named["Read writer_control"] = [{}]
+    elif mode == "version":
+        named["Read writer_control"][0]["workbook_schema"] = "3.0"
+    elif mode == "metadata":
+        named["Read README"][0]["value"] = "3.0"
+    else:
+        header = named["Preflight positions_history"][0]
+        if mode == "header_missing":
+            header.pop("observation_id")
+        if mode == "header_reordered":
+            named["Preflight positions_history"] = [dict(reversed(list(header.items())))]
+        if mode == "header_extra":
+            header["obsolete_column"] = "obsolete_column"
+    with pytest.raises(subprocess.CalledProcessError):
+        _run_code_node(
+            WORKFLOW, "Prepare MCP Rows", named_rows=named, input_rows=[{}], execution_id="mcp-test"
+        )
+
+
+@pytest.mark.parametrize("mode", ["missing", "malformed", "duplicate", "disabled", "exact"])
+def test_override_requires_exact_supported_identity(mode):
+    book = empty_book()
+    row = {
+        "override_key": "custom",
+        "source_asset_id": snapshot()["positions"][0]["source_asset_id"],
+        "custom_asset_class": "CRYPTO",
+        "notes": "",
+        "enabled": True,
+    }
+    if mode == "missing":
+        row.pop("source_asset_id")
+    if mode == "malformed":
+        row["source_asset_id"] = "security:synthetic-h"
+    if mode == "disabled":
+        row["enabled"] = False
+    book["asset_overrides"] = [row]
+    if mode == "duplicate":
+        book["asset_overrides"].append({**row, "override_key": "another"})
+    if mode in {"missing", "malformed", "duplicate"}:
+        with pytest.raises(subprocess.CalledProcessError):
+            prepare(book=book)
+    else:
+        assert prepare(book=book)["Prepare MCP Rows"][0]["batches"]["positions_current"][0][
+            "asset_class"
+        ] == ("OTHER" if mode == "disabled" else "CRYPTO")
+
+
+@pytest.mark.parametrize(
+    "mode", ["missing", "duplicate", "paused", "writer", "generation", "version"]
+)
+def test_failure_control_is_independently_required(mode):
+    book = empty_book()
+    named = prepare(book=book)
+    if mode == "missing":
+        book["writer_control"] = []
+    if mode == "duplicate":
+        book["writer_control"] *= 2
+    if mode == "paused":
+        book["writer_control"][0]["state"] = "PAUSED"
+    if mode == "writer":
+        book["writer_control"][0]["writer_id"] = "different"
+    if mode == "generation":
+        book["writer_control"][0]["generation"] = 2
+    if mode == "version":
+        book["writer_control"][0]["workbook_schema"] = "3.0"
+    with pytest.raises(subprocess.CalledProcessError):
+        failure(named, book)
+
+
+@pytest.mark.parametrize("field", ["observation_id", "run_id", "account_key", "is_active"])
+def test_missing_required_retained_values_are_never_defaulted(field):
+    book = empty_book()
+    for write in writes(prepare(book=book)):
+        book[write["node"]["parameters"]["sheetName"]["value"]] += write["rows"]
+    book["positions_current"][0].pop(field)
+    with pytest.raises(subprocess.CalledProcessError):
+        prepare(book=book, execution="next")

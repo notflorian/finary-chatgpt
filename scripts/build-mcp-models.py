@@ -35,6 +35,17 @@ def class_name(name):
 
 def generate(contract):
     definitions = contract["$defs"]
+    assert (
+        contract["implemented"]["workbook_schema"] == contract["current_workbook"]["schema_version"]
+    )
+    assert (
+        definitions["writer_control"]["properties"]["workbook_schema"]["const"]
+        == contract["current_workbook"]["schema_version"]
+    )
+    assert (
+        definitions["provenance"]["properties"]["source_contract_version"]["const"]
+        == contract["contract_version"]
+    )
 
     def annotation(field):
         if "$ref" in field:
@@ -61,6 +72,9 @@ def generate(contract):
         "from typing import ClassVar, Literal",
         "",
         "from app.mcp_validation import ContractModel",
+        "",
+        f"ApiSchemaVersion = Literal[{contract['implemented']['api_schema']!r}]",
+        f"SourceContractVersion = Literal[{contract['contract_version']!r}]",
         "",
     ]
     for name in MODEL_NAMES:

@@ -7,22 +7,20 @@ remain unchanged. See the [implementation matrix](mcp-acceptance.md) and
 not turn unresolved live semantics into verified evidence.
 
 
-**Source-contract version 1.1.0; API/workbook schema 3.0.**
-This document and the [machine-readable contract](finary-mcp-contract.json)
-define API schema **3.0** at **`GET /v3/snapshot`** and workbook schema **3.0**.
-Application 2.0.0 supports only official MCP. `/v3/snapshot` is canonical;
-V1/V2 routes are removed and return 404. The canonical workbook is 3.0;
-its retained migration/legacy-layout dependencies await separate removal.
-Application and source-contract versions are independent.
+**Source-contract version 2.0.0; API 3.0; workbook 4.0; application 2.0.0.**
+The [machine-readable contract](finary-mcp-contract.json) defines the supported
+MCP semantics and self-contained workbook. `/v3/snapshot` remains canonical;
+V1/V2 routes are removed and return 404. Prior workbook layouts are incompatible
+and require fresh installation. Source, API, workbook and application versions
+have independent purposes.
 
 ## Reading the artifacts
 
-The JSON is the proposed contract's field-level authority. Its capability
-registry points to reusable Draft 2020-12 `$defs`; normalized fields carry
-`x-field` authority, grain, unit, currency and absence annotations. The workbook
-section is a **migration delta**, referencing those types instead of maintaining
-a competing active workbook schema. At implementation, the coordinated revision
-must move workbook columns into the canonical workbook contract.
+The JSON is the field-level authority. Its capability registry points to reusable
+Draft 2020-12 `$defs`; normalized fields retain authority, grain, unit, currency
+and absence annotations. `current_workbook` maps these fields directly to typed
+columns and adds explicit workbook metadata. The canonical workbook schema is
+generated from these definitions without a previous schema.
 
 The source contract version identifies this project's interpretation, not a
 Finary release or negotiated MCP protocol revision.
@@ -44,13 +42,13 @@ Schema layers have different meanings:
   live responses. Synthetic cases never establish source support.
 
 The [offline tests](../finary-bridge/tests/test_finary_mcp_contract.py) validate
-schemas and examples, then check relationships and migration invariants. They
+schemas and examples, then check relationships and workbook invariants. They
 are an executable contract oracle, not proof of future runtime behavior.
 
 Every manifest case compares its full schema validity, contract error and
 quality outcome. `fixture_quality_rules` names the quality dimension for each
 schema: pagination completeness, overview quality, connection freshness,
-budget assessment, ownership uncertainty or migration series break. Declared
+budget assessment, ownership uncertainty. Declared
 examples use the action registry's evidence status, including historical and
 declaration-only support; defensive shapes do not upgrade that evidence.
 Rejected examples have `NOT_APPLICABLE` quality, except failed holdings
@@ -170,9 +168,8 @@ oversized values fail without rounding/coercion. Missing and null remain
 unknown; zero remains known. Compare decimals by exact numeric value without
 requiring a canonical scale: `0`, `0.00` and `-0.00` are equal, as are `250.0`
 and `250.00`. Preserve their source spelling; numeric equality permits neither
-rounding nor relaxed lexical bounds. New workbook decimal columns are exact **TEXT**,
-written RAW, with explicit clearing for null. Legacy numeric columns retain
-legacy values and are not reused for MCP numbers. Simulation's declared numeric
+rounding nor relaxed lexical bounds. Workbook decimal columns are exact **TEXT**,
+written RAW, with explicit clearing for null. Simulation's declared numeric
 inputs/outputs are a separate approximate utility, never ingestion evidence.
 
 Fractions, percentages, quantities, months and amounts have separate units.
@@ -213,7 +210,7 @@ the same criteria.
 
 A zero count under `assets_only` can itself be unavailable and never proves no
 debt. A complete zero-debt overview needs no fabricated loan row. Conversely,
-no overview authorizes clearing an unknown loan collection. Contract 1.1.0 has
+no overview authorizes clearing an unknown loan collection. The supported contract has
 **no nonempty debt-detail mapping**. Its empty detail representation can become
 `COMPLETE` only with independently verified empty enumeration, supported detail
 semantics and compatible complete account/holding retrieval; the overview alone
@@ -248,7 +245,7 @@ entity references, never raw source error messages or reading notes.
 ## Identity and collection boundaries
 
 Exact key templates and encoding are in `identity`. MCP keys use `mcp:` and
-legacy `finary:` keys remain unchanged. Escape UTF-8 bytes with uppercase percent
+Escape UTF-8 bytes with uppercase percent
 encoding except ASCII letters/digits/`-._~`; `%` and `:` must be escaped. Reject
 empty/whitespace/control IDs, never trim, numerically coerce or Unicode-normalize
 them. Escaping is injective, including `a:b` versus `a%3Ab`. Equal IDs across
@@ -333,62 +330,31 @@ Simulation remains explicit and on demand with user-confirmed capital, duration
 and annual-rate inputs. It is never run as an ingestion prerequisite. Its series
 items are declared unknown; defensive fixtures do not invent their schema.
 
-## Migration, acceptance and rollback
+## Current workbook and compatibility
 
-The JSON defines normalized table/field mappings for the
-[workbook revision](https://github.com/notflorian/finary-chatgpt/issues/90).
-Keep the existing ten-sheet order and append ownership, connection, rate,
-authoritative allocation, member, observation, warning, unsupported-detail and
-migration/control tables.
-Use typed columns, not raw JSON cells. Existing current/history/daily tables gain
-explicit v3 columns; legacy values, keys and semantics remain intact. Optional
-budget/search/goals persistence is outside this portfolio migration.
+The enduring `current_workbook` section defines layout 4.0 directly, including
+ordered tables, typed columns and bindings, ownership, keys and update behavior.
+The generated canonical schema and its packaged copy are deterministic. No older
+schema, migration metadata or empty compatibility columns participate.
 
-Same-day cutover requires a different identity: existing daily rows are keyed by
-Paris date, and position history by date plus position key. New MCP daily/history
-keys include observation UUID and the MCP namespace. Preserve both observations
-on the cutover date. Same-payload retries reuse the observation/run keys; a fresh
-collection gets a new UUID. Terminal membership selects each observation; a
-partially written later run is never accepted as successful history.
+[Operations](operations.md#fresh-workbook-initialization) describes the executable
+fresh initializer and explicit PAUSED-to-ACTIVE writer setup. Existing workbooks
+are untouched; the release supplies no conversion in either direction.
+Manual inputs remain operator-owned. Enabled overrides use exact MCP identities
+without crosswalks or inferred matches. There is no debt-detail table; reported
+overview liabilities and independent debt valuation/detail coverage remain.
 
-Legacy provenance backfill uses a side table and only established evidence.
-Unknown historical scope/ownership remains unknown; age does not establish an
-MCP view. Preserve manual allocation targets, overrides and cashflows exactly.
-Legacy overrides never apply to MCP IDs automatically. `UNRESOLVED` and
-`REJECTED` crosswalks stay unapplied. Application requires an enabled override
-and a `VERIFIED` crosswalk with a nonnull MCP key, a nonblank sanitized evidence
-reference and a timezone-aware review timestamp. Audited source evidence or
-explicit operator verification must document the exact pair: `legacy_key`
-equals the override's `source_asset_id`, and `mcp_key` equals the target
-`mcp_source_asset_id`. These equalities require a cross-record check in addition
-to schema validation. Even verified crosswalks do not rewrite old keys or prove
-financial comparability.
+Observation-qualified daily/history keys preserve multiple collections on the
+same business date. Native retries reuse the same payload and deterministic keys;
+new collections get a fresh UUID. Accepted history is immutable. Terminal success
+follows every required write; the consumer independently validates membership.
 
-The ordered migration plan in JSON requires inventory, backups, a separate
-shadow workbook, dry-run validation, draining/disabling the old writer and its
-error handlers, preserving legacy/manual data, applying the versioned delta,
-checking counts/keys/values/manual digests, installing writer control, and
-validating a candidate run before operator activation. A migration ledger binds
-source/destination identity, versions and plan digest. Repeated identical plans
-are idempotent; conflicting/partial states require validated recovery rather
-than duplicate columns or rows. Writer control is a precondition, not a
-replacement for operational exclusion of old executions. One active
-writer/provider owns each workbook.
-
-Acceptance requires preserved legacy/manual content, unapplied unresolved
-mappings, retained same-day observations, correct native/null values, single
-writer exclusion, valid terminal membership and disclosed series breaks.
-Rollback drains MCP, preserves the entire new workbook and manual changes, and
-resumes the legacy writer only against a compatible 2.1 workbook after deliberate
-manual-change reconciliation. Never point a legacy writer at 3.0 or discard new
-observations as part of rollback.
-
-Compare histories only when provider, source contract, scope, ownership,
-currency, metric definition and valuation quality are compatible. Unknown
-legacy dimensions prevent a claim of comparability. Disclose changes as series
-breaks and reset change alerts; collection/freshness differences qualify even
-compatible comparisons. Valuation changes are not investment performance
-without sufficient investment cashflow evidence.
+Workbook 4.0 is a breaking layout revision. Source contract 2.0.0 follows the
+coordinated-major rule for breaking workbook definitions. Application 2.0.0 and
+API 3.0 remain unchanged, including `/v3/snapshot` and optional V3 routes.
+This change does not establish new upstream financial semantics or debt support.
+Compare only compatible currency, scope, ownership, metric and source-contract
+series; disclose breaks and qualify valuation/freshness independently.
 
 ## Remaining implementation gates
 
@@ -399,15 +365,15 @@ identity, goal precision, target currency and unknown objects. Open OAuth or loa
 questions do not block shipping this contract; they block claiming the affected
 runtime capability.
 
-Client/authentication, detail normalization, v3 HTTP exposure, canonical workbook
-migration, n8n writing, optional endpoints, consumer guidance and end-to-end
-operator acceptance remain in the linked
-[roadmap](https://github.com/notflorian/finary-chatgpt/issues/85).
-No workflow activation, release, deployment or production migration is part of
-this contract delivery.
+The [architecture](architecture.md) describes the implemented client, OAuth,
+normalization, V3 routes, workbook initialization, writer and consumer boundaries.
+Remaining release work is tracked in the
+[release tracker](https://github.com/notflorian/finary-chatgpt/issues/100).
+Workflow activation, release publication, deployment and production acceptance
+remain separate operator actions.
 
 The 1.1.0 source-contract revision follows operator structural evidence of an
 account balance with more than 18 significant fractional digits. The bounded
 64-digit fractional allowance is a project policy, not a verified upstream
 maximum. Strings retain their exact values without rounding; the integer bound
-remains 24 digits. API and workbook versions remain 3.0.
+remains 24 digits. The precision bound remains unchanged in source contract 2.0.0.

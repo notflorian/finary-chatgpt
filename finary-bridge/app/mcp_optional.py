@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.mcp_client import McpFailure, NativeMcpClient, checked
+from app.mcp_models import ApiSchemaVersion, SourceContractVersion
 from app.mcp_validation import CONTRACT, key, validate
 
 DecimalText = Annotated[
@@ -28,9 +29,9 @@ class OptionalModel(BaseModel):
 
 
 class ReadContext(OptionalModel):
-    schema_version: Literal["3.0"] = "3.0"
+    schema_version: ApiSchemaVersion = CONTRACT["implemented"]["api_schema"]
     provider: Literal["finary_official_mcp"] = "finary_official_mcp"
-    source_contract_version: Literal["1.1.0"] = "1.1.0"
+    source_contract_version: SourceContractVersion = CONTRACT["contract_version"]
     observation_id: str
     generated_at: str
 

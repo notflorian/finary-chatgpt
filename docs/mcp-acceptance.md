@@ -1,5 +1,9 @@
 # MCP integration acceptance
 
+Historical evidence for earlier revisions. Its workbook conversion and production
+plans are superseded by the current [fresh setup](operations.md). Historical
+results do not validate workbook 4.0; this document awaits broader release cleanup.
+
 Integration branch: `codex/issue-85-official-mcp-integration`, based on
 `ce5f1e7c82ad686e66cc02c03aab4d8dc61a8aa6`. On 2026-09-11 the working tree was
 clean, foundation PR #96 was merged, #86 was closed, #87–95 were open, and no
@@ -61,7 +65,7 @@ Evidence sources used by the decision matrix:
 | Connection retirement | E97: disposable refresh rejected with `invalid_grant`; retained access still allowed native discovery | Immediate or eventual remote rejection of that retained access token not established | Stop local users; state removal, refresh revocation and access expiry are separate; revocation needs its own decision | Accept residual-access limitation | PENDING |
 | Core semantics and source quality | E97: native collection, manual shadow sync and fresh `app.mcp_consumer.select` readback | Nonempty loans unavailable; ownership/rate semantics qualified; stale/broken bank connections persisted after technical success | Keep official overview/allocation authoritative; no zero-debt inference, loan inactivation or guessed semantics; disclose bank freshness separately from the 48h operational threshold | Accept core with retained warnings, including legitimate `SUCCESS_WITH_WARNINGS` | PENDING |
 | Migration and recovery | E97: native test-copy migration/replay/preservation, real synthetic Sheets interruption/recovery and exact text/null transitions; C98: offline contract/runtime coverage | Test targets do not certify production contents; Sheets has no atomic writer CAS; interruption test was a graph stop | Final inventory after drain, separate native copies, one writer/generation, exact-pair crosswalks only; preserve later edits on rollback | Apply reviewed native plan only after target-specific checks | PENDING |
-| Release and production execution | C98; [bounded production plan](mcp-operations.md#production-target-register-and-approval-stages) | No designated production targets or accepted production executions recorded | Require exact candidate CI/review, target register, backup proof, manual run, then actual 07:30 Paris run | Keep draft with `Refs #95`; no automatic merge/tag/release | PENDING |
+| Release and production execution | C98; [bounded production plan](operations.md) | No designated production targets or accepted production executions recorded | Require exact candidate CI/review, target register, backup proof, manual run, then actual 07:30 Paris run | Keep draft with `Refs #95`; no automatic merge/tag/release | PENDING |
 
 | Capability | Implemented evidence | Proposed release scope | Actual readiness / operator disposition |
 | --- | --- | --- | --- |

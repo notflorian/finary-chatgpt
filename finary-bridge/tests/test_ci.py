@@ -30,8 +30,11 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
     assert "id-token: write" not in ci
     assert "runs-on: ubuntu-latest" in ci
     for job in (
-        "tests", "mcp-validation-python314", "static-analysis",
-        "repository-contracts", "n8n-import",
+        "tests",
+        "mcp-validation-python314",
+        "static-analysis",
+        "repository-contracts",
+        "n8n-import",
     ):
         assert f"  {job}:\n" in ci
         assert f"    name: {job}\n" in ci
@@ -79,9 +82,7 @@ def test_repository_contract_commands_are_quiet_and_dependency_free() -> None:
 
     assert "python scripts/validate-json.py" in ci
     assert "docker compose config --quiet" in ci
-    assert "google-sheets-schema-v2.json" in validator
-    assert "finary-daily-sync.json" in validator
-    assert "finary-error-handler.json" in validator
+    assert "finary-mcp-sync.json" in validator
     subprocess.run([sys.executable, str(JSON_VALIDATOR_PATH)], cwd=ROOT, check=True)
 
 
@@ -96,8 +97,7 @@ def test_n8n_import_validation_is_compose_pinned_isolated_and_ephemeral() -> Non
     assert "--pull never" in validator
     assert "N8N_USER_FOLDER=/tmp/n8n-ci" in validator
     assert "N8N_ENCRYPTION_KEY=ci-only-synthetic-import-key" in validator
-    assert "finary-daily-sync.json" in validator
-    assert "finary-error-handler.json" in validator
+    assert "finary-mcp-sync.json" in validator
     assert "n8n_data" not in validator
     assert "finary_session_data" not in validator
     subprocess.run(["bash", "-n", str(N8N_VALIDATOR_PATH)], cwd=ROOT, check=True)
@@ -105,7 +105,7 @@ def test_n8n_import_validation_is_compose_pinned_isolated_and_ephemeral() -> Non
 
 def test_ci_does_not_activate_the_daily_workflow() -> None:
     daily = json.loads(
-        (ROOT / "n8n" / "workflows" / "finary-daily-sync.json").read_text(encoding="utf-8")
+        (ROOT / "n8n" / "workflows" / "finary-mcp-sync.json").read_text(encoding="utf-8")
     )
     ci = CI_PATH.read_text(encoding="utf-8")
     validator = N8N_VALIDATOR_PATH.read_text(encoding="utf-8")
@@ -128,9 +128,7 @@ def test_ci_requires_pinned_runtime_execution_after_import():
         "--max-worker-restart 0 --durations=15"
     )
     assert pytest_cmd in job
-    assert "finary-bridge/tests/test_n8n_zero_position_runtime.py" in job
-    assert "finary-bridge/tests/test_restore_run_identity_runtime.py" in job
-    assert "finary-bridge/tests/test_sheets_connector_runtime.py" in job
+    assert "finary-bridge/tests/test_n8n_runtime_support.py" in job
     assert "finary-bridge/tests/test_mcp_runtime.py" in job
     assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
         "FINARY_REQUIRE_N8N_RUNTIME"

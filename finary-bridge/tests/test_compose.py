@@ -13,14 +13,14 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 COMPOSE_PATH = ROOT / "docker-compose.yml"
-DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-daily-sync.json"
+DAILY_PATH = ROOT / "n8n" / "workflows" / "finary-mcp-sync.json"
 
 _SYNTHETIC_ENV = {
     "FINARY_BRIDGE_API_KEY": "test-bridge-key",
     "FINARY_BRIDGE_PORT": "8000",
     "FINARY_BRIDGE_URL": "http://finary-bridge:8000",
-    "FINARY_GOOGLE_SHEET_ID": "synthetic-workbook-id",
-    "FINARY_SCHEMA_URL": "http://schema-server/google-sheets-schema-v2.json",
+    "FINARY_MCP_GOOGLE_SHEET_ID": "synthetic-workbook-id",
+    "FINARY_MCP_SCHEMA_URL": "http://schema-server/google-sheets-schema.json",
     "N8N_ENCRYPTION_KEY": "synthetic-encryption-key-with-sufficient-length",
     "N8N_EXECUTIONS_TIMEOUT": "300",
     "N8N_EXECUTIONS_TIMEOUT_MAX": "300",
@@ -101,8 +101,8 @@ def test_compose_exposure_and_internal_urls_are_local_only() -> None:
     )
     assert "ports" not in services["schema-server"]
     assert services["n8n"]["environment"]["FINARY_BRIDGE_URL"] == ("http://finary-bridge:8000")
-    assert services["n8n"]["environment"]["FINARY_SCHEMA_URL"] == (
-        "http://schema-server/google-sheets-schema-v2.json"
+    assert services["n8n"]["environment"]["FINARY_MCP_SCHEMA_URL"] == (
+        "http://schema-server/google-sheets-schema.json"
     )
 
 
@@ -113,10 +113,10 @@ def test_images_schema_mount_and_operational_controls_are_pinned() -> None:
 
     assert n8n["image"].startswith("n8nio/n8n:2.35.5@sha256:")
     assert schema["image"].startswith("nginx:1.31.4@sha256:")
-    schema_mount = _mount(schema, "/usr/share/nginx/html/google-sheets-schema-v2.json")
+    schema_mount = _mount(schema, "/usr/share/nginx/html/google-sheets-schema.json")
     assert schema_mount["type"] == "bind"
     assert schema_mount["read_only"] is True
-    assert schema_mount["source"] == str((ROOT / "docs" / "google-sheets-schema-v2.json").resolve())
+    assert schema_mount["source"] == str((ROOT / "docs" / "google-sheets-schema.json").resolve())
     assert n8n["restart"] == "unless-stopped"
     assert schema["restart"] == "unless-stopped"
     assert services["finary-bridge"]["restart"] == "unless-stopped"
@@ -160,6 +160,6 @@ def test_repository_configuration_contains_no_live_secret_or_credential_binding(
 def test_canonical_daily_workflow_export_remains_inactive() -> None:
     workflow = json.loads(DAILY_PATH.read_text(encoding="utf-8"))
 
-    assert workflow["name"] == "Finary - Daily Sync"
+    assert workflow["name"] == "Finary MCP Portfolio Sync"
     assert workflow["active"] is False
     assert "30 7 * * *" in DAILY_PATH.read_text(encoding="utf-8")

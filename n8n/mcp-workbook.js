@@ -53,13 +53,14 @@ const mcpPermitted = snapshot => {
   const accounts=snapshot.coverage.accounts==='COMPLETE',positions=accounts&&snapshot.coverage.holdings==='COMPLETE'&&['SUPPORTED','UNVERIFIED'].includes(snapshot.coverage.detail_semantics);
   return {accounts_current:accounts,positions_current:positions,positions_history:positions,portfolio_daily:true,
     account_ownership:accounts,source_connections:accounts,position_rates:positions,official_allocation_categories:true,
-    official_allocation_types:true,portfolio_members:true,observations:true,source_warnings:true,unsupported_details:accounts,liabilities_current:false};
+    official_allocation_types:true,portfolio_members:true,observations:true,source_warnings:true,unsupported_details:accounts};
 };
 const mcpBuild = (snapshot,run,existing,overrides=[]) => {
   mcpSnapshot(snapshot);
   const permitted=mcpPermitted(snapshot),batches={};
   const positions=JSON.parse(JSON.stringify(snapshot.positions));
-  const enabled=overrides.filter(o=>o.enabled===true&&typeof o.source_asset_id==='string'&&o.source_asset_id.startsWith('mcp:holding:'));
+  mcpBatch('asset_overrides',overrides);
+  const enabled=overrides.filter(o=>o.enabled===true);
   mcpUnique(enabled,['source_asset_id']);
   for(const position of positions){
     const override=enabled.find(o=>o.source_asset_id===position.source_asset_id);
@@ -71,11 +72,10 @@ const mcpBuild = (snapshot,run,existing,overrides=[]) => {
     batches[table]=permitted[table]?rows.map(value=>{
       const row=mcpBlankRow(table);
       for(const [column,path]of Object.entries(definition.column_bindings))row[column]=mcpPointer(value,path);
-      for(const [column,v]of Object.entries({observation_id:snapshot.observation_id,run_id:run.run_id,provider:run.provider}))if(Object.hasOwn(row,column))row[column]=v;
+      for(const [column,v]of Object.entries({observation_id:snapshot.observation_id,run_id:run.run_id}))if(Object.hasOwn(row,column))row[column]=v;
       if(mcpChildFields[table])row.row_key=mcpChildKey(snapshot.observation_id,table,value);
       if(table==='accounts_current'||table==='positions_current'){
-        row.source=run.provider;row.last_seen_run_id=run.run_id;row.last_seen_at=snapshot.generated_at;row.is_active=true;
-        if(table==='accounts_current'){row.name=value.label;row.account_type=value.account_type;row.currency=value.native_balance.currency;}
+        row.generated_at=snapshot.generated_at;row.is_active=true;
       }
       if(table==='positions_history'){
         row.history_key=`mcp:history:${snapshot.snapshot_date}:${snapshot.observation_id}:${value.position_key}`;
@@ -88,22 +88,20 @@ const mcpBuild = (snapshot,run,existing,overrides=[]) => {
       return row;
     }):[];
   }
-  batches.liabilities_current=[];
   for(const table of ['accounts_current','positions_current']){
     if(!permitted[table])continue;
     const key=mcpWorkbook.sheets[table].unique_key,seen=new Set(batches[table].map(r=>r[key]));
     for(const old of existing[table]||[]){
-      if(old.source==='finary_official_mcp'&&!seen.has(old[key])){
+      if(!seen.has(old[key])){
         mcpRow(table,old);batches[table].push({...old,is_active:false});
       }
     }
   }
   const terminal=mcpBlankRow('sync_runs');
   Object.assign(terminal,{run_id:run.run_id,started_at:run.started_at,completed_at:run.started_at,duration_ms:0,
-    status:snapshot.warnings.length?'SUCCESS_WITH_WARNINGS':'SUCCESS',schema_version:'3.0',workbook_schema:'3.0',
+    status:snapshot.warnings.length?'SUCCESS_WITH_WARNINGS':'SUCCESS',api_schema:mcpWorkbook.api_schema,workbook_schema:mcpWorkbook.schema_version,
     observation_id:snapshot.observation_id,provider:run.provider,source_contract_version:mcpContract.contract_version,
     writer_generation:run.writer_generation,writer_id:run.writer_id,warning_count:snapshot.warnings.length,
-    accounts_count:permitted.accounts_current?snapshot.accounts.length:null,positions_count:permitted.positions_current?snapshot.positions.length:null,
     series_break:mcpSeriesBreak(existing,snapshot.provenance)});
   for(const [table,column]of Object.entries(mcpWorkbook.mcp_tables.sync_runs.count_columns)){
     terminal[column]=permitted[table]?batches[table].filter(r=>!Object.hasOwn(r,'is_active')||r.is_active===true).length:null;
@@ -127,7 +125,7 @@ const mcpCollision = (existing,run,observation) => {
   for(const [table,rows]of Object.entries(existing)){
     if(!mcpWorkbook.sheets[table])continue;
     mcpUnique(rows,[mcpWorkbook.sheets[table].unique_key]);
-    for(const row of rows)mcpAssert(row.run_id!==run.run_id&&row.last_seen_run_id!==run.run_id&&row.observation_id!==observation);
+    for(const row of rows)mcpAssert(row.run_id!==run.run_id&&row.observation_id!==observation);
   }
 };
 const mcpTerminal = (rows,run,observation) => {
@@ -138,12 +136,12 @@ const mcpNormalized = (table,row) => {
   const value={};for(const [column,path]of Object.entries(mcpWorkbook.mcp_tables[table].column_bindings))mcpPut(value,path,row[column]);return value;
 };
 const mcpRetained = existing => {
+  mcpBatch('sync_runs',existing.sync_runs);
+  mcpAssert(mcpStable(existing.README)===mcpStable(mcpWorkbook.readme_entries));
   for(const [table,rows]of Object.entries(existing)){
     if(!mcpTableInputs[table])continue;
     for(const row of rows){
-      if(!row.observation_id)continue;
       mcpRow(table,row);
-      if(table.endsWith('_current'))mcpAssert(row.source==='finary_official_mcp'&&row.provider==='finary_official_mcp');
       if(mcpChildFields[table])mcpAssert(row.row_key===mcpChildKey(row.observation_id,table,mcpNormalized(table,row)));
       if(table==='positions_history')mcpAssert(row.history_key===`mcp:history:${row.snapshot_date}:${row.observation_id}:${row.position_key}`);
       if(table==='portfolio_daily')mcpAssert(row.daily_key===`mcp:daily:${row.snapshot_date}:${row.observation_id}`);
@@ -152,9 +150,9 @@ const mcpRetained = existing => {
       if(terminal.length)mcpAssert(terminal[0].run_id===row.run_id&&terminal[0].provider==='finary_official_mcp');
     }
   }
-  for(const terminal of existing.sync_runs.filter(r=>r.provider==='finary_official_mcp'&&['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status))){
+  for(const terminal of existing.sync_runs.filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status))){
     mcpRow('sync_runs',terminal);
-    mcpAssert(terminal.schema_version==='3.0'&&terminal.workbook_schema==='3.0'&&terminal.source_contract_version===mcpContract.contract_version);
+    mcpAssert(terminal.api_schema===mcpWorkbook.api_schema&&terminal.workbook_schema===mcpWorkbook.schema_version&&terminal.source_contract_version===mcpContract.contract_version);
     const observations=existing.observations.filter(r=>r.observation_id===terminal.observation_id&&r.run_id===terminal.run_id);
     mcpAssert(observations.length===1);
     for(const [table,column]of Object.entries(mcpWorkbook.mcp_tables.sync_runs.count_columns)){
@@ -171,9 +169,9 @@ const mcpSeriesBreak = (existing,provenance) => {
   successful.sort((a,b)=>Date.parse(b.completed_at)-Date.parse(a.completed_at));
   if(successful.length>1&&Date.parse(successful[0].completed_at)===Date.parse(successful[1].completed_at))return true;
   const previous=successful[0];
-  if(previous.provider!=='finary_official_mcp'||previous.schema_version!=='3.0'||previous.source_contract_version!==provenance.source_contract_version)return true;
+  if(previous.provider!=='finary_official_mcp'||previous.workbook_schema!==mcpWorkbook.schema_version||previous.source_contract_version!==provenance.source_contract_version)return true;
   const context=(existing.observations||[]).find(r=>r.run_id===previous.run_id&&r.observation_id===previous.observation_id);
   if(!context)return true;
   const other=mcpNormalized('observations',context).provenance;
-  return ['provider','source_contract_version','scope','ownership_basis','metric','currency'].some(field=>other[field]!==provenance[field]);
+  return ['provider','source_contract_version','scope','ownership_basis','metric','currency'].some(field=>other[field]==null||provenance[field]==null||other[field]!==provenance[field]);
 };

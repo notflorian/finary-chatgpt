@@ -5,9 +5,10 @@ assert.equal(require('/usr/local/lib/node_modules/n8n/package.json').version, '2
 const base = '/usr/local/lib/node_modules/n8n/node_modules/n8n-nodes-base/dist/nodes/Google/Sheet/v2/';
 const { GoogleSheet } = require(base + 'helpers/GoogleSheet.js');
 const { execute } = require(base + 'actions/sheet/appendOrUpdate.operation.js');
+const { execute: read } = require(base + 'actions/sheet/read.operation.js');
 const { createInterface } = require('node:readline');
 
-async function apply({ schema, workbook, writes }) {
+async function apply({ schema, workbook, writes, reads = [] }) {
   const updates = [];
   for (const { node, rows } of writes) {
     assert.equal(node.typeVersion, 4.7);
@@ -57,7 +58,25 @@ async function apply({ schema, workbook, writes }) {
     await execute.call(context, sheet, name, 'synthetic-sheet');
     workbook[name] = cells.slice(1).map(values => Object.fromEntries(headers.map((key, i) => [key, values[i] ?? ''])));
   }
-  return { workbook, updates };
+  const readRows = {};
+  for (const node of reads) {
+    const name = node.parameters.sheetName.value;
+    const headers = schema.sheets[name].columns.map(column => column.name);
+    const cells = [headers, ...workbook[name].map(row => headers.map(key => row[key] ?? ''))];
+    const context = {
+      getNode: () => node,
+      getInputData: () => [{ json: {} }],
+      getNodeParameter: (path, index, fallback) =>
+        path.split('.').reduce((value, key) => value?.[key], node.parameters) ?? fallback,
+    };
+    const sheet = new GoogleSheet('synthetic-workbook', context);
+    sheet.getData = async (range, mode) => {
+      assert.equal(mode, 'FORMULA');
+      return structuredClone(cells);
+    };
+    readRows[name] = (await read.call(context, sheet, name)).map(item => item.json);
+  }
+  return { workbook, updates, reads: readRows };
 }
 
 (async () => {

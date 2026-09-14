@@ -42,7 +42,9 @@ narrow fix may leave unhandled.
 - Preserve official OAuth issuer checks on `clerk.finary.com`; the removed
   private password/cookie/MFA flow must never return as a fallback.
 - Treat `docs/google-sheets-schema.json` as the machine-readable workbook
-  contract when reviewing workflow or schema changes.
+  generated 4.0 contract when reviewing workflow or schema changes; its field-level
+  source is `current_workbook` in `docs/finary-mcp-contract.json`. Reject old layouts
+  and preserve the fresh PAUSED initializer; do not reintroduce conversion support.
 - Reject changes that weaken validation, safety limits, credential isolation, or
   error handling merely to make tests pass.
 

@@ -1,1 +1,0 @@
-return [{ json: $('Prepare Validated Rows').first().json }];

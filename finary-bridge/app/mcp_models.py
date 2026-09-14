@@ -6,6 +6,9 @@ from typing import ClassVar, Literal
 
 from app.mcp_validation import ContractModel
 
+ApiSchemaVersion = Literal["3.0"]
+SourceContractVersion = Literal["2.0.0"]
+
 
 class McpMoney(ContractModel):
     contract_name: ClassVar[str] = "money"
@@ -18,7 +21,7 @@ class McpMoney(ContractModel):
 class McpProvenance(ContractModel):
     contract_name: ClassVar[str] = "provenance"
     provider: Literal["finary_official_mcp"]
-    source_contract_version: Literal["1.1.0"]
+    source_contract_version: Literal["2.0.0"]
     scope: Literal["household"]
     ownership_basis: Literal["direct"]
     metric: Literal["gross_assets"]
