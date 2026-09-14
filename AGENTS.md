@@ -147,7 +147,8 @@ normalization. They never rewrite official MCP allocation.
 - `GET /v1/snapshot` is canonical and returns the MCP schema `1.0`.
 - `GET /v1/budget`, `GET /v1/spending-search` and `GET /v1/goals` remain
   independent optional reads outside portfolio synchronization.
-- `/v2/snapshot` and `/v3/snapshot` are removed and must return 404.
+- Unsupported API majors return 404 without redirects, client construction,
+  OAuth-state access or upstream I/O.
 - Structured errors use `{error: {code, message, retryable}}` and never expose
   raw upstream details.
 
