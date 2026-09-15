@@ -25,7 +25,7 @@ from app.mcp_models import (
     McpUnsupportedDetail,
     McpWarning,
 )
-from app.mcp_validation import CONTRACT, key
+from app.mcp_validation import CONTRACT, key, parse_timestamp
 
 
 def money(amount: Any, currency: Any, conversion: Any = None) -> dict[str, Any]:
@@ -344,7 +344,7 @@ class McpAdapter:
                 freshness = "BROKEN"
             elif last_success:
                 checked("timestamp", last_success)
-                at = datetime.fromisoformat(last_success)
+                at = parse_timestamp(last_success)
                 freshness = (
                     "UNKNOWN"
                     if at > now

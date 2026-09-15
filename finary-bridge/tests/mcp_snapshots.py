@@ -9,9 +9,9 @@ from app.services.mcp_snapshot_service import McpSnapshotService
 
 NOW = datetime.fromisoformat("2026-09-11T10:00:00+02:00")
 
-def snapshot(wire=None, **kwargs):
+def snapshot(wire=None, *, now=NOW, **kwargs):
     return asyncio.run(
         McpSnapshotService(
-            (wire or SyntheticWire()).client(), clock=lambda: NOW, **kwargs
+            (wire or SyntheticWire()).client(), clock=lambda: now, **kwargs
         ).snapshot()
     ).model_dump()

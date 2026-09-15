@@ -59,6 +59,7 @@ def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
 
     assert 'python -m pytest -m "not live" --ignore=tests/live' in ci
     job = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+    assert 'PYTEST_XDIST_WORKER_COUNT: "4"' in job
     assert (
         "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
     ) in " ".join(job.split())
@@ -147,12 +148,15 @@ def test_python314_compatibility_job_runs_mcp_validation() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
     job = ci.split("  mcp-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
     assert 'python-version: "3.14.6"' in job
+    assert (
+        "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
+    ) in " ".join(job.split())
     assert "timeout-minutes: 10" in job
     assert 'python -m pip install -e ".[dev]"' in job
     selected = re.findall(r"tests/test_[a-z_]+\.py", job)
     assert set(selected) == {
         "tests/test_mcp_contract.py", "tests/test_mcp_auth.py", "tests/test_mcp_integration.py",
-        "tests/test_mcp_optional.py", "tests/test_mcp_precision.py",
+        "tests/test_mcp_optional.py", "tests/test_mcp_precision.py", "tests/test_mcp_timestamps.py",
         "tests/test_http_boundary.py", "tests/test_health.py", "tests/test_product_baseline.py",
     }
     assert all((ROOT / "finary-bridge" / path).is_file() for path in selected)

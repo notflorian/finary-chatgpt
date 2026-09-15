@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
@@ -16,11 +17,23 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 CONTRACT: dict[str, Any] = json.loads(files("app").joinpath("mcp-contract.json").read_text())
 FORMATS = FormatChecker()
+TIMESTAMP_PATTERN = re.compile(CONTRACT["$defs"]["timestamp"]["pattern"])
+
+
+def parse_timestamp(value: object) -> datetime:
+    """Parse only the canonical grammar, retaining the complete microsecond instant."""
+    if isinstance(value, str) and TIMESTAMP_PATTERN.fullmatch(value):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    raise ValueError("MCP timestamp validation failed") from None
 
 
 @FORMATS.checks("date-time", raises=(TypeError, ValueError))
 def aware_timestamp(value: object) -> bool:
-    return isinstance(value, str) and datetime.fromisoformat(value).utcoffset() is not None
+    parse_timestamp(value)
+    return True
 
 
 @lru_cache
@@ -96,9 +109,9 @@ def validate_position(position: dict[str, Any]) -> None:
 def validate_collection_context(value: dict[str, Any]) -> None:
     """Validate the collection window independently of retained detail availability."""
     p = value["provenance"]
-    generated = datetime.fromisoformat(value["generated_at"])
+    generated = parse_timestamp(value["generated_at"])
     start, end = (
-        datetime.fromisoformat(p[f"collection_{part}_at"]) for part in ("started", "ended")
+        parse_timestamp(p[f"collection_{part}_at"]) for part in ("started", "ended")
     )
     require(start <= end <= generated)
     require(

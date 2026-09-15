@@ -115,3 +115,18 @@ def precise_wire(amount):
     account["balance"] = account["full_value_eur"] = amount
     wire.values["holdings"]["data"][0]["attributes"]["current_value"] = amount
     return wire
+
+
+def connection_wire(timestamp):
+    """Attach a synthetic native institution connection with an unchanged timestamp."""
+    wire = SyntheticWire()
+    wire.values["accounts"]["data"][0]["relationships"]["institution_connection"] = {
+        "data": {"type": "institution-connections", "id": "synthetic-bank"}
+    }
+    wire.values["accounts"]["included"].append({
+        "type": "institution-connections",
+        "id": "synthetic-bank",
+        "attributes": {"last_successful_sync_at": timestamp, "error_message": None},
+        "relationships": {},
+    })
+    return wire
