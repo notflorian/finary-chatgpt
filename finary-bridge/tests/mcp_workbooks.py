@@ -74,7 +74,7 @@ def prepare(value=None, book=None, execution="mcp-test", workflow=None):
     return named
 
 
-def writes(named, execution="mcp-test"):
+def writes(named, execution="mcp-test", *, now=NOW):
     result = []
     for node in WORKFLOW["nodes"]:
         if node["name"].startswith("Write "):
@@ -94,7 +94,7 @@ def writes(named, execution="mcp-test"):
         named_rows=named,
         input_rows=[{}],
         execution_id=execution,
-        now=NOW.isoformat(),
+        now=now.isoformat(),
     )
     result.append(
         {
@@ -127,9 +127,9 @@ def failure(named, book, execution="mcp-test"):
     ]
 
 
-def book_for_consumer(value=None):
+def book_for_consumer(value=None, *, now=NOW):
     book = empty_book()
-    for write in writes(prepare(value, book=book)):
+    for write in writes(prepare(value, book=book), now=now):
         table = write["node"]["parameters"]["sheetName"]["value"]
         book[table] += write["rows"]
     return book

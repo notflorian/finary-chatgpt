@@ -169,8 +169,8 @@ const mcpSeriesBreak = (existing,provenance) => {
   const successful=(existing.sync_runs||[]).filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status));
   if(!successful.length)return true;
   mcpAssert(successful.every(r=>mcpInstant(r.completed_at)));
-  successful.sort((a,b)=>Date.parse(b.completed_at)-Date.parse(a.completed_at));
-  if(successful.length>1&&Date.parse(successful[0].completed_at)===Date.parse(successful[1].completed_at))return true;
+  successful.sort((a,b)=>{const left=mcpEpochMicros(a.completed_at),right=mcpEpochMicros(b.completed_at);return left<right?1:left>right?-1:0;});
+  if(successful.length>1&&mcpEpochMicros(successful[0].completed_at)===mcpEpochMicros(successful[1].completed_at))return true;
   const previous=successful[0];
   if(previous.provider!=='finary_official_mcp'||previous.workbook_schema!==mcpWorkbook.schema_version||previous.source_contract_version!==provenance.source_contract_version)return true;
   const context=(existing.observations||[]).find(r=>r.run_id===previous.run_id&&r.observation_id===previous.observation_id);

@@ -194,14 +194,16 @@ explicitly clear cells using empty strings. Known zero and false remain known.
 ### Generated artifact adoption
 
 The workbook schema contains only downstream definitions; the full packaged MCP
-contract still validates bridge and optional-tool responses. This projection keeps
-application/source-contract `1.0.0` and API/workbook `1.0`, physical sheets, headers,
-rows and validation semantics unchanged. Existing compatible workbooks need no
-migration or data edits.
+contract still validates bridge and optional-tool responses. Application/source
+contract `1.0.0`, API/workbook `1.0`, physical sheets and headers are unchanged.
+Existing compatible workbooks need no migration or data edits. Timestamp
+validation follows the [canonical policy](finary-mcp-contract.md#timestamp-validation);
+unsupported retained encodings block validation and are not automatically repaired.
 
 The workflow binds the exact generated workbook metadata and digest, including
 an independent inline schema for failure finalization. To adopt changed artifacts,
-an operator must stop scheduled/manual executions, serve the matching canonical
+an operator must stop scheduled/manual executions, update the bridge and reference
+reader from the same commit, serve the matching canonical
 `docs/google-sheets-schema.json` through schema-server, and reimport the matching
 inactive workflow export. Restore runtime credential bindings and clear cached or
 pinned outputs before separately authorizing execution. Adopt both artifacts from

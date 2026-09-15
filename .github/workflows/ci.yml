@@ -58,6 +58,10 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14.6"
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.23.2"
       - name: Install development dependencies
         working-directory: finary-bridge
         run: |
@@ -69,7 +73,7 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_mcp_contract.py tests/test_mcp_auth.py tests/test_mcp_integration.py
-          tests/test_mcp_optional.py tests/test_mcp_precision.py
+          tests/test_mcp_optional.py tests/test_mcp_precision.py tests/test_mcp_timestamps.py
           tests/test_http_boundary.py tests/test_health.py tests/test_product_baseline.py
 
   static-analysis:

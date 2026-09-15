@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).parents[2]
 GENERATOR = runpy.run_path(str(ROOT / "scripts/build-mcp-workbook.py"))
 CONTRACT = json.loads((ROOT / "docs/finary-mcp-contract.json").read_text())
-EXPLICIT_ROOTS = ("snapshot_v1", "writer_control", "id", "decimal", "position")
+EXPLICIT_ROOTS = ("snapshot_v1", "writer_control", "id", "decimal", "position", "timestamp")
 
 
 def minimal_contract():

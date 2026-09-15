@@ -23,6 +23,7 @@ def prelude(name):
                     "contract_version": workbook["source_contract_version"],
                     "api_schema": workbook["api_schema"],
                     "workbook_schema": workbook["schema_version"],
+                    "$defs": {"timestamp": workbook["mcp_definitions"]["timestamp"]},
                 }
             )
             + ";\n"

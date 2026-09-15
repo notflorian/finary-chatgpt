@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Named entry points in n8n/mcp-validation.js and the position enum lookup in
 # n8n/mcp-workbook.js. Row and column dependencies come from workbook metadata.
-DOWNSTREAM_ROOTS = ("snapshot_v1", "writer_control", "id", "decimal", "position")
+DOWNSTREAM_ROOTS = ("snapshot_v1", "writer_control", "id", "decimal", "position", "timestamp")
 
 
 def definition_name(reference):
