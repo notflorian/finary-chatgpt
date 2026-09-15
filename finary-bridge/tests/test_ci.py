@@ -147,6 +147,9 @@ def test_python314_compatibility_job_runs_mcp_validation() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
     job = ci.split("  mcp-validation-python314:", 1)[1].split("  static-analysis:", 1)[0]
     assert 'python-version: "3.14.6"' in job
+    assert (
+        "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
+    ) in " ".join(job.split())
     assert "timeout-minutes: 10" in job
     assert 'python -m pip install -e ".[dev]"' in job
     selected = re.findall(r"tests/test_[a-z_]+\.py", job)

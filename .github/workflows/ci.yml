@@ -72,6 +72,7 @@ jobs:
         working-directory: finary-bridge
         run: >-
           python -m pytest -q
+          -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
           tests/test_mcp_contract.py tests/test_mcp_auth.py tests/test_mcp_integration.py
           tests/test_mcp_optional.py tests/test_mcp_precision.py tests/test_mcp_timestamps.py
           tests/test_http_boundary.py tests/test_health.py tests/test_product_baseline.py

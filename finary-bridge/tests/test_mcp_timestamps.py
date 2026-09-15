@@ -25,9 +25,14 @@ def test_python_timestamp_contract(value, accepted):
             validate("timestamp", value)
 
 
+@pytest.fixture(scope="module")
+def connection_snapshot():
+    return snapshot(connection_wire(None))
+
+
 @pytest.mark.parametrize("value,accepted", TIMESTAMPS)
-def test_exported_snapshot_timestamp_contract(value, accepted):
-    normalized = snapshot(connection_wire(None))
+def test_exported_snapshot_timestamp_contract(value, accepted, connection_snapshot):
+    normalized = deepcopy(connection_snapshot)
     normalized["connections"][0]["last_sync_at"] = value
     if accepted or value is None:
         prepare(normalized)
@@ -54,7 +59,15 @@ def test_hour_24_is_independently_rejected_by_writer():
     assert failed.value.stderr == "MCP_VALIDATION_FAILED"
 
 
-@pytest.mark.parametrize("value", [v for v, accepted in TIMESTAMPS if accepted] + [None])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-09-10T12:00:00Z",
+        "2026-09-10T12:00:00.123456+02:00",
+        "2026-09-10T12:00:00.000001-05:30",
+        None,
+    ],
+)
 def test_valid_service_writer_reader_round_trip(value):
     normalized = snapshot(connection_wire(value), now=NOW.replace(microsecond=123456))
     assert normalized["connections"][0]["last_successful_sync_at"] == value
