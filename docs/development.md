@@ -97,8 +97,9 @@ recovery, invalid later batches, control rechecks, UUID identities, terminal
 response loss and complete stdout evidence under backpressure.
 
 Full tests, Python 3.14 compatibility and the required runtime gate use bounded
-xdist with no worker restart. Local worker count defaults to two; CI uses detected
-capacity capped at four. `PYTEST_XDIST_WORKER_COUNT` is an explicit override. Each engine execution
+xdist with no worker restart. Local worker count defaults to two. The full CI gate
+sets four workers; other CI gates use detected capacity capped at four.
+`PYTEST_XDIST_WORKER_COUNT` is an explicit override. Each engine execution
 uses fresh disposable containers/databases; synthetic checks do not establish
 live Google, Finary or Clerk behavior.
 

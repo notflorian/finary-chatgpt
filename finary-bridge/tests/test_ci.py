@@ -59,6 +59,7 @@ def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
 
     assert 'python -m pytest -m "not live" --ignore=tests/live' in ci
     job = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+    assert 'PYTEST_XDIST_WORKER_COUNT: "4"' in job
     assert (
         "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
     ) in " ".join(job.split())
