@@ -120,6 +120,19 @@ and `n8n/mcp-workbook.js`. The workflow generator embeds mechanical Check, Selec
 and Continue nodes directly, without intermediate source files. The generated
 `n8n/workflows/finary-mcp-sync.json` export is self-contained for pinned n8n;
 `--check` detects final artifact drift without writing files.
+
+The full source and packaged MCP contracts remain authoritative for bridge,
+adapter and optional-tool validation. The workbook generator projects only the
+transitive local-definition dependencies of workbook row bindings, column
+constraints and the explicit JavaScript entry points in `DOWNSTREAM_ROOTS`.
+Keep that small declaration aligned with named helper and enum lookups when
+editing the shared JavaScript. References must use `#/$defs/<name>`; unsupported
+or missing reachable references fail generation without fetching schemas.
+Unused upstream definitions do not affect workbook or workflow bytes/digests.
+Regenerate through the common entry point and follow the
+[coordinated artifact adoption steps](operations.md#generated-artifact-adoption)
+when the workbook digest changes.
+
 Test modules import focused support modules, never other test modules:
 
 - `tests/mcp_artifacts.py` loads canonical artifacts and materializes fresh synthetic cases.
