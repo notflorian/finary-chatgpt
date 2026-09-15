@@ -30,16 +30,36 @@ def connection_snapshot():
     return snapshot(connection_wire(None))
 
 
-@pytest.mark.parametrize("value,accepted", TIMESTAMPS)
-def test_exported_snapshot_timestamp_contract(value, accepted, connection_snapshot):
-    normalized = deepcopy(connection_snapshot)
-    normalized["connections"][0]["last_sync_at"] = value
-    if accepted or value is None:
-        prepare(normalized)
-    else:
-        with pytest.raises(subprocess.CalledProcessError) as failed:
-            prepare(normalized)
-        assert failed.value.stderr == "MCP_VALIDATION_FAILED"
+@pytest.fixture(scope="module")
+def exported_timestamp_results(connection_snapshot):
+    from n8n_code import _run_mcp_validation_probe
+
+    return _run_mcp_validation_probe(
+        """
+const {snapshot,values}=$input.first().json;
+const required=values.map(value=>mcpSchemaValid(value,mcpContract.$defs.timestamp));
+const nullable=values.map(value=>{
+  const candidate=JSON.parse(JSON.stringify(snapshot));
+  candidate.connections[0].last_sync_at=value;
+  try { mcpSnapshot(candidate); return {accepted:true}; }
+  catch(error) { return {accepted:false,error:error.message}; }
+});
+return [{json:{required,nullable}}];
+""",
+        [{"snapshot": connection_snapshot, "values": [value for value, _ in TIMESTAMPS]}],
+    )[0]["json"]
+
+
+@pytest.mark.parametrize(
+    "index,value,accepted",
+    [(index, value, accepted) for index, (value, accepted) in enumerate(TIMESTAMPS)],
+)
+def test_exported_snapshot_timestamp_contract(index, value, accepted, exported_timestamp_results):
+    assert exported_timestamp_results["required"][index] is accepted
+    result = exported_timestamp_results["nullable"][index]
+    assert result["accepted"] is (accepted or value is None)
+    if not result["accepted"]:
+        assert result["error"] == "MCP_VALIDATION_FAILED"
 
 
 @pytest.mark.parametrize("value", ["20260910T12:00:00Z", "2026-09-10T12:00:00,5Z"])
