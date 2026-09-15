@@ -40,8 +40,7 @@ The schedule runs at 07:30 Europe/Paris after operator publication.
 
 ## API and contracts
 
-Application **1.0.0**, source contract **1.0.0**, normalized API **1.0** and workbook
-**1.0** have distinct version purposes. The current MCP endpoints are:
+The current MCP endpoints are:
 
 - `GET /health`: local metadata, without OAuth-state or upstream access.
 - `GET /v1/snapshot`: official overview and qualified portfolio detail.
