@@ -6,6 +6,7 @@
 !finary-bridge/pyproject.toml
 !finary-bridge/setup.py
 !finary-bridge/MANIFEST.in
+!finary-bridge/.repository-source
 !finary-bridge/app/
 !finary-bridge/app/*.py
 !finary-bridge/app/*.json

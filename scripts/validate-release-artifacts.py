@@ -15,6 +15,9 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 ENV = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "SYSTEMROOT") if key in os.environ}
 ENV.update({"PYTHONNOUSERSITE": "1", "COMPOSE_ENV_FILES": os.devnull})
+SOURCE_MARKER = ".repository-source"
+STALE_NOTICE = b"Synthetic stale generated notice; the repository notice must replace this.\n"
+UNRELATED_NOTICE = b"Synthetic unrelated parent notice; distributions must ignore this.\n"
 
 
 def run(command, cwd, timeout=300, check=True):
@@ -23,7 +26,7 @@ def run(command, cwd, timeout=300, check=True):
                           check=check, text=True, capture_output=True)
 
 
-def archive_check(path, reference, app_files):
+def archive_check(path, expected_notice, app_files):
     if path.suffix == ".whl":
         with zipfile.ZipFile(path) as archive:
             content = {n: archive.read(n) for n in archive.namelist() if not n.endswith('/')}
@@ -48,9 +51,59 @@ def archive_check(path, reference, app_files):
     metadata = email.message_from_bytes(content[metadata_name])
     assert metadata['License-Expression'] == 'MIT', "Archive missing MIT metadata"
     assert metadata.get_all('License-File') == ['LICENSE'], "Archive missing notice metadata"
-    assert content[notice_name] == (reference / 'LICENSE').read_bytes(), "Archive notice mismatch"
+    assert content[notice_name] == expected_notice, "Archive notice mismatch"
     assert metadata['Version'] == '1.0.0'
     print(json.dumps({"archive": path.name, "inventory": sorted(content)}), flush=True)
+
+
+def extract_sdist(sdist, destination):
+    destination.mkdir(exist_ok=True)
+    with tarfile.open(sdist) as archive:
+        archive.extractall(destination, filter="data")
+    extracted = [path for path in destination.iterdir() if path.is_dir()]
+    assert len(extracted) == 1, "Source distribution must have one top-level directory"
+    return extracted[0]
+
+
+def rejected_build(build_python, package, output, expected):
+    output.mkdir()
+    result = run([build_python, '-I', '-m', 'build', '--no-isolation', '--wheel',
+                  '--outdir', output, package], package.parent, check=False)
+    assert result.returncode != 0, "Incomplete source unexpectedly produced a wheel"
+    assert expected in result.stdout + result.stderr, "Build did not report the missing notice"
+    assert not list(output.iterdir()), "Rejected build left a misleading artifact"
+
+
+def validate_sdist_rebuilds(build_python, sdist, work, expected_notice, app_files):
+    for name, parent_notice in (("no-parent", None), ("competing-parent", UNRELATED_NOTICE)):
+        parent = work / ("sdist-rebuild-" + name)
+        parent.mkdir()
+        if parent_notice is not None:
+            (parent / 'LICENSE').write_bytes(parent_notice)
+        package = extract_sdist(sdist, parent)
+        notice = package / 'LICENSE'
+        assert notice.read_bytes() == expected_notice, "Extracted sdist notice mismatch"
+        artifacts = work / ("sdist-rebuilt-artifacts-" + name)
+        artifacts.mkdir()
+        run([build_python, '-I', '-m', 'build', '--no-isolation', '--wheel',
+             '--outdir', artifacts, package], work)
+        wheel, = artifacts.glob('*.whl')
+        archive_check(wheel, expected_notice, app_files)
+        assert notice.read_bytes() == expected_notice, "Rebuild replaced the bundled notice"
+        with zipfile.ZipFile(wheel) as archive:
+            assert UNRELATED_NOTICE not in archive.read(next(
+                name for name in archive.namelist() if name.endswith('.dist-info/licenses/LICENSE')
+            )), "Rebuilt wheel contains the unrelated parent notice"
+        print("SDIST_REBUILD_" + name.replace('-', '_').upper() + "_VALIDATED", flush=True)
+
+    parent = work / 'sdist-rebuild-incomplete'
+    parent.mkdir()
+    (parent / 'LICENSE').write_bytes(UNRELATED_NOTICE)
+    package = extract_sdist(sdist, parent)
+    (package / 'LICENSE').unlink()
+    rejected_build(build_python, package, work / 'sdist-rebuild-incomplete-artifacts',
+                   "Complete source distribution requires its bundled LICENSE")
+    print("SDIST_INCOMPLETE_NOTICE_REJECTED", flush=True)
 
 
 def negative_controls(python, site, fixture, outside):
@@ -100,6 +153,7 @@ def validate(work):
     package = source / 'finary-bridge'
     package.mkdir(parents=True)
     shutil.copyfile(ROOT / 'LICENSE', source / 'LICENSE')
+    expected_notice = (ROOT / 'LICENSE').read_bytes()
     # Include tracked package-side tests/support in the clean source tree so the
     # archive inventory check detects accidental discovery of non-product files.
     tracked = run(['git', 'ls-files', '-z', '--', 'finary-bridge'], ROOT).stdout
@@ -108,8 +162,10 @@ def validate(work):
         destination = package / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, destination)
-    for name in ('pyproject.toml', 'setup.py', 'MANIFEST.in'):
+    for name in ('pyproject.toml', 'setup.py', 'MANIFEST.in', SOURCE_MARKER):
         shutil.copyfile(ROOT / 'finary-bridge' / name, package / name)
+    assert (package / SOURCE_MARKER).is_file(), "Source layout marker missing from staging"
+    (package / 'LICENSE').write_bytes(STALE_NOTICE)
     app_files = {}
     for path in sorted((ROOT / 'finary-bridge/app').rglob('*')):
         if path.is_file() and path.suffix in ('.py', '.json'):
@@ -136,13 +192,23 @@ def validate(work):
     build_python = builder / 'bin/python'
     run([build_python, '-I', '-m', 'pip', '--isolated', 'install', '--no-cache-dir',
          'build>=1.2,<2', 'setuptools==77.0.3', 'wheel'], work)
+    missing_source = work / 'missing-source'
+    missing_package = missing_source / 'finary-bridge'
+    shutil.copytree(package, missing_package)
+    rejected_build(build_python, missing_package, work / 'missing-source-artifacts',
+                   "Repository source build requires the authoritative root LICENSE")
+    print('SOURCE_MISSING_NOTICE_REJECTED', flush=True)
     run([build_python, '-I', '-m', 'build', '--no-isolation', '--outdir', artifacts, package], work)
     wheel, = artifacts.glob('*.whl')
     sdist, = artifacts.glob('*.tar.gz')
     for artifact in (wheel, sdist):
-        archive_check(artifact, fixture, app_files)
+        archive_check(artifact, expected_notice, app_files)
+    assert (package / 'LICENSE').read_bytes() == expected_notice
+    print('SOURCE_STALE_NOTICE_REFRESH_VALIDATED', flush=True)
     # Make the original staging tree unavailable before the sdist builds its own wheel.
     shutil.rmtree(source)
+    validate_sdist_rebuilds(build_python, sdist, work, expected_notice, app_files)
+    print('SDIST_ORIGIN_REMOVED_VALIDATED', flush=True)
     for kind, artifact in [('wheel', wheel), ('sdist', sdist)]:
         installation = work / kind
         run([sys.executable, '-I', '-m', 'venv', installation], work)

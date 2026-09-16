@@ -406,8 +406,11 @@ bounded execution and cleanup on success or failure. The separate Linux
 For standalone packaging, `python -m build finary-bridge` from the root remains
 supported (install the `build` frontend first), as does `python -m build` inside
 `finary-bridge`. `setup.py` stages `finary-bridge/LICENSE` from the authoritative
-root `LICENSE`; the generated copy is ignored by Git and included in the sdist.
-An extracted sdist uses its own notice without the original parent directory.
+root `LICENSE` when the tracked `.repository-source` marker identifies the source
+layout; the generated copy is ignored by Git and included in the sdist. The marker
+is excluded from the sdist, so an extracted distribution uses only its bundled
+notice and rejects an incomplete archive instead of consulting ambient parent
+files.
 SPDX metadata requires the declared setuptools minimum; no license change is made.
 Both Compose files now build from the repository root with an explicit
 `finary-bridge/Dockerfile`. The root `.dockerignore` allowlists only that Dockerfile,
