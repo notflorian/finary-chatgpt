@@ -4,7 +4,14 @@ const mcpAssert = (condition) => { if (!condition) mcpFail(); };
 const mcpObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const mcpStable = (value) => JSON.stringify(value, (_key, v) => mcpObject(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k,v[k]])) : v);
 const mcpDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
-const mcpInstant = value => typeof value === 'string' && /T.*(Z|[+-]\d{2}:\d{2})$/.test(value) && mcpDate(value.slice(0,10)) && Number.isFinite(Date.parse(value));
+const mcpTimestampPattern = new RegExp(mcpContract.$defs.timestamp.pattern,'u');
+const mcpInstant = value => typeof value === 'string' && mcpTimestampPattern.test(value) && mcpDate(value.slice(0,10));
+// Date supplies timezone conversion after validation; BigInt retains submillisecond precision.
+const mcpEpochMicros = value => {
+  mcpAssert(mcpInstant(value));
+  const fraction=(value.slice(19).match(/^\.([0-9]+)/)?.[1]||'').padEnd(6,'0');
+  return BigInt(Date.parse(value))*1000n+BigInt(fraction.slice(3));
+};
 const mcpSchemaValid = (value, schema, definitions=mcpContract.$defs) => {
   if (!mcpObject(schema)) return false;
   if (schema.$ref && !mcpSchemaValid(value, definitions[schema.$ref.split('/').pop()], definitions)) return false;
@@ -77,8 +84,8 @@ const mcpParisDate = value => {
 const mcpSnapshot = snapshot => {
   mcpSchema(snapshot,'snapshot_v1');
   const p=snapshot.provenance,c=snapshot.coverage;
-  const start=Date.parse(p.collection_started_at),end=Date.parse(p.collection_ended_at),generated=Date.parse(snapshot.generated_at);
-  mcpAssert(start<=end&&end<=generated&&end-start<=180000&&snapshot.snapshot_date===mcpParisDate(snapshot.generated_at));
+  const start=mcpEpochMicros(p.collection_started_at),end=mcpEpochMicros(p.collection_ended_at),generated=mcpEpochMicros(snapshot.generated_at);
+  mcpAssert(start<=end&&end<=generated&&end-start<=180000000n&&snapshot.snapshot_date===mcpParisDate(snapshot.generated_at));
   const keys={accounts:['account_key'],connections:['connection_key'],ownership:['account_key','owner_key'],positions:['holding_type','holding_id'],position_rates:['position_key','source_field'],allocation_categories:['category'],allocation_types:['category','holding_type'],members:['member_ordinal'],warnings:['code','entity_key'],unsupported_details:['account_key','holding_type','reason']};
   for (const [table,fields] of Object.entries(keys)) mcpUnique(snapshot[table],fields);
   const accounts=new Map(snapshot.accounts.map(a=>[a.account_key,a]));
@@ -116,7 +123,9 @@ const mcpSnapshot = snapshot => {
 const mcpRun = (run,executionId) => {
   mcpAssert(mcpObject(run)&&typeof executionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(executionId));
   mcpAssert(new RegExp(`^n8n-run:${executionId}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`).test(run.run_id));
-  mcpAssert(mcpInstant(run.started_at)&&Number.isSafeInteger(run.started_epoch_ms)&&Math.abs(Date.parse(run.started_at)-run.started_epoch_ms)<1000);
+  mcpAssert(Number.isSafeInteger(run.started_epoch_ms));
+  const drift=mcpEpochMicros(run.started_at)-BigInt(run.started_epoch_ms)*1000n;
+  mcpAssert(drift>-1000000n&&drift<1000000n);
   mcpAssert(run.provider==='finary_official_mcp'&&run.api_schema===mcpContract.api_schema&&run.workbook_schema===mcpContract.workbook_schema&&run.source_contract_version===mcpContract.contract_version);
   mcpAssert(typeof run.writer_id==='string'&&run.writer_id.length>0&&Number.isSafeInteger(run.writer_generation)&&run.writer_generation>=1);
 };

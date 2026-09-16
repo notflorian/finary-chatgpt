@@ -13,6 +13,7 @@ from typing import Any
 
 from app.mcp_validation import (
     CONTRACT,
+    parse_timestamp,
     validate,
     validate_collection_context,
     validate_money,
@@ -30,10 +31,7 @@ def require(value: bool) -> None:
 
 
 def instant(value: Any) -> datetime:
-    require(isinstance(value, str))
-    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    require(result.utcoffset() is not None)
-    return result
+    return parse_timestamp(value)
 
 
 def blank(value: Any) -> Any:

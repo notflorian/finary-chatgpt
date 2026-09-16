@@ -73,3 +73,19 @@ const $input = {{
         text=True,
     )
     return json.loads(completed.stdout)
+
+
+def _run_mcp_validation_probe(body, input_rows):
+    """Probe the actual exported library; full-node and engine tests keep their boundaries."""
+    from copy import deepcopy
+
+    from mcp_artifacts import ROOT, WORKFLOW
+
+    workflow = deepcopy(WORKFLOW)
+    node = _node(workflow, "Validate MCP Snapshot")
+    entry = (ROOT / "n8n/code-nodes/finary-mcp-sync/validate-mcp-snapshot.js").read_text()
+    assert node["parameters"]["jsCode"].endswith(entry)
+    node["parameters"]["jsCode"] = node["parameters"]["jsCode"].removesuffix(entry) + body
+    return _run_code_node(
+        workflow, "Validate MCP Snapshot", named_rows={}, input_rows=input_rows
+    )

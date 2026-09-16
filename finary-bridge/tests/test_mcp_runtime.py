@@ -330,7 +330,9 @@ def test_initializer_bridge_engine_connector_consumer_round_trip(
     initialized = native_inventory(google_create(initialize("synthetic-writer", 1)))
     initialized["sheets"]["writer_control"]["rows"][0]["state"] = "ACTIVE"
     book = {name: sheet["rows"] for name, sheet in initialized["sheets"].items()}
-    wire = SyntheticWire()
+    from mcp_wire import connection_wire
+
+    wire = connection_wire("2026-09-10T12:00:00.123456Z")
     if empty:
         wire.values["holdings"]["data"] = []
     app.dependency_overrides[get_authenticated_mcp_client] = lambda: wire.client()
@@ -355,6 +357,10 @@ def test_initializer_bridge_engine_connector_consumer_round_trip(
 
     accepted = select(initialized, now=datetime.now(UTC))
     assert accepted["current_complete"]
+    assert (
+        applied["source_connections"][0]["last_successful_sync_at"]
+        == "2026-09-10T12:00:00.123456Z"
+    )
     assert accepted["overview"]["gross_assets"]["amount"] == "1000.00"
     assert accepted["accounts"][0]["native_balance"]["amount"] == "250.00"
     if empty:
@@ -556,3 +562,36 @@ def test_runtime_inventory_rejection_precedes_first_portfolio_write(
     assert "Record MCP Success" not in data
     assert _output(data, "Record MCP Failure")[0]["status"] == "FAILED"
     assert book == original
+
+
+@pytest.mark.parametrize("boundary", ["snapshot", "unselected", "failed"])
+def test_engine_rejects_malformed_timestamps_before_portfolio_writes(
+    runtime_image, tmp_path, boundary
+):
+    from mcp_wire import connection_wire
+    from mcp_workbooks import book_with_two_observations, partial_book
+
+    value = snapshot(connection_wire(None))
+    book = empty_book()
+    if boundary == "snapshot":
+        value["connections"][0]["last_sync_at"] = "2026-09-10T24:00:00Z"
+    elif boundary == "unselected":
+        book = book_with_two_observations(value)
+        book["sync_runs"][1]["completed_at"] = "2026-09-11T08:00:01Z"
+        book["source_connections"][0]["last_sync_at"] = "2026-09-10T24:00:00Z"
+        value = snapshot()
+    else:
+        book = partial_book(value, tables=("source_connections",))
+        book["source_connections"][0]["last_successful_sync_at"] = "20260910T12:00:00Z"
+        value = snapshot()
+    result = engine_run(runtime_image, tmp_path, value, book)
+    data = result["runData"]
+    rejected_at = "Validate MCP Snapshot" if boundary == "snapshot" else "Prepare MCP Rows"
+    outputs = data[rejected_at][0]["data"]["main"]
+    assert not outputs[0]
+    assert outputs[1][0]["json"]["error"].split(" [line ", 1)[0] == "MCP_VALIDATION_FAILED"
+    assert not any(name.startswith("Write ") for name in data)
+    assert "Finalize MCP Success" not in data and "Record MCP Success" not in data
+    terminal = _output(data, "Record MCP Failure")[0]
+    assert terminal["status"] == "FAILED"
+    assert terminal["error_code"] == "MCP_SYNC_FAILED"

@@ -191,6 +191,32 @@ are not stable goal IDs. Attributed month precision must not turn a represented
 Simulation is outside the bridge; external hypothetical questions require
 confirmed inputs rather than values inferred from portfolio or budget data.
 
+## Timestamp validation
+
+The canonical `timestamp` definition applies to normalized responses, retained
+workbook rows and supported source timestamps, including goal creation dates.
+It requires a real Gregorian date in `YYYY-MM-DD` form (years 0001–9999), uppercase
+`T`, and `HH:MM:SS` with hours 00–23 and minutes/seconds 00–59. An optional dot
+fraction has 1–6 digits. The required timezone is uppercase `Z` or `±HH:MM`
+(hours 00–23, minutes 00–59); signed zero offsets denote the same instant as UTC.
+
+Accepted strings are preserved, including all microseconds. Python and the writer
+compare complete instants across offsets; millisecond rounding must not create
+completion ties or hide invalid collection ordering. Calendar validity, collection
+windows, completion/freshness rules and Europe/Paris business dates remain
+independent checks. Nullable unknown timestamps remain null in the API and blank
+in Sheets; required timestamps cannot be blank.
+
+Compact dates, comma fractions, omitted seconds, hour 24, leap seconds, excess
+fractional precision, whitespace, trailing data and non-string timestamps are
+rejected without normalization or rollover. This tightens parser-specific
+acceptance of the previously underspecified date-time contract; it adds no
+upstream compatibility. Ordinary service output is unchanged. Application/source
+`1.0.0` and API/workbook `1.0` remain unchanged for this validation correction.
+Retained unsupported encodings fail validation; they are never rewritten or
+silently truncated. Adopt matching bridge/reader and generated writer/schema
+artifacts using the [operator procedure](operations.md#generated-artifact-adoption).
+
 ## Workbook and compatibility
 
 `current_workbook` directly defines ordered sheets, headers, keys, types,
