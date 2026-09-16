@@ -1,1 +1,2 @@
+exclude .repository-source
 prune tests

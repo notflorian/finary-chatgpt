@@ -7,6 +7,7 @@ WORKDIR /build/finary-bridge
 
 COPY LICENSE /build/LICENSE
 COPY finary-bridge/pyproject.toml finary-bridge/setup.py finary-bridge/MANIFEST.in ./
+COPY finary-bridge/.repository-source ./
 COPY finary-bridge/app ./app
 
 RUN pip install --no-cache-dir . && rm -rf /build
