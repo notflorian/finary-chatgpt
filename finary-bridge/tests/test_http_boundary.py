@@ -23,6 +23,12 @@ ROUTES = {
     "/v1/goals": GoalsResponse,
 }
 KEY = "synthetic-local-key"
+ROUTE_CALLS = {
+    "/v1/snapshot": ["get_portfolio_overview", "accounts", "holdings"],
+    "/v1/budget": ["get_budget_overview"],
+    "/v1/spending-search": ["search_spending"],
+    "/v1/goals": ["goals", "accounts"],
+}
 
 
 def forbidden(*args, **kwargs):
@@ -32,6 +38,117 @@ def forbidden(*args, **kwargs):
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", forbidden)
+
+
+@pytest.fixture
+def no_schema_fetch(monkeypatch):
+    attempts = []
+
+    def reject(*args, **kwargs):
+        attempts.append(args)
+        raise AssertionError("Unexpected schema network retrieval")
+
+    monkeypatch.setattr("urllib.request.urlopen", reject)
+    yield
+    assert attempts == []
+
+
+@pytest.mark.parametrize("field", ["inputSchema", "outputSchema"])
+@pytest.mark.parametrize("route,tool", [
+    ("/v1/snapshot", "get_budget_overview"),
+    ("/v1/snapshot", "get_portfolio_overview"),
+    ("/v1/snapshot", "accounts"),
+    ("/v1/snapshot", "holdings"),
+    ("/v1/budget", "get_portfolio_overview"),
+    ("/v1/budget", "get_budget_overview"),
+    ("/v1/spending-search", "get_budget_overview"),
+    ("/v1/spending-search", "accounts"),
+    ("/v1/spending-search", "holdings"),
+    ("/v1/spending-search", "search_spending"),
+    ("/v1/goals", "get_budget_overview"),
+    ("/v1/goals", "goals"),
+    ("/v1/goals", "accounts"),
+])
+def test_tool_schema_validation_is_scoped_to_invocations(
+    monkeypatch, caplog, no_schema_fetch, route, tool, field,
+):
+    wire = SyntheticWire()
+    catalog = wire.catalog()
+    selected = next(item for item in catalog if item["name"] == tool)
+    selected[field] = {"type": "object", "$ref": "https://synthetic.invalid/schema"}
+    wire.catalog_pages = {None: {"tools": catalog}}
+    monkeypatch.setattr(mcp_auth, "authorized_http", wire.http)
+
+    response = TestClient(main.app).get(route, params={"query": "synthetic"})
+
+    expected_calls = ROUTE_CALLS[route]
+    if tool in expected_calls:
+        assert response.status_code == 503
+        assert response.json() == {"error": {
+            "code": "MCP_CAPABILITY_UNAVAILABLE",
+            "message": "Required Finary MCP capability is unavailable",
+            "retryable": False,
+        }}
+        assert "synthetic" not in response.text + caplog.text
+        expected_calls = expected_calls[:expected_calls.index(tool)]
+        assert len(wire.calls) <= len(expected_calls)
+        expected_calls = expected_calls[:len(wire.calls)]
+    else:
+        assert response.status_code == 200
+        ROUTES[route].model_validate(response.json())
+    assert [name for name, _ in wire.calls] == expected_calls
+    assert "tools/list" in wire.requests and "initialize" in wire.requests
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize("incompatible_holdings", [False, True])
+def test_holdings_pagination_schema_only_applies_when_used(
+    monkeypatch, route, incompatible_holdings,
+):
+    wire = SyntheticWire()
+    if incompatible_holdings:
+        catalog = wire.catalog()
+        holdings = next(tool for tool in catalog if tool["name"] == "holdings")
+        holdings["inputSchema"]["properties"]["offset"] = {"type": "integer"}
+        wire.catalog_pages = {None: {"tools": catalog}}
+    monkeypatch.setattr(mcp_auth, "authorized_http", wire.http)
+
+    response = TestClient(main.app).get(route, params={"query": "synthetic"})
+
+    expected_calls = ROUTE_CALLS[route]
+    if incompatible_holdings and route == "/v1/snapshot":
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "MCP_CAPABILITY_UNAVAILABLE"
+        expected_calls = expected_calls[:-1]
+        assert len(wire.calls) <= len(expected_calls)
+        expected_calls = expected_calls[:len(wire.calls)]
+    else:
+        assert response.status_code == 200
+        ROUTES[route].model_validate(response.json())
+    assert [name for name, _ in wire.calls] == expected_calls
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "cursor", "inputSchema", "outputSchema"])
+def test_unused_tools_still_require_valid_catalog_envelopes(monkeypatch, mutation):
+    wire = SyntheticWire()
+    catalog = wire.catalog()
+    page = {"tools": catalog}
+    unused = next(tool for tool in catalog if tool["name"] == "get_budget_overview")
+    if mutation == "duplicate":
+        catalog.append(unused)
+    elif mutation == "cursor":
+        page["nextCursor"] = ""
+    else:
+        unused[mutation] = ["synthetic-invalid-schema-envelope"]
+    wire.catalog_pages = {None: page}
+    monkeypatch.setattr(mcp_auth, "authorized_http", wire.http)
+
+    response = TestClient(main.app).get("/v1/snapshot")
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "MCP_PROTOCOL_ERROR"
+    assert "synthetic" not in response.text
+    assert wire.calls == []
 
 
 @pytest.mark.parametrize("configured_key", [None, KEY])

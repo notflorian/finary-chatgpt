@@ -53,7 +53,11 @@ portfolio route. The supported MCP HTTP routes are `/v1/snapshot`, `/v1/budget`,
 ## Transport and authorization
 
 The native client owns SDK negotiation, catalog discovery, bounded tool results
-and fixed errors. The adapter owns included-resource joins and normalization;
+and fixed errors. Discovery validates the complete catalog envelope and required
+tool presence. Each invoked tool's input and advertised output schemas are checked
+before its call, including holdings pagination requirements. Incompatible unused
+schemas do not block independent reads; external schema resolution is forbidden.
+The adapter owns included-resource joins and normalization;
 HTTP returns `McpSnapshotV1` and optional typed responses, never raw relationships
 or reading notes. Source provenance is fixed to `finary_official_mcp`, with no
 provider selection, fallback or field supplementation.
