@@ -1,8 +1,11 @@
+// @mcp-group core
 // Versioned MCP validation shared by the exported writer and reference consumer harness.
 const mcpFail = () => { throw new Error('MCP_VALIDATION_FAILED'); };
 const mcpAssert = (condition) => { if (!condition) mcpFail(); };
 const mcpObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const mcpStable = (value) => JSON.stringify(value, (_key, v) => mcpObject(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k,v[k]])) : v);
+// @mcp-end
+// @mcp-group timestamps
 const mcpDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
 const mcpTimestampPattern = new RegExp(mcpContract.$defs.timestamp.pattern,'u');
 const mcpInstant = value => typeof value === 'string' && mcpTimestampPattern.test(value) && mcpDate(value.slice(0,10));
@@ -12,6 +15,8 @@ const mcpEpochMicros = value => {
   const fraction=(value.slice(19).match(/^\.([0-9]+)/)?.[1]||'').padEnd(6,'0');
   return BigInt(Date.parse(value))*1000n+BigInt(fraction.slice(3));
 };
+// @mcp-end
+// @mcp-group schema
 const mcpSchemaValid = (value, schema, definitions=mcpContract.$defs) => {
   if (!mcpObject(schema)) return false;
   if (schema.$ref && !mcpSchemaValid(value, definitions[schema.$ref.split('/').pop()], definitions)) return false;
@@ -70,6 +75,8 @@ const mcpDecimal = value => {
   const [whole,fraction='']=value.replace(/^-/,'').split('.');
   return BigInt(whole+fraction.padEnd(mcpContract.numeric_policy.limits.fractional_digits,'0'))*(negative?-1n:1n);
 };
+// @mcp-end
+// @mcp-group snapshot
 const mcpMoney = (money,currency=null) => {
   if (currency!==null) mcpAssert(money.currency===currency);
   if (money.amount===null) { mcpAssert(money.amount_eur===null&&money.eur_basis==='UNAVAILABLE'); return; }
@@ -120,6 +127,8 @@ const mcpSnapshot = snapshot => {
   }
   return snapshot;
 };
+// @mcp-end
+// @mcp-group run
 const mcpRun = (run,executionId) => {
   mcpAssert(mcpObject(run)&&typeof executionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(executionId));
   mcpAssert(new RegExp(`^n8n-run:${executionId}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`).test(run.run_id));
@@ -129,9 +138,4 @@ const mcpRun = (run,executionId) => {
   mcpAssert(run.provider==='finary_official_mcp'&&run.api_schema===mcpContract.api_schema&&run.workbook_schema===mcpContract.workbook_schema&&run.source_contract_version===mcpContract.contract_version);
   mcpAssert(typeof run.writer_id==='string'&&run.writer_id.length>0&&Number.isSafeInteger(run.writer_generation)&&run.writer_generation>=1);
 };
-const mcpControl = (rows,run) => {
-  mcpAssert(rows.length===1);
-  const {row_key,...control}=rows[0];
-  mcpSchema(control,'writer_control');
-  mcpAssert(row_key==='singleton'&&control.state==='ACTIVE'&&control.writer_id===run.writer_id&&control.generation===run.writer_generation);
-};
+// @mcp-end

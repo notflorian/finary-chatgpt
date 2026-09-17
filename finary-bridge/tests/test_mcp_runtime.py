@@ -83,6 +83,8 @@ def test_real_engine_control_flow(runtime_image, tmp_path, mode):
         assert _output(data, "Record MCP Failure")[0]["status"] == "FAILED"
         if mode == "malformed":
             assert not any(name.startswith("Write ") for name in data)
+            assert "Prepare MCP Rows" not in data
+            assert _output(data, "Record MCP Failure")[0]["observation_id"] == ""
         return
     assert not result.get("error"), result.get("error")
     terminal = _output(data, "Record MCP Success")[0]

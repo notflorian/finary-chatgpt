@@ -4,22 +4,16 @@ import subprocess
 from copy import deepcopy
 
 import pytest
-from mcp_artifacts import ROOT, WORKFLOW
+from mcp_artifacts import WORKFLOW
 from mcp_snapshots import snapshot
 from mcp_workbooks import empty_book, failure, prepare, writes
-from n8n_code import _run_code_node
+from n8n_code import _run_code_node, _run_mcp_validation_probe
 
 
 def test_exported_series_comparison_requires_known_compatible_dimensions():
     from app.mcp_consumer import compatible
 
-    workflow = deepcopy(WORKFLOW)
-    node = next(n for n in workflow["nodes"] if n["name"] == "Validate MCP Snapshot")
-    body = (ROOT / "n8n/code-nodes/finary-mcp-sync/validate-mcp-snapshot.js").read_text()
-    assert node["parameters"]["jsCode"].endswith(body)
-    node["parameters"]["jsCode"] = (
-        node["parameters"]["jsCode"].removesuffix(body)
-        + """
+    body = """
 const {left,right}=$input.first().json;
 const previous={run_id:'prior',observation_id:'observation',status:'SUCCESS',
   completed_at:'2026-09-11T08:00:00+02:00',provider:'finary_official_mcp',
@@ -30,7 +24,6 @@ for(const [column,path]of Object.entries(mcpWorkbook.mcp_tables.observations.col
 }
 return [{json:{series_break:mcpSeriesBreak({sync_runs:[previous],observations:[row]},right)}}];
 """
-    )
     original = snapshot()["provenance"]
     pairs = [(original, original, False)]
     for field in [
@@ -49,11 +42,10 @@ return [{json:{series_break:mcpSeriesBreak({sync_runs:[previous],observations:[r
             ]
         )
     for left, right, expected in pairs:
-        result = _run_code_node(
-            workflow,
-            "Validate MCP Snapshot",
-            named_rows={},
-            input_rows=[{"left": left, "right": right}],
+        result = _run_mcp_validation_probe(
+            body,
+            [{"left": left, "right": right}],
+            node_name="Prepare MCP Rows",
         )[0]["json"]["series_break"]
         assert result is expected and compatible(left, right) is not expected
 

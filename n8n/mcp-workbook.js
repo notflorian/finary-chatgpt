@@ -1,7 +1,11 @@
-// Typed cells and observation membership; native decimal strings never become Numbers.
-const mcpTableInputs = {accounts_current:'accounts',positions_current:'positions',positions_history:'positions',portfolio_daily:'overview',account_ownership:'ownership',source_connections:'connections',position_rates:'position_rates',official_allocation_categories:'allocation_categories',official_allocation_types:'allocation_types',portfolio_members:'members',observations:'observation',source_warnings:'warnings',unsupported_details:'unsupported_details'};
-const mcpChildFields = {account_ownership:['account_key','owner_key'],source_connections:['connection_key'],position_rates:['position_key','source_field'],official_allocation_categories:['category'],official_allocation_types:['category','holding_type'],portfolio_members:['member_ordinal'],source_warnings:['code','entity_key'],unsupported_details:['account_key','holding_type','reason']};
-const mcpPointer = (value,path) => path.split('/').slice(1).reduce((value,key)=>value?.[key],value);
+// @mcp-group rows
+// Typed cells; native decimal strings never become Numbers.
+const mcpControl = (rows,run) => {
+  mcpAssert(rows.length===1);
+  const {row_key,...control}=rows[0];
+  mcpSchema(control,'writer_control');
+  mcpAssert(row_key==='singleton'&&control.state==='ACTIVE'&&control.writer_id===run.writer_id&&control.generation===run.writer_generation);
+};
 const mcpPut = (value,path,leaf) => {
   const parts=path.split('/').slice(1),last=parts.pop();
   for(const part of parts){value[part]??={};value=value[part];}value[last]=leaf;
@@ -50,7 +54,21 @@ const mcpRow = (table,row) => {
 };
 const mcpBatch = (table,rows) => {mcpAssert(Array.isArray(rows));mcpUnique(rows,[mcpWorkbook.sheets[table].unique_key]);for(const row of rows)mcpRow(table,row);};
 const mcpItems = (table,rows) => {mcpBatch(table,rows);return rows.map(row=>({json:Object.fromEntries(Object.entries(row).map(([k,v])=>[k,v===null?'':v]))}));};
+const mcpTerminal = (rows,run,observation) => {
+  mcpUnique(rows,['run_id']);
+  mcpAssert(!rows.some(r=>r.run_id===run.run_id||r.observation_id===observation));
+};
+// @mcp-end
+// @mcp-group observations
+const mcpTableInputs = {accounts_current:'accounts',positions_current:'positions',positions_history:'positions',portfolio_daily:'overview',account_ownership:'ownership',source_connections:'connections',position_rates:'position_rates',official_allocation_categories:'allocation_categories',official_allocation_types:'allocation_types',portfolio_members:'members',observations:'observation',source_warnings:'warnings',unsupported_details:'unsupported_details'};
+const mcpChildFields = {account_ownership:['account_key','owner_key'],source_connections:['connection_key'],position_rates:['position_key','source_field'],official_allocation_categories:['category'],official_allocation_types:['category','holding_type'],portfolio_members:['member_ordinal'],source_warnings:['code','entity_key'],unsupported_details:['account_key','holding_type','reason']};
+const mcpPointer = (value,path) => path.split('/').slice(1).reduce((value,key)=>value?.[key],value);
 const mcpChildKey = (observation,table,row) => `${observation}:${mcpE(table)}:${mcpChildFields[table].map(field=>field==='entity_key'?(row[field]===null?'~null':'~value'+mcpE(row[field])):mcpE(String(row[field]))).join(':')}`;
+const mcpNormalized = (table,row) => {
+  const value={};for(const [column,path]of Object.entries(mcpWorkbook.mcp_tables[table].column_bindings))mcpPut(value,path,row[column]);return value;
+};
+// @mcp-end
+// @mcp-group build
 const mcpPermitted = snapshot => {
   const accounts=snapshot.coverage.accounts==='COMPLETE',positions=accounts&&snapshot.coverage.holdings==='COMPLETE'&&['SUPPORTED','UNVERIFIED'].includes(snapshot.coverage.detail_semantics);
   return {accounts_current:accounts,positions_current:positions,positions_history:positions,portfolio_daily:true,
@@ -123,19 +141,27 @@ const mcpPrepared = (snapshot,run,prepared,existing,overrides) => {
     }
   }
 };
+const mcpSeriesBreak = (existing,provenance) => {
+  const successful=(existing.sync_runs||[]).filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status));
+  if(!successful.length)return true;
+  mcpAssert(successful.every(r=>mcpInstant(r.completed_at)));
+  successful.sort((a,b)=>{const left=mcpEpochMicros(a.completed_at),right=mcpEpochMicros(b.completed_at);return left<right?1:left>right?-1:0;});
+  if(successful.length>1&&mcpEpochMicros(successful[0].completed_at)===mcpEpochMicros(successful[1].completed_at))return true;
+  const previous=successful[0];
+  if(previous.provider!=='finary_official_mcp'||previous.workbook_schema!==mcpWorkbook.schema_version||previous.source_contract_version!==provenance.source_contract_version)return true;
+  const context=(existing.observations||[]).find(r=>r.run_id===previous.run_id&&r.observation_id===previous.observation_id);
+  if(!context)return true;
+  const other=mcpNormalized('observations',context).provenance;
+  return ['provider','source_contract_version','scope','ownership_basis','metric','currency'].some(field=>other[field]==null||provenance[field]==null||other[field]!==provenance[field]);
+};
+// @mcp-end
+// @mcp-group retained
 const mcpCollision = (existing,run,observation) => {
   for(const [table,rows]of Object.entries(existing)){
     if(!mcpWorkbook.sheets[table])continue;
     mcpUnique(rows,[mcpWorkbook.sheets[table].unique_key]);
     for(const row of rows)mcpAssert(row.run_id!==run.run_id&&row.observation_id!==observation);
   }
-};
-const mcpTerminal = (rows,run,observation) => {
-  mcpUnique(rows,['run_id']);
-  mcpAssert(!rows.some(r=>r.run_id===run.run_id||r.observation_id===observation));
-};
-const mcpNormalized = (table,row) => {
-  const value={};for(const [column,path]of Object.entries(mcpWorkbook.mcp_tables[table].column_bindings))mcpPut(value,path,row[column]);return value;
 };
 const mcpRetained = existing => {
   mcpBatch('sync_runs',existing.sync_runs);
@@ -165,16 +191,4 @@ const mcpRetained = existing => {
     }
   }
 };
-const mcpSeriesBreak = (existing,provenance) => {
-  const successful=(existing.sync_runs||[]).filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status));
-  if(!successful.length)return true;
-  mcpAssert(successful.every(r=>mcpInstant(r.completed_at)));
-  successful.sort((a,b)=>{const left=mcpEpochMicros(a.completed_at),right=mcpEpochMicros(b.completed_at);return left<right?1:left>right?-1:0;});
-  if(successful.length>1&&mcpEpochMicros(successful[0].completed_at)===mcpEpochMicros(successful[1].completed_at))return true;
-  const previous=successful[0];
-  if(previous.provider!=='finary_official_mcp'||previous.workbook_schema!==mcpWorkbook.schema_version||previous.source_contract_version!==provenance.source_contract_version)return true;
-  const context=(existing.observations||[]).find(r=>r.run_id===previous.run_id&&r.observation_id===previous.observation_id);
-  if(!context)return true;
-  const other=mcpNormalized('observations',context).provenance;
-  return ['provider','source_contract_version','scope','ownership_basis','metric','currency'].some(field=>other[field]==null||provenance[field]==null||other[field]!==provenance[field]);
-};
+// @mcp-end
