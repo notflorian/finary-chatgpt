@@ -218,9 +218,11 @@ def _validated_inventory(inventory: dict[str, Any]) -> _ValidatedWorkbook:
     for terminal in result["sync_runs"]:
         observation_id = terminal["observation_id"]
         run_id = terminal["run_id"]
-        require(observation_id not in terminals_by_observation)
+        # Early failures have no observation; only their run identity is unique.
+        if observation_id is not None:
+            require(observation_id not in terminals_by_observation)
+            terminals_by_observation[observation_id] = terminal
         require(run_id not in terminals_by_run)
-        terminals_by_observation[observation_id] = terminal
         terminals_by_run[run_id] = terminal
     for table in SCHEMA["mcp_tables"]["sync_runs"]["count_columns"]:
         for row in result[table]:

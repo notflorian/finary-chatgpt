@@ -8,14 +8,16 @@ import pytest
 from mcp_snapshots import NOW
 from mcp_workbooks import (
     book_with_retained_observations,
+    failure,
     native_observation,
     partial_book,
+    prepare,
     readback,
 )
 
 from app import mcp_workbook
 from app.mcp_consumer import select, select_native
-from app.mcp_workbook import records
+from app.mcp_workbook import native_inventory, records
 
 
 class CountedObservationId(str):
@@ -133,3 +135,62 @@ def test_native_and_inventory_inputs_are_revalidated_after_mutation():
         select(inventory, now=now)
     with pytest.raises(ValueError):
         select_native(native, now=now)
+
+
+@pytest.fixture(scope="module")
+def book_with_early_failures():
+    book = book_with_retained_observations(2)
+    for index in range(2):
+        execution = f"early-failure-{index}"
+        named = prepare(book=book, execution=execution)
+        # Failure before preparation has no observation to bind to the terminal.
+        named.pop("Prepare MCP Rows")
+        terminal = failure(named, book, execution=execution)
+        assert len(terminal) == 1 and terminal[0]["status"] == "FAILED"
+        assert terminal[0]["observation_id"] in (None, "")
+        book["sync_runs"] += terminal
+    return book
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_early_failures_without_observations_preserve_selection(book_with_early_failures, fallback):
+    book = deepcopy(book_with_early_failures)
+    if fallback:
+        book["accounts_current"] = []
+    now = NOW + timedelta(minutes=1)
+    successful = {**book, "sync_runs": book["sync_runs"][:-2]}
+    expected = select(readback(successful), now=now)
+    assert expected["dated_fallback"] is fallback
+    inventory = readback(book)
+    native, _ = native_observation(book)
+    decoded = records(inventory)
+    assert all(row["observation_id"] is None for row in decoded["sync_runs"][-2:])
+    assert select(inventory, now=now) == expected
+    assert select(native_inventory(native), now=now) == expected
+    assert select_native(native, now=now) == expected
+
+
+@pytest.mark.parametrize("mutation", ["duplicate_run", "duplicate_observation", "schema", "orphan"])
+def test_early_failures_do_not_bypass_terminal_integrity(book_with_early_failures, mutation):
+    book = deepcopy(book_with_early_failures)
+    if mutation == "duplicate_run":
+        book["sync_runs"][-1]["run_id"] = book["sync_runs"][-2]["run_id"]
+    elif mutation == "duplicate_observation":
+        book["sync_runs"][-1]["observation_id"] = book["sync_runs"][0]["observation_id"]
+    elif mutation == "schema":
+        book["sync_runs"][-1]["workbook_schema"] = "invalid"
+    else:
+        book["sync_runs"][0] = {
+            **book["sync_runs"][-1], "run_id": book["sync_runs"][0]["run_id"]
+        }
+        mcp_workbook.validate_row("sync_runs", book["sync_runs"][0])
+    inventory = readback(book)
+    native, _ = native_observation(book)
+    with pytest.raises(ValueError):
+        records(inventory)
+    with pytest.raises(ValueError):
+        native_inventory(native)
+    with pytest.raises(ValueError):
+        select(inventory, now=NOW + timedelta(minutes=1))
+    with pytest.raises(ValueError):
+        select_native(native, now=NOW + timedelta(minutes=1))
