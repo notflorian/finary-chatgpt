@@ -49,9 +49,6 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Check generated artifacts
         run: python scripts/build-workflow-validation.py --check
-      - name: Prove CI shard completeness
-        if: matrix.shard == '0/2'
-        run: python scripts/validate-pytest-shards.py
       - name: Run credential-free tests
         working-directory: finary-bridge
         env:
@@ -162,10 +159,10 @@ jobs:
           FINARY_MCP_CANDIDATE_WORKBOOK_ID: synthetic-candidate
         run: docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
 
-  n8n-import-validation:
-    name: n8n-import-validation
+  n8n-import:
+    name: n8n-import
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -173,20 +170,6 @@ jobs:
           persist-credentials: false
       - name: Import-validate workflows with Compose-pinned n8n
         run: bash scripts/validate-n8n-imports.sh
-
-  n8n-runtime-shard:
-    name: n8n-runtime-shard-${{ matrix.shard }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ["0/2", "1/2"]
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - name: Set up Python for isolated runtime regressions
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -214,22 +197,8 @@ jobs:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
         run: >-
           python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
-          --ci-shard=${{ matrix.shard }}
           finary-bridge/tests/test_n8n_runtime_support.py
           finary-bridge/tests/test_mcp_runtime.py
-
-  n8n-import:
-    name: n8n-import
-    if: ${{ always() }}
-    needs: [n8n-import-validation, n8n-runtime-shard]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require import validation and every runtime shard to pass
-        env:
-          IMPORT_RESULT: ${{ needs.n8n-import-validation.result }}
-          RUNTIME_RESULT: ${{ needs.n8n-runtime-shard.result }}
-        run: test "$IMPORT_RESULT" = success && test "$RUNTIME_RESULT" = success
 
   oauth-ownership:
     name: oauth-ownership

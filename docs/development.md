@@ -54,9 +54,9 @@ FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist
 FINARY_REQUIRE_OAUTH_DOCKER=1 python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py
 ```
 
-CI runs the normal and pinned-n8n suites in two deterministic weighted shards.
-The local commands above intentionally remain unsharded. Validate that both CI
-partitions are nonempty, disjoint and complete with:
+CI runs the normal suite in two deterministic weighted shards. The local command
+above intentionally remains unsharded. Validate that both CI partitions are
+nonempty, disjoint and complete with:
 
 ```bash
 python scripts/validate-pytest-shards.py
@@ -348,7 +348,7 @@ acceptance jobs remain:
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `oauth-ownership` | required synthetic host–container–host handoff on rootful Linux using the actual bridge image |
-| `n8n-import` | aggregate for isolated import validation and both required pinned-n8n runtime shards |
+| `n8n-import` | isolated import validation and required synthetic workflow executions using pinned n8n |
 
 Actions are pinned to immutable revisions, runtime versions are explicit, and
 the workflow does not read repository secrets, start the live stack, upload
@@ -356,13 +356,12 @@ portfolio artifacts, or publish n8n workflows. A green CI run validates the
 repository artifacts; it does not prove that external credentials, Finary, or
 Google Sheets are available.
 
-Each pinned-n8n runtime shard pre-pulls the Compose-pinned image before isolated
-regression execution. Each runtime shard executes real engine and
-installed Sheets connector evidence. Stable aggregate jobs use `always()` and
-pass only when every prerequisite succeeds, so cancelled, skipped or failed
-shards cannot satisfy the required check. Python setup caches dependency
-downloads keyed by `finary-bridge/pyproject.toml`; every job still installs the
-current checkout normally.
+The `n8n-import` job import-validates first so its later pre-pull and required
+unsharded runtime regressions reuse the same Compose-pinned image. The stable
+`tests` aggregate uses `always()` and passes only when both shards succeed, so a
+cancelled, skipped or failed shard cannot satisfy the required check. Python
+setup caches dependency downloads keyed by `finary-bridge/pyproject.toml`; every
+job still installs the current checkout normally.
 
 ## Change checklist
 

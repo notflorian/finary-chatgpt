@@ -16,7 +16,6 @@ SUITES = {
         "--ignore=tests/live",
         "--ignore=tests/test_mcp_oauth_docker.py",
     ],
-    "runtime": ["tests/test_n8n_runtime_support.py", "tests/test_mcp_runtime.py"],
 }
 
 
@@ -47,14 +46,6 @@ def validate(name: str, arguments: list[str]) -> None:
         raise SystemExit(f"{name}: shard intersection is not empty")
     if shards[0] | shards[1] != unsharded:
         raise SystemExit(f"{name}: shard union differs from unsharded collection")
-    if name == "runtime":
-        for index, shard in enumerate(shards):
-            has_engine = any("test_n8n_runtime_support.py::" in nodeid for nodeid in shard)
-            has_connector = any("installed_connector" in nodeid for nodeid in shard)
-            if not has_engine or not has_connector:
-                raise SystemExit(
-                    f"{name}: shard {index} lacks real engine or installed connector evidence"
-                )
     print(f"{name}: {len(unsharded)} tests split as {len(shards[0])} + {len(shards[1])}")
 
 
