@@ -79,6 +79,9 @@ class Detail:
     positions: list[McpPosition] = field(default_factory=list)
     position_rates: list[McpPositionRate] = field(default_factory=list)
     warnings: list[McpWarning] = field(default_factory=list)
+    _warning_identities: set[tuple[str, str | None]] = field(
+        default_factory=set, init=False, repr=False
+    )
     unsupported_details: list[McpUnsupportedDetail] = field(default_factory=list)
     accounts_state: str = "UNAVAILABLE"
     holdings_state: str = "UNAVAILABLE"
@@ -86,8 +89,10 @@ class Detail:
 
     def warn(self, code: str, entity: str | None = None) -> None:
         warning = McpWarning.model_validate({"code": code, "entity_key": entity})
-        if warning not in self.warnings:
+        identity = warning.code, warning.entity_key
+        if identity not in self._warning_identities:
             self.warnings.append(warning)
+            self._warning_identities.add(identity)
 
 
 @dataclass(frozen=True)
