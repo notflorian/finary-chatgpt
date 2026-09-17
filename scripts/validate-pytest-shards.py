@@ -16,6 +16,10 @@ SUITES = {
         "--ignore=tests/live",
         "--ignore=tests/test_mcp_oauth_docker.py",
     ],
+    "runtime": [
+        "tests/test_n8n_runtime_support.py",
+        "tests/test_mcp_runtime.py",
+    ],
 }
 
 

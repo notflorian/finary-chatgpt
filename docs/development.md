@@ -356,12 +356,15 @@ portfolio artifacts, or publish n8n workflows. A green CI run validates the
 repository artifacts; it does not prove that external credentials, Finary, or
 Google Sheets are available.
 
-The `n8n-import` job import-validates first so its later pre-pull and required
-unsharded runtime regressions reuse the same Compose-pinned image. The stable
-`tests` aggregate uses `always()` and passes only when both shards succeed, so a
-cancelled, skipped or failed shard cannot satisfy the required check. Python
-setup caches dependency downloads keyed by `finary-bridge/pyproject.toml`; every
-job still installs the current checkout normally.
+The `n8n-import` acceptance gate aggregates two deterministic runtime shards and
+a separate collection proof. Runtime shard zero import-validates first and then
+reuses its Compose-pinned image; shard one independently pre-pulls that exact
+image before its own tests. Both shards use four bounded xdist workers. The
+aggregate uses `always()` and accepts only successful shards and collection
+proof, so a cancelled, skipped or failed dependency cannot satisfy the required
+check. Python setup caches dependency downloads keyed by
+`finary-bridge/pyproject.toml`; every job still installs the current checkout
+normally.
 
 ## Change checklist
 
