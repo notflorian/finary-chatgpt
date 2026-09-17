@@ -53,10 +53,7 @@ def profile(size: int) -> dict[str, object]:
     counters = {"inventory_passes": 0, "row_validations": 0, "header_builds": 0,
                 "column_validator_builds": 0}
 
-    inventory_boundary = (
-        "_validated_inventory" if hasattr(mcp_workbook, "_validated_inventory") else "records"
-    )
-    original_inventory_boundary = getattr(mcp_workbook, inventory_boundary)
+    original_inventory_boundary = mcp_workbook._validated_inventory
     original_validate_row = mcp_workbook.validate_row
     original_headers = mcp_workbook.headers
     original_validator = mcp_workbook.Draft202012Validator
@@ -77,9 +74,7 @@ def profile(size: int) -> dict[str, object]:
         counters["column_validator_builds"] += 1
         return original_validator(*args, **kwargs)
 
-    setattr(mcp_workbook, inventory_boundary, counted_inventory_boundary)
-    if inventory_boundary == "records":
-        mcp_consumer.records = counted_inventory_boundary
+    mcp_workbook._validated_inventory = counted_inventory_boundary
     mcp_workbook.validate_row = counted_validate_row
     mcp_consumer.validate_row = counted_validate_row
     mcp_workbook.headers = counted_headers
@@ -87,16 +82,10 @@ def profile(size: int) -> dict[str, object]:
     CountedObservationId.comparisons = 0
     try:
         started = perf_counter()
-        if hasattr(mcp_consumer, "select_native"):
-            result = mcp_consumer.select_native(native, now=NOW + timedelta(minutes=1))
-        else:
-            inventory = mcp_workbook.native_inventory(native)
-            result = mcp_consumer.select(inventory, now=NOW + timedelta(minutes=1))
+        result = mcp_consumer.select_native(native, now=NOW + timedelta(minutes=1))
         elapsed = perf_counter() - started
     finally:
-        setattr(mcp_workbook, inventory_boundary, original_inventory_boundary)
-        if inventory_boundary == "records":
-            mcp_consumer.records = original_inventory_boundary
+        mcp_workbook._validated_inventory = original_inventory_boundary
         mcp_workbook.validate_row = original_validate_row
         mcp_consumer.validate_row = original_validate_row
         mcp_workbook.headers = original_headers
