@@ -52,10 +52,15 @@ const mcpRow = (table,row) => {
     mcpAssert(mcpSchemaValid(normalized,{$ref:definition.row_schema}));
   }
 };
-const mcpBatch = (table,rows) => {mcpAssert(Array.isArray(rows));mcpUnique(rows,[mcpWorkbook.sheets[table].unique_key]);for(const row of rows)mcpRow(table,row);};
+const mcpBatch = (table,rows) => {
+  mcpAssert(Array.isArray(rows));mcpUnique(rows,[mcpWorkbook.sheets[table].unique_key]);
+  for(const row of rows)mcpRow(table,row);
+  // Early failures have no observation; every known terminal observation is unique.
+  if(table==='sync_runs')mcpUnique(rows.filter(row=>row.observation_id!==null),['observation_id']);
+};
 const mcpItems = (table,rows) => {mcpBatch(table,rows);return rows.map(row=>({json:Object.fromEntries(Object.entries(row).map(([k,v])=>[k,v===null?'':v]))}));};
 const mcpTerminal = (rows,run,observation) => {
-  mcpUnique(rows,['run_id']);
+  mcpBatch('sync_runs',rows);
   mcpAssert(!rows.some(r=>r.run_id===run.run_id||r.observation_id===observation));
 };
 // @mcp-end

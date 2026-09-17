@@ -5,7 +5,7 @@ mcpControl(control,run);
 const header=$('Failure Terminal Header').first().json;
 mcpHeaders('sync_runs',Object.keys(header).filter(k=>k!=='row_number'));
 const terminals=$('Failure Terminal Read').all().map(i=>i.json).filter(r=>Object.keys(r).length).map(r=>mcpDecode('sync_runs',r));
-mcpUnique(terminals,['run_id']);
+mcpBatch('sync_runs',terminals);
 // A lost terminal response must not overwrite the successful terminal already stored.
 if(terminals.some(r=>r.run_id===run.run_id))return [];
 // Error-branch execution must explicitly read the normal preparation output.

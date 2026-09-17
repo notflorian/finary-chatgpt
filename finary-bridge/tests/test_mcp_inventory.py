@@ -2,22 +2,28 @@
 
 from copy import deepcopy
 from datetime import timedelta
+from functools import partial
 from subprocess import CalledProcessError
 
 import pytest
-from mcp_artifacts import SCHEMA
+from mcp_artifacts import SCHEMA, WORKFLOW
 from mcp_inputs import manual_rows
 from mcp_snapshots import NOW, snapshot
 from mcp_wire import SyntheticWire
 from mcp_workbooks import (
     book_for_consumer,
+    book_with_rowless_failures,
     book_with_two_observations,
+    failure,
+    native_observation,
     partial_book,
     prepare,
     readback,
+    writes,
 )
+from n8n_code import _run_code_node
 
-from app.mcp_consumer import observation, select
+from app.mcp_consumer import observation, select, select_native
 from app.mcp_workbook import (
     CHILD_KEYS,
     cell,
@@ -27,6 +33,106 @@ from app.mcp_workbook import (
     records,
     validate_row,
 )
+
+
+@pytest.fixture(scope="module")
+def rowless_failures():
+    return book_with_rowless_failures()
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "distinct",
+        "unknown",
+        "duplicate_observation",
+        "mixed_status",
+        "duplicate_run",
+        "duplicate_unknown_run",
+        "zero",
+        "false",
+        "whitespace",
+        "contradictory",
+    ],
+)
+def test_retained_terminal_identity_at_reader_and_exported_writer_boundaries(
+    rowless_failures, mode
+):
+    book = deepcopy(rowless_failures)
+    first, second = book["sync_runs"][-2:]
+    if mode in {"unknown", "duplicate_unknown_run"}:
+        first["observation_id"], second["observation_id"] = "", None
+    if mode == "duplicate_observation":
+        second["observation_id"] = first["observation_id"]
+    elif mode == "mixed_status":
+        second["observation_id"] = book["sync_runs"][0]["observation_id"]
+    elif mode in {"duplicate_run", "duplicate_unknown_run"}:
+        second["run_id"] = first["run_id"]
+    elif mode in {"zero", "false", "whitespace"}:
+        second["observation_id"] = {"zero": 0, "false": False, "whitespace": " "}[mode]
+    elif mode == "contradictory":
+        second["status"] = "SUCCESS"
+
+    accepted = mode in {"distinct", "unknown"}
+    now = NOW + timedelta(minutes=1)
+    # Validate the unselected evidence even when selection would otherwise use history.
+    for fallback in (False, True):
+        candidate = deepcopy(book)
+        if fallback:
+            candidate["accounts_current"] = []
+        inventory = readback(candidate)
+        native, _ = native_observation(candidate)
+        readers = (
+            partial(records, inventory),
+            partial(native_inventory, native),
+            partial(select, inventory, now=now),
+            partial(select_native, native, now=now),
+        )
+        for read in readers:
+            if accepted:
+                read()
+            else:
+                with pytest.raises(ValueError):
+                    read()
+        if accepted:
+            assert select(inventory, now=now)["dated_fallback"] is fallback
+
+    if accepted:
+        named = prepare(book=book, execution="next")
+        emitted = writes(named, execution="next", now=now)
+        assert len(emitted) > 1
+        assert emitted[-1]["rows"][0]["status"] == "SUCCESS_WITH_WARNINGS"
+    else:
+        # No Select or Write node is invoked after rejected preparation.
+        with pytest.raises(CalledProcessError) as rejected:
+            prepare(book=book, execution="next")
+        assert rejected.value.stderr == "MCP_VALIDATION_FAILED"
+
+    # Rechecks must independently reject corruption introduced after preparation.
+    named = prepare(book=rowless_failures, execution="next")
+    named["Read MCP Terminal Before Success"] = book["sync_runs"]
+
+    def finalize_success():
+        return _run_code_node(
+            WORKFLOW,
+            "Finalize MCP Success",
+            named_rows=named,
+            input_rows=[{}],
+            execution_id="next",
+            now=now.isoformat(),
+        )
+
+    # Independent failure has neither fetched schema/snapshot nor prepared rows.
+    early = {"Initialize MCP Run": named["Initialize MCP Run"]}
+    if accepted:
+        assert finalize_success()[0]["json"]["status"] == "SUCCESS_WITH_WARNINGS"
+        terminal = failure(early, book, execution="next")[0]
+        assert terminal["status"] == "FAILED" and terminal["observation_id"] == ""
+    else:
+        for finalize in (finalize_success, lambda: failure(early, book, execution="next")):
+            with pytest.raises(CalledProcessError) as rejected:
+                finalize()
+            assert rejected.value.stderr == "MCP_VALIDATION_FAILED"
 
 
 @pytest.mark.parametrize("table", manual_rows())
