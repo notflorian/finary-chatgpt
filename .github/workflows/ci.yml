@@ -201,7 +201,7 @@ jobs:
       - name: Execute MCP graph and installed Sheets regressions in isolated pinned n8n
         env:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
-          PYTEST_XDIST_WORKER_COUNT: "3"
+          PYTEST_XDIST_WORKER_COUNT: "4"
         run: >-
           python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
           --ci-shard=${{ matrix.shard }}

@@ -162,7 +162,7 @@ def test_ci_requires_sharded_pinned_runtime_execution_and_import_reuse():
     assert 'docker pull "$n8n_image" >/dev/null' in runtime
     assert runtime.count("if: matrix.shard == '1/2'") == 1
     assert 'FINARY_REQUIRE_N8N_RUNTIME: "1"' in runtime
-    assert 'PYTEST_XDIST_WORKER_COUNT: "3"' in runtime
+    assert 'PYTEST_XDIST_WORKER_COUNT: "4"' in runtime
     assert "--ci-shard=${{ matrix.shard }}" in runtime
     pytest_cmd = (
         "python -m pytest -q -n auto --maxprocesses 4 --dist worksteal "

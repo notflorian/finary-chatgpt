@@ -359,7 +359,7 @@ Google Sheets are available.
 The `n8n-import` acceptance gate aggregates two deterministic runtime shards and
 a separate collection proof. Runtime shard zero import-validates first and then
 reuses its Compose-pinned image; shard one independently pre-pulls that exact
-image before its own tests. Both shards use three bounded xdist workers. The
+image before its own tests. Both shards use four bounded xdist workers. The
 aggregate uses `always()` and accepts only successful shards and collection
 proof, so a cancelled, skipped or failed dependency cannot satisfy the required
 check. Python setup caches dependency downloads keyed by
