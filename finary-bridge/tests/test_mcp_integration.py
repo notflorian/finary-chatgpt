@@ -302,7 +302,7 @@ def test_sse_multiline_event_is_bounded_before_sdk_decoding(duplicate):
 
 
 @pytest.mark.parametrize("field", ["inputSchema", "outputSchema"])
-def test_discovery_rejects_external_schema_fetches(field, monkeypatch):
+def test_selected_tool_rejects_external_schema_fetches(field, monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("Unexpected schema network retrieval")
 
@@ -315,6 +315,26 @@ def test_discovery_rejects_external_schema_fetches(field, monkeypatch):
         snapshot(wire)
     assert failure.value.code == "MCP_CAPABILITY_UNAVAILABLE"
     assert not wire.calls
+
+
+@pytest.mark.parametrize("name,arguments,code", [
+    ("get_portfolio_overview", {"prompt": "synthetic"}, "MCP_INVALID_ARGUMENT"),
+    ("simulate_compound_interest", {}, "MCP_INVALID_ARGUMENT"),
+    ("holdings", {"account_id": "synthetic", "limit": 100, "offset": -1},
+     "MCP_CAPABILITY_UNAVAILABLE"),
+])
+def test_native_tool_restrictions_reject_before_invocation(name, arguments, code):
+    wire = SyntheticWire()
+    wire.tools.append("simulate_compound_interest")
+
+    async def call():
+        async with wire.client().session((name,)) as session:
+            await session.call(name, arguments)
+
+    with pytest.raises(McpFailure) as failure:
+        asyncio.run(call())
+    assert failure.value.code == code
+    assert wire.calls == []
 
 
 @pytest.mark.parametrize("case", cases("holdings_session"), ids=lambda c: c["id"])

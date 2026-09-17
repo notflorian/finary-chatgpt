@@ -265,14 +265,6 @@ class McpSession:
             for tool in page.tools:
                 if tool.name in catalog or len(catalog) >= 1000:
                     raise McpFailure("MCP_PROTOCOL_ERROR")
-                if tool.name in CONTRACT["capabilities"]:
-                    local_schema(tool.input_schema)
-                    Draft202012Validator.check_schema(tool.input_schema)
-                    if tool.input_schema.get("type") != "object":
-                        raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
-                    if tool.output_schema is not None:
-                        local_schema(tool.output_schema)
-                        Draft202012Validator.check_schema(tool.output_schema)
                 catalog[tool.name] = tool
             cursor = page.next_cursor
             if cursor is None:
@@ -284,8 +276,20 @@ class McpSession:
             raise McpFailure("MCP_PROTOCOL_ERROR")
         if any(name not in catalog for name in required):
             raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
-        if "holdings" in catalog:
-            schema = catalog["holdings"].input_schema
+        return cls(client, catalog)
+
+    def _validate_tool(self, name: str) -> None:
+        """Check only the selected capability, before any tool request is sent."""
+        tool = self.catalog[name]
+        local_schema(tool.input_schema)
+        Draft202012Validator.check_schema(tool.input_schema)
+        if tool.input_schema.get("type") != "object":
+            raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
+        if tool.output_schema is not None:
+            local_schema(tool.output_schema)
+            Draft202012Validator.check_schema(tool.output_schema)
+        if name == "holdings":
+            schema = tool.input_schema
             props = schema.get("properties", {})
             probe = {"account_id": "synthetic-account", "limit": 100, "offset": 0}
             validator = Draft202012Validator(schema)
@@ -294,13 +298,13 @@ class McpSession:
             for name, invalid in (("account_id", 123), ("limit", "100"), ("offset", -1)):
                 if validator.is_valid({**probe, name: invalid}):
                     raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
-        return cls(client, catalog)
 
     async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         if name not in self.catalog or name not in CONTRACT["capabilities"]:
             raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
         if "prompt" in arguments or name == "simulate_compound_interest":
             raise McpFailure("MCP_INVALID_ARGUMENT")
+        self._validate_tool(name)
         tool = self.catalog[name]
         if not Draft202012Validator(tool.input_schema).is_valid(arguments):
             raise McpFailure("MCP_CAPABILITY_UNAVAILABLE")
