@@ -283,11 +283,20 @@ def retained_table(request):
     return request.param
 
 
+@pytest.fixture(scope="module")
+def retained_books(retained_table):
+    value = retained_snapshot(retained_table)
+    return {
+        "failed": partial_book(value, tables=(retained_table,)),
+        "success": book_with_two_observations(value),
+    }
+
+
 @pytest.fixture(scope="module", params=["failed", "older_success", "fallback"])
-def retained_inventory(request, retained_table):
+def retained_inventory(request, retained_table, retained_books):
     table = retained_table
     if request.param == "failed":
-        book = partial_book(retained_snapshot(table), tables=(table,))
+        book = deepcopy(retained_books["failed"])
         index = -1
         assert book[table][index]["observation_id"] == book["sync_runs"][-1]["observation_id"]
         assert not any(
@@ -295,7 +304,7 @@ def retained_inventory(request, retained_table):
             for r in book["observations"]
         )
     else:
-        book = book_with_two_observations(retained_snapshot(table))
+        book = deepcopy(retained_books["success"])
         book["sync_runs"][-1]["completed_at"] = (NOW + timedelta(seconds=1)).isoformat()
         index = 0
     now = NOW + timedelta(minutes=1)

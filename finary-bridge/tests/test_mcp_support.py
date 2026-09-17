@@ -8,7 +8,14 @@ from mcp_artifacts import base, cases, materialize
 from mcp_inputs import manual_rows
 from mcp_snapshots import snapshot
 from mcp_wire import SyntheticWire
-from mcp_workbooks import empty_book, prepare, readback
+from mcp_workbooks import (
+    book_for_consumer,
+    book_with_two_observations,
+    empty_book,
+    partial_book,
+    prepare,
+    readback,
+)
 
 
 def test_tests_never_import_other_test_modules():
@@ -74,3 +81,20 @@ def test_workbook_preparation_and_readback_do_not_alias_caller_rows():
     inputs = manual_rows()
     inputs["allocation_targets"]["target_pct"] = 0
     assert manual_rows()["allocation_targets"]["target_pct"] == 0.75
+
+
+def test_reusable_workbook_baselines_return_independent_copies():
+    factories = (empty_book, prepare, book_for_consumer, book_with_two_observations, partial_book)
+    for factory in factories:
+        first = factory()
+        second = factory()
+        assert first == second and first is not second
+        if factory is prepare:
+            first["Prepare MCP Rows"][0]["batches"]["accounts_current"].clear()
+            assert second["Prepare MCP Rows"][0]["batches"]["accounts_current"]
+        else:
+            first["writer_control"].clear()
+            assert second["writer_control"]
+    default = prepare()
+    distinct = prepare(execution="independent-execution")
+    assert distinct["Initialize MCP Run"] != default["Initialize MCP Run"]

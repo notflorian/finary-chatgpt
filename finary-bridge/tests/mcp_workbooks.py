@@ -6,6 +6,7 @@ n8n_runtime and sheets_connector. Every returned workbook and batch is independe
 
 from copy import deepcopy
 from datetime import timedelta
+from functools import cache
 
 from mcp_artifacts import SCHEMA, WORKFLOW
 from mcp_snapshots import NOW, snapshot
@@ -14,10 +15,15 @@ from n8n_code import _run_code_node
 from app.mcp_workbook import cell, google_create, initialize
 
 
-def empty_book():
+@cache
+def _empty_book_template():
     inventory = initialize("synthetic-writer", 1)
     inventory["sheets"]["writer_control"]["rows"][0]["state"] = "ACTIVE"
     return {name: sheet["rows"] for name, sheet in inventory["sheets"].items()}
+
+
+def empty_book():
+    return deepcopy(_empty_book_template())
 
 
 def readback(book):
@@ -27,7 +33,7 @@ def readback(book):
     return inventory
 
 
-def prepare(value=None, book=None, execution="mcp-test", workflow=None):
+def _prepare(value, book, execution, workflow):
     workflow = WORKFLOW if workflow is None else workflow
     book = empty_book() if book is None else deepcopy(book)
     named = {}
@@ -73,6 +79,17 @@ def prepare(value=None, book=None, execution="mcp-test", workflow=None):
     named["Recheck Writer Control"] = book["writer_control"]
     named["Read MCP Terminal Before Success"] = book["sync_runs"] or [{}]
     return named
+
+
+@cache
+def _default_preparation():
+    return _prepare(None, None, "mcp-test", None)
+
+
+def prepare(value=None, book=None, execution="mcp-test", workflow=None):
+    if value is None and book is None and execution == "mcp-test" and workflow is None:
+        return deepcopy(_default_preparation())
+    return _prepare(value, book, execution, workflow)
 
 
 def writes(named, execution="mcp-test", *, now=NOW):
@@ -128,12 +145,23 @@ def failure(named, book, execution="mcp-test"):
     ]
 
 
-def book_for_consumer(value=None, *, now=NOW):
+def _book_for_consumer(value, *, now):
     book = empty_book()
     for write in writes(prepare(value, book=book), now=now):
         table = write["node"]["parameters"]["sheetName"]["value"]
         book[table] += write["rows"]
     return book
+
+
+@cache
+def _default_consumer_book():
+    return _book_for_consumer(None, now=NOW)
+
+
+def book_for_consumer(value=None, *, now=NOW):
+    if value is None and now == NOW:
+        return deepcopy(_default_consumer_book())
+    return _book_for_consumer(value, now=now)
 
 
 def book_with_rowless_failures():
@@ -150,7 +178,7 @@ def book_with_rowless_failures():
     return book
 
 
-def book_with_two_observations(value=None, next_value=None):
+def _book_with_two_observations(value, next_value):
     book = book_for_consumer(value)
     for write in writes(prepare(next_value, book=book, execution="next"), execution="next"):
         table = write["node"]["parameters"]["sheetName"]["value"]
@@ -158,6 +186,17 @@ def book_with_two_observations(value=None, next_value=None):
         for row in write["rows"]:
             book[table] = [r for r in book[table] if r[key] != row[key]] + [row]
     return book
+
+
+@cache
+def _default_two_observation_book():
+    return _book_with_two_observations(None, None)
+
+
+def book_with_two_observations(value=None, next_value=None):
+    if value is None and next_value is None:
+        return deepcopy(_default_two_observation_book())
+    return _book_with_two_observations(value, next_value)
 
 
 def book_with_retained_observations(count):
@@ -215,7 +254,7 @@ def book_with_retained_observations(count):
     return book
 
 
-def partial_book(value=None, tables=("source_warnings",)):
+def _partial_book(value, tables):
     book = book_for_consumer()
     named = prepare(value, book=book, execution="partial")
     for write in writes(named, execution="partial"):
@@ -224,6 +263,17 @@ def partial_book(value=None, tables=("source_warnings",)):
             book[table] += write["rows"]
     book["sync_runs"] += failure(named, book, execution="partial")
     return book
+
+
+@cache
+def _default_partial_book():
+    return _partial_book(None, ("source_warnings",))
+
+
+def partial_book(value=None, tables=("source_warnings",)):
+    if value is None and tables == ("source_warnings",):
+        return deepcopy(_default_partial_book())
+    return _partial_book(value, tables)
 
 
 def native_observation(book=None):
