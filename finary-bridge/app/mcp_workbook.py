@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from importlib.resources import files
+from types import MappingProxyType
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -29,27 +32,72 @@ CHILD_KEYS = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class _ColumnValidation:
+    name: str
+    cell_type: str
+    nullable: bool
+    validator: Draft202012Validator
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidatedWorkbook:
+    rows: dict[str, list[dict[str, Any]]]
+    terminals_by_observation: Mapping[str, dict[str, Any]]
+    terminals_by_run: Mapping[str, dict[str, Any]]
+
+
+_HEADERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        name: tuple(column["name"] for column in sheet["columns"])
+        for name, sheet in SCHEMA["sheets"].items()
+    }
+)
+_HEADER_NAMES: Mapping[str, frozenset[str]] = MappingProxyType(
+    {name: frozenset(values) for name, values in _HEADERS.items()}
+)
+_COLUMN_VALIDATIONS: Mapping[str, tuple[_ColumnValidation, ...]] = MappingProxyType(
+    {
+        name: tuple(
+            _ColumnValidation(
+                name=column["name"],
+                cell_type=column["type"],
+                nullable=column["nullable"],
+                validator=Draft202012Validator(
+                    {**column["mcp_schema"], "$defs": CONTRACT["$defs"]},
+                    format_checker=FORMATS,
+                ),
+            )
+            for column in sheet["columns"]
+        )
+        for name, sheet in SCHEMA["sheets"].items()
+    }
+)
+_MANUAL_SHEETS = frozenset(SCHEMA["manual_sheets"])
+
+
 def require(condition: bool) -> None:
     if not condition:
         raise ValueError("Incompatible or malformed workbook")
 
 
 def headers() -> dict[str, list[str]]:
-    return {name: [c["name"] for c in sheet["columns"]] for name, sheet in SCHEMA["sheets"].items()}
+    """Return a mutable copy without exposing shared schema-derived metadata."""
+    return {name: list(values) for name, values in _HEADERS.items()}
 
 
 def decode_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
     """Decode connector blanks/booleans/counts without coercing decimal text."""
-    require(isinstance(row, dict) and set(row) <= set(headers()[table]) | {"row_number"})
+    require(isinstance(row, dict) and set(row) <= _HEADER_NAMES[table] | {"row_number"})
     result = {}
-    for column in SCHEMA["sheets"][table]["columns"]:
-        value = row.get(column["name"])
+    for column in _COLUMN_VALIDATIONS[table]:
+        value = row.get(column.name)
         if value == "":
             value = None
-        if column["type"] == "BOOLEAN" and isinstance(value, str) and value in {"TRUE", "FALSE"}:
+        if column.cell_type == "BOOLEAN" and isinstance(value, str) and value in {"TRUE", "FALSE"}:
             value = value == "TRUE"
         if (
-            column["type"] == "NUMBER"
+            column.cell_type == "NUMBER"
             and isinstance(value, str)
             and re.fullmatch(r"-?[0-9]+(?:\.0+)?", value)
         ):
@@ -63,25 +111,21 @@ def decode_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
                     value = int(number)
             except InvalidOperation:
                 pass
-        result[column["name"]] = value
+        result[column.name] = value
     return result
 
 
 def validate_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
     result = decode_row(table, row)
     definition = SCHEMA["mcp_tables"][table]
-    for col in SCHEMA["sheets"][table]["columns"]:
-        value = result[col["name"]]
+    for column in _COLUMN_VALIDATIONS[table]:
+        value = result[column.name]
         if value is None:
-            require(col["nullable"])
+            require(column.nullable)
         else:
             require(not isinstance(value, float) or math.isfinite(value))
-            require(
-                Draft202012Validator(
-                    {**col["mcp_schema"], "$defs": CONTRACT["$defs"]}, format_checker=FORMATS
-                ).is_valid(value)
-            )
-    if table in SCHEMA["manual_sheets"]:
+            require(column.validator.is_valid(value))
+    if table in _MANUAL_SHEETS:
         require(
             all(
                 name == "notes" or not isinstance(value, str) or not value.startswith("=")
@@ -146,16 +190,16 @@ def initialize(writer_id: str, generation: int) -> dict[str, Any]:
     return book
 
 
-def records(inventory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    """Validate actual ordered headers and immutable metadata before interpretation."""
+def _validated_inventory(inventory: dict[str, Any]) -> _ValidatedWorkbook:
+    """Validate and decode one complete inventory into a read-local handoff."""
     require(inventory.get("schema_version") == VERSION)
     sheets = inventory.get("sheets")
     require(isinstance(sheets, dict) and list(sheets) == list(SCHEMA["sheets"]))
     sheets = cast(dict[str, Any], sheets)
-    result = {}
-    for name, expected in headers().items():
+    result: dict[str, list[dict[str, Any]]] = {}
+    for name, expected in _HEADERS.items():
         sheet = sheets[name]
-        require(sheet.get("headers") == expected and isinstance(sheet.get("rows"), list))
+        require(sheet.get("headers") == list(expected) and isinstance(sheet.get("rows"), list))
         result[name] = sheet["rows"]
     require(result["README"] == SCHEMA["readme_entries"])
     require(len(result["writer_control"]) == 1)
@@ -169,16 +213,35 @@ def records(inventory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         key = SCHEMA["sheets"][table]["unique_key"]
         keys = [row[key] for row in result[table]]
         require(len(keys) == len(set(keys)))
+    terminals_by_observation: dict[str, dict[str, Any]] = {}
+    terminals_by_run: dict[str, dict[str, Any]] = {}
+    for terminal in result["sync_runs"]:
+        observation_id = terminal["observation_id"]
+        run_id = terminal["run_id"]
+        # Early failures have no observation; only their run identity is unique.
+        if observation_id is not None:
+            require(observation_id not in terminals_by_observation)
+            terminals_by_observation[observation_id] = terminal
+        require(run_id not in terminals_by_run)
+        terminals_by_run[run_id] = terminal
     for table in SCHEMA["mcp_tables"]["sync_runs"]["count_columns"]:
         for row in result[table]:
             validate_derived_key(table, row)
-            terminals = [
-                r for r in result["sync_runs"] if r["observation_id"] == row["observation_id"]
-            ]
-            require(len(terminals) == 1)
-            require(terminals[0]["run_id"] == row["run_id"])
-            require(terminals[0]["provider"] == SCHEMA["writer_provider"])
-    return result
+            matching_terminal = terminals_by_observation.get(row["observation_id"])
+            require(matching_terminal is not None)
+            matching_terminal = cast(dict[str, Any], matching_terminal)
+            require(matching_terminal["run_id"] == row["run_id"])
+            require(matching_terminal["provider"] == SCHEMA["writer_provider"])
+    return _ValidatedWorkbook(
+        rows=result,
+        terminals_by_observation=MappingProxyType(terminals_by_observation),
+        terminals_by_run=MappingProxyType(terminals_by_run),
+    )
+
+
+def records(inventory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Validate actual ordered headers and immutable metadata before interpretation."""
+    return _validated_inventory(inventory).rows
 
 
 def cell(value: Any) -> dict[str, Any]:
@@ -229,8 +292,8 @@ def google_create(inventory: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def native_inventory(native: dict[str, Any]) -> dict[str, Any]:
-    """Decode a complete spreadsheets.get(includeGridData=true) current read."""
+def _decode_native_inventory(native: dict[str, Any]) -> dict[str, Any]:
+    """Decode and physically validate one complete native Google response."""
 
     def entered(value: dict[str, Any], *, manual: bool) -> Any:
         user = value.get("userEnteredValue", {})
@@ -261,7 +324,7 @@ def native_inventory(native: dict[str, Any]) -> dict[str, Any]:
             cells = [
                 entered(
                     v,
-                    manual=name in SCHEMA["manual_sheets"]
+                    manual=name in _MANUAL_SHEETS
                     and index < len(header)
                     and header[index] == "notes",
                 )
@@ -273,5 +336,15 @@ def native_inventory(native: dict[str, Any]) -> dict[str, Any]:
                     dict(zip(header, (cells + [""] * len(header))[: len(header)], strict=True))
                 )
         result["sheets"][name] = {"headers": header, "rows": values}
-    records(result)
+    return result
+
+
+def _read_native(native: dict[str, Any]) -> tuple[dict[str, Any], _ValidatedWorkbook]:
+    inventory = _decode_native_inventory(native)
+    return inventory, _validated_inventory(inventory)
+
+
+def native_inventory(native: dict[str, Any]) -> dict[str, Any]:
+    """Decode and fully validate a native Google read into inventory form."""
+    result, _ = _read_native(native)
     return result

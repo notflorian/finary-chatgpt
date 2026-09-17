@@ -153,6 +153,18 @@ metadata only and does not certify upstream support. Support code is excluded
 from the application package.
 The initializer and packaged schema are verified alongside generated artifacts.
 
+For the bounded workbook-readback performance probe, run from the repository root:
+
+```bash
+finary-bridge/.venv/bin/python scripts/profile-workbook-readback.py
+```
+
+The synthetic probe covers 1, 10 and 100 retained observations through the actual
+native consumer path. It reports rows, complete inventory passes, row validation,
+schema metadata setup, terminal-identity comparisons and illustrative elapsed time.
+Operation counts are regression evidence; elapsed time is informational and is not
+a portable test threshold.
+
 ## Test design
 
 The normal suite is deterministic and credential-free:

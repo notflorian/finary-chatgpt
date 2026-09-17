@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "finary-bridge"))
-from app.mcp_consumer import select
-from app.mcp_workbook import native_inventory, require
+from app.mcp_consumer import select_native
+from app.mcp_workbook import require
 
 
 def main():
@@ -17,8 +17,7 @@ def main():
     parser.add_argument("--run-id", required=True)
     args = parser.parse_args()
     try:
-        inventory = native_inventory(json.loads(args.input.read_text()))
-        result = select(inventory, now=datetime.now(timezone.utc))
+        result = select_native(json.loads(args.input.read_text()), now=datetime.now(timezone.utc))
         require(result["context"]["run_id"] == args.run_id)
         complete = (
             result["current_complete"]
