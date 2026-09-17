@@ -122,6 +122,16 @@ and Continue nodes directly, without intermediate source files. The generated
 `n8n/workflows/finary-mcp-sync.json` export is self-contained for pinned n8n;
 `--check` detects final artifact drift without writing files.
 
+The two shared sources use explicit `// @mcp-group <name>` / `// @mcp-end`
+boundaries. The workflow generator's `GROUP_DEPENDENCIES` and `PROFILES` select
+groups by node role and emit each dependency once, before its dependents. Keep
+helper implementations in those canonical blocks and declare transitive needs,
+including top-level initializers. Contract bindings precede the groups; Initialize
+uses only its minimal contract, while Validate and Finalize Failure embed their
+own schemas. Every other role retains its Validate schema binding and integrity
+check, including Continue. When probing a helper, use an exported node that needs
+it in production and supply that node's synthetic schema context.
+
 The full source and packaged MCP contracts remain authoritative for bridge,
 adapter and optional-tool validation. The workbook generator projects only the
 transitive local-definition dependencies of workbook row bindings, column

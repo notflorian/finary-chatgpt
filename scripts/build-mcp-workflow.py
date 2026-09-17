@@ -9,8 +9,84 @@ from uuid import NAMESPACE_URL, uuid5
 ROOT = Path(__file__).resolve().parents[1]
 DIRECTORY = ROOT / "n8n/code-nodes/finary-mcp-sync"
 
+# Dependencies include declaration-time initializers, not just function calls.
+# Contract bindings are emitted before all groups (notably timestamps).
+GROUP_DEPENDENCIES = {
+    "core": (),
+    "timestamps": ("core",),
+    "schema": ("timestamps",),
+    "snapshot": ("schema",),
+    "run": ("timestamps",),
+    "rows": ("schema",),
+    "observations": ("rows",),
+    "build": ("snapshot", "observations"),
+    "retained": ("observations",),
+}
+PROFILES = {
+    "Initialize MCP Run": ("run",),
+    "Validate MCP Snapshot": ("run", "snapshot"),
+    "Prepare MCP Rows": ("run", "build", "retained"),
+    "Check": ("run",),
+    "Select": ("run", "rows"),
+    "Continue": ("core",),
+    "Finalize MCP Success": ("run", "build"),
+    "Finalize MCP Failure": ("run", "rows"),
+}
 
-def prelude(name):
+
+def read_groups():
+    """Read explicitly delimited source blocks without parsing JavaScript syntax."""
+    groups = {}
+    for filename in ("mcp-validation.js", "mcp-workbook.js"):
+        name = None
+        lines = []
+        for line in (ROOT / "n8n" / filename).read_text().splitlines(keepends=True):
+            marker = line.rstrip("\r\n")
+            if marker.startswith("// @mcp-group "):
+                candidate = marker.removeprefix("// @mcp-group ")
+                if name is not None or candidate in groups or candidate not in GROUP_DEPENDENCIES:
+                    raise ValueError(f"Invalid helper group: {candidate}")
+                name, lines = candidate, []
+            elif marker == "// @mcp-end":
+                if name is None or not lines:
+                    raise ValueError(f"Invalid helper group ending in {filename}")
+                groups[name] = "".join(lines)
+                name = None
+            elif name is not None:
+                lines.append(line)
+            elif line.strip():
+                raise ValueError(f"Source outside a helper group in {filename}")
+        if name is not None:
+            raise ValueError(f"Unclosed helper group: {name}")
+    if groups.keys() != GROUP_DEPENDENCIES.keys():
+        raise ValueError("Missing shared helper groups")
+    return groups
+
+
+def shared_helpers(name, groups):
+    role = name.split()[0] if name.startswith(("Check ", "Select ", "Continue ")) else name
+    emitted = set()
+    visiting = set()
+    blocks = []
+
+    def include(group):
+        if group in visiting:
+            raise ValueError(f"Cyclic helper dependency: {group}")
+        if group in emitted:
+            return
+        visiting.add(group)
+        for dependency in GROUP_DEPENDENCIES[group]:
+            include(dependency)
+        visiting.remove(group)
+        emitted.add(group)
+        blocks.append(f"// Shared helpers: {group}\n" + groups[group])
+
+    for group in PROFILES[role]:
+        include(group)
+    return "\n".join(blocks) + "\n"
+
+
+def prelude(name, groups):
     workbook = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
     digest = hashlib.sha256(
         json.dumps(workbook, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
@@ -39,12 +115,7 @@ def prelude(name):
             + value
             + ";\nconst mcpContract={contract_version:mcpWorkbook.source_contract_version,api_schema:mcpWorkbook.api_schema,workbook_schema:mcpWorkbook.schema_version,numeric_policy:mcpWorkbook.mcp_numeric_policy,$defs:mcpWorkbook.mcp_definitions,identity:mcpWorkbook.mcp_identity,valuation_contracts:mcpWorkbook.mcp_valuation_contracts};\n"
         )
-    library = (
-        (ROOT / "n8n/mcp-validation.js").read_text()
-        + "\n"
-        + (ROOT / "n8n/mcp-workbook.js").read_text()
-        + "\n"
-    )
+    library = shared_helpers(name, groups)
     check = (
         ""
         if name == "Initialize MCP Run"
@@ -57,6 +128,7 @@ def prelude(name):
 
 def generate():
     schema = json.loads((ROOT / "docs/google-sheets-schema.json").read_text())
+    groups = read_groups()
     nodes = []
     connections = {}
 
@@ -90,7 +162,7 @@ def generate():
         if source is None:
             filename = "-".join(name.lower().split()) + ".js"
             source = (DIRECTORY / filename).read_text()
-        return node(name, "code", {"jsCode": prelude(name) + source})
+        return node(name, "code", {"jsCode": prelude(name, groups) + source})
 
     def sheet(name, table, write=False, header=False):
         p = {
