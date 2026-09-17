@@ -136,6 +136,20 @@ def book_for_consumer(value=None, *, now=NOW):
     return book
 
 
+def book_with_rowless_failures():
+    """Retain valid distinct FAILED terminals without any associated portfolio rows."""
+    book = book_for_consumer()
+    execution = "failed-first"
+    first = failure(prepare(book=book, execution=execution), book, execution=execution)[0]
+    second = {
+        **deepcopy(first),
+        "run_id": "n8n-run:failed-second:00000000-0000-4000-8000-000000000099",
+        "observation_id": "00000000-0000-4000-8000-000000000098",
+    }
+    book["sync_runs"] += [first, second]
+    return book
+
+
 def book_with_two_observations(value=None, next_value=None):
     book = book_for_consumer(value)
     for write in writes(prepare(next_value, book=book, execution="next"), execution="next"):

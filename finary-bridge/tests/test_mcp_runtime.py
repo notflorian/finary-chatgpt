@@ -539,16 +539,21 @@ def test_runtime_invalid_batches_and_control_block_success(runtime_image, tmp_pa
         assert not any(name.startswith("Write ") for name in data)
 
 
-@pytest.mark.parametrize("mode", ["orphan", "manual_formula", "manual_duplicate"])
+@pytest.mark.parametrize(
+    "mode", ["orphan", "manual_formula", "manual_duplicate", "duplicate_terminal_observation"]
+)
 def test_runtime_inventory_rejection_precedes_first_portfolio_write(
     runtime_image, connector, tmp_path, mode
 ):
     from mcp_inputs import manual_rows
-    from mcp_workbooks import book_for_consumer
+    from mcp_workbooks import book_for_consumer, book_with_rowless_failures
 
     book = book_for_consumer()
     if mode == "orphan":
         book["sync_runs"] = []
+    elif mode == "duplicate_terminal_observation":
+        book = book_with_rowless_failures()
+        book["sync_runs"][-1]["observation_id"] = book["sync_runs"][-2]["observation_id"]
     else:
         book["cashflows"] = [manual_rows()["cashflows"]]
         if mode == "manual_formula":
@@ -560,9 +565,24 @@ def test_runtime_inventory_rejection_precedes_first_portfolio_write(
     physical = connector(SCHEMA, book, [], reads)["reads"]
     result = engine_run(runtime_image, tmp_path, snapshot(), physical)
     data = result["runData"]
+    outputs = data["Prepare MCP Rows"][0]["data"]["main"]
+    assert not outputs[0]
+    assert outputs[1][0]["json"]["error"].split(" [line ", 1)[0] == "MCP_VALIDATION_FAILED"
     assert not any(name.startswith("Write ") for name in data)
     assert "Record MCP Success" not in data
-    assert _output(data, "Record MCP Failure")[0]["status"] == "FAILED"
+    if mode == "duplicate_terminal_observation":
+        assert "Record MCP Failure" not in data
+        assert data["Finalize MCP Failure"][0]["error"]["message"].split(" [line ", 1)[0] == (
+            "MCP_VALIDATION_FAILED"
+        )
+    else:
+        assert _output(data, "Record MCP Failure")[0]["status"] == "FAILED"
+    emitted = connector_writes(data)
+    assert all(write["node"]["name"] == "Record MCP Failure" for write in emitted)
+    applied = connector(SCHEMA, book, emitted)["workbook"]
+    assert {table: rows for table, rows in applied.items() if table != "sync_runs"} == {
+        table: rows for table, rows in original.items() if table != "sync_runs"
+    }
     assert book == original
 
 

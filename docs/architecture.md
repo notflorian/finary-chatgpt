@@ -58,7 +58,9 @@ The inactive workflow has manual and 07:30 Europe/Paris triggers. It creates a
 UUID-bearing execution identity, fetches `/v1/snapshot` and the canonical schema,
 validates them, reads all headers and rows, and checks writer control. Every
 retained automated row must pass its schema and match exactly one stored
-terminal. Manual inputs receive read-only key/type validation, with formulas
+terminal. Run IDs and known terminal observation IDs must be unique, including
+rowless failures; early FAILED terminals may have no observation ID.
+Manual inputs receive read-only key/type validation, with formulas
 allowed only in notes. Every prepared batch is validated before portfolio writes.
 
 Complete collection evidence alone permits current-row inactivation. Inactive
