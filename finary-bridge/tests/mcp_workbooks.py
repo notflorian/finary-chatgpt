@@ -5,6 +5,7 @@ n8n_runtime and sheets_connector. Every returned workbook and batch is independe
 """
 
 from copy import deepcopy
+from datetime import timedelta
 
 from mcp_artifacts import SCHEMA, WORKFLOW
 from mcp_snapshots import NOW, snapshot
@@ -142,6 +143,61 @@ def book_with_two_observations(value=None, next_value=None):
         key = SCHEMA["sheets"][table]["unique_key"]
         for row in write["rows"]:
             book[table] = [r for r in book[table] if r[key] != row[key]] + [row]
+    return book
+
+
+def book_with_retained_observations(count):
+    """Build bounded retained history without repeatedly invoking the JS writer."""
+    assert count >= 1
+    source = book_for_consumer()
+    original_terminal = source["sync_runs"][0]
+    original_run = original_terminal["run_id"]
+    original_observation = original_terminal["observation_id"]
+    book = empty_book()
+
+    def identity(index):
+        suffix = f"{index + 1:012x}"
+        observation_id = f"00000000-0000-4000-8000-{suffix}"
+        run_id = f"n8n-run:retained-{index}:00000000-0000-4000-8000-{suffix}"
+        return run_id, observation_id
+
+    def replace_identity(value, run_id, observation_id):
+        if isinstance(value, str):
+            return value.replace(original_run, run_id).replace(
+                original_observation, observation_id
+            )
+        if isinstance(value, dict):
+            return {
+                key: replace_identity(item, run_id, observation_id)
+                for key, item in value.items()
+            }
+        return value
+
+    retained_tables = [
+        table
+        for table in source
+        if table
+        not in {
+            "README",
+            "writer_control",
+            "allocation_targets",
+            "asset_overrides",
+            "cashflows",
+        }
+    ]
+    for index in range(count):
+        run_id, observation_id = identity(index)
+        for table in retained_tables:
+            if table.endswith("_current") and index != count - 1:
+                continue
+            for original in source[table]:
+                row = replace_identity(deepcopy(original), run_id, observation_id)
+                if table == "sync_runs":
+                    completed = NOW + timedelta(microseconds=index)
+                    row["completed_at"] = completed.isoformat(timespec="microseconds").replace(
+                        "+00:00", "Z"
+                    )
+                book[table].append(row)
     return book
 
 

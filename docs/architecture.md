@@ -78,6 +78,10 @@ The production consumer validates the complete physical inventory before choosin
 an observation: headers, metadata, schemas, keys, terminal membership, counts,
 references and financial semantics. Derived keys are checked against each retained
 row’s own fields, including partial FAILED writes, before selection or fallback.
+During native readback, decoding and physical validation produce one read-local
+validated handoff; selection reuses those decoded rows and an observation-to-terminal
+index without trusting later reads or mutable inputs. Direct inventory reads perform
+their own complete validation.
 Dated fallback can use independently valid history without borrowing later
 account metadata. The consumer is executable operator tooling; uploading
 instructions does not install it inside ChatGPT.

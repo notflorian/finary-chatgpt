@@ -19,7 +19,14 @@ from app.mcp_validation import (
     validate_money,
     validate_position,
 )
-from app.mcp_workbook import CHILD_KEYS, VERSION, records, validate_row
+from app.mcp_workbook import (
+    CHILD_KEYS,
+    VERSION,
+    _read_native,
+    _validated_inventory,
+    _ValidatedWorkbook,
+    validate_row,
+)
 
 TABLES = CONTRACT["current_workbook"]["tables"]
 COUNTS = TABLES["sync_runs"]["count_columns"]
@@ -94,27 +101,23 @@ def compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
 
 
 def _observation(
-    workbook: dict[str, list[dict[str, Any]]], terminal: dict[str, Any], *, now: datetime
+    workbook: _ValidatedWorkbook, terminal: dict[str, Any], *, now: datetime
 ) -> dict[str, Any]:
+    rows_by_table = workbook.rows
     require(now.utcoffset() is not None)
     require(terminal.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"})
     require(terminal.get("provider") == "finary_official_mcp")
-    terminal = validate_row("sync_runs", terminal)
     require(terminal["api_schema"] == CONTRACT["implemented"]["api_schema"])
     require(terminal["workbook_schema"] == VERSION)
     require(terminal.get("source_contract_version") == CONTRACT["contract_version"])
     run_id, observation_id = terminal["run_id"], terminal["observation_id"]
-    require(sum(r.get("run_id") == run_id for r in workbook["sync_runs"]) == 1)
-    require(sum(r.get("observation_id") == observation_id for r in workbook["sync_runs"]) == 1)
-    stored = next(row for row in workbook["sync_runs"] if row.get("run_id") == run_id)
-    require(validate_row("sync_runs", stored) == terminal)
+    stored = workbook.terminals_by_run.get(run_id)
+    require(stored is not None and stored == terminal)
+    require(workbook.terminals_by_observation.get(observation_id) is stored)
     require(terminal[COUNTS["positions_current"]] == terminal[COUNTS["positions_history"]])
     members: dict[str, list[dict[str, Any]] | None] = {}
     for table, column in COUNTS.items():
-        rows = workbook[table]
-        key = TABLES[table]["key"]
-        require(all(isinstance(r.get(key), str) and bool(r[key]) for r in rows))
-        unique(rows, (key,))
+        rows = rows_by_table[table]
         if not table.endswith("_current"):
             for row in rows:
                 validate("uuid", row.get("observation_id"))
@@ -133,15 +136,13 @@ def _observation(
             physical = rows
             active = [r for r in physical if activity(r.get("is_active")) is True]
             try:
-                for row in physical:
-                    validate_row(table, row)
                 consistent = all(
                     r["observation_id"] == observation_id and r["run_id"] == run_id for r in active
                 ) and all(
                     r["generated_at"]
                     == next(
                         o["generated_at"]
-                        for o in workbook["observations"]
+                        for o in rows_by_table["observations"]
                         if o["observation_id"] == observation_id and o["run_id"] == run_id
                     )
                     for r in active
@@ -153,7 +154,7 @@ def _observation(
             members[table] = active if consistent and len(active) == expected else None
         else:
             require(len(selected) == expected)
-            members[table] = [validate_row(table, row) for row in selected]
+            members[table] = selected
     require(members["observations"] is not None and len(members["observations"]) == 1)
     require(members["portfolio_daily"] is not None and len(members["portfolio_daily"]) == 1)
     observation_rows, daily_rows = members["observations"], members["portfolio_daily"]
@@ -293,14 +294,26 @@ def _observation(
 def observation(
     inventory: dict[str, Any], terminal: dict[str, Any], *, now: datetime
 ) -> dict[str, Any]:
-    return _observation(records(inventory), terminal, now=now)
+    workbook = _validated_inventory(inventory)
+    return _observation(workbook, validate_row("sync_runs", terminal), now=now)
 
 
 def select(inventory: dict[str, Any], *, now: datetime) -> dict[str, Any]:
-    workbook = records(inventory)
+    return _select(_validated_inventory(inventory), now=now)
+
+
+def select_native(native: dict[str, Any], *, now: datetime) -> dict[str, Any]:
+    """Decode, validate and select from one complete native read in one pass."""
+    _, workbook = _read_native(native)
+    return _select(workbook, now=now)
+
+
+def _select(workbook: _ValidatedWorkbook, *, now: datetime) -> dict[str, Any]:
     # Inventory-wide validation precedes fallback selection, including failed rows.
     candidates = [
-        r for r in workbook["sync_runs"] if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
+        r
+        for r in workbook.rows["sync_runs"]
+        if r.get("status") in {"SUCCESS", "SUCCESS_WITH_WARNINGS"}
     ]
     completed = [(instant(row["completed_at"]), row) for row in candidates]
     require(len(completed) == len({timestamp for timestamp, _ in completed}))
