@@ -54,6 +54,14 @@ FINARY_REQUIRE_N8N_RUNTIME=1 python -m pytest -q -n auto --maxprocesses 4 --dist
 FINARY_REQUIRE_OAUTH_DOCKER=1 python -m pytest -q finary-bridge/tests/test_mcp_oauth_docker.py
 ```
 
+CI runs the normal suite in two deterministic weighted shards. The local command
+above intentionally remains unsharded. Validate that both CI partitions are
+nonempty, disjoint and complete with:
+
+```bash
+python scripts/validate-pytest-shards.py
+```
+
 The import check loads the single inactive MCP export into a disposable,
 network-disabled container with no persistent project volumes or credentials.
 Normal tests may skip Docker cases when unavailable; the explicit required gate
@@ -328,17 +336,19 @@ control to PAUSED afterwards. Offline generation alone is not live verification.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main` with
-read-only repository permissions. It has seven bounded jobs:
+read-only repository permissions. Superseded runs are cancelled only within the
+same pull request; `main` runs are never cancelled by this policy. The stable
+acceptance jobs remain:
 
 | Job | Checks |
 | --- | --- |
 | `release-artifacts` | required fresh wheel/sdist installs, archive inventories, negative controls and actual bridge image smoke |
-| `tests` | Python 3.12 normal pytest suite, explicitly excluding live tests |
+| `tests` | aggregate for both Python 3.12 normal-suite shards, explicitly excluding live tests and the separately required OAuth Docker case |
 | `mcp-validation-python314` | Python 3.14 contract/model, MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
 | `oauth-ownership` | required synthetic host–container–host handoff on rootful Linux using the actual bridge image |
-| `n8n-import` | isolated imports and required synthetic workflow executions using pinned n8n |
+| `n8n-import` | isolated import validation and required synthetic workflow executions using pinned n8n |
 
 Actions are pinned to immutable revisions, runtime versions are explicit, and
 the workflow does not read repository secrets, start the live stack, upload
@@ -346,8 +356,15 @@ portfolio artifacts, or publish n8n workflows. A green CI run validates the
 repository artifacts; it does not prove that external credentials, Finary, or
 Google Sheets are available.
 
-The `n8n-import` CI job pre-pulls the Compose-pinned n8n image before isolated
-runtime regression execution so parallel workers reuse a warm local image cache.
+The `n8n-import` acceptance gate aggregates two deterministic runtime shards and
+a separate collection proof. Runtime shard zero import-validates first and then
+reuses its Compose-pinned image; shard one independently pre-pulls that exact
+image before its own tests. Both shards use four bounded xdist workers. The
+aggregate uses `always()` and accepts only successful shards and collection
+proof, so a cancelled, skipped or failed dependency cannot satisfy the required
+check. Python setup caches dependency downloads keyed by
+`finary-bridge/pyproject.toml`; every job still installs the current checkout
+normally.
 
 ## Change checklist
 

@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[2]
 CI_PATH = ROOT / ".github" / "workflows" / "ci.yml"
 JSON_VALIDATOR_PATH = ROOT / "scripts" / "validate-json.py"
@@ -30,6 +32,19 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
     assert "id-token: write" not in ci
     assert "runs-on: ubuntu-latest" in ci
     for job in (
+        "tests-shard",
+        "tests",
+        "mcp-validation-python314",
+        "static-analysis",
+        "repository-contracts",
+        "n8n-runtime-shard",
+        "n8n-shard-validation",
+        "n8n-import",
+        "oauth-ownership",
+        "release-artifacts",
+    ):
+        assert f"  {job}:\n" in ci
+    for stable_name in (
         "tests",
         "mcp-validation-python314",
         "static-analysis",
@@ -38,9 +53,8 @@ def test_ci_has_stable_read_only_jobs_and_safe_triggers() -> None:
         "oauth-ownership",
         "release-artifacts",
     ):
-        assert f"  {job}:\n" in ci
-        assert f"    name: {job}\n" in ci
-    assert ci.count("timeout-minutes:") == 7
+        assert f"    name: {stable_name}\n" in ci
+    assert ci.count("timeout-minutes:") == 10
 
 
 def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
@@ -51,15 +65,19 @@ def test_actions_and_runtime_versions_are_immutable_and_explicit() -> None:
     assert all(ACTION_REFERENCE.fullmatch(line) for line in action_lines)
     assert 'python-version: "3.12.14"' in ci
     assert 'node-version: "22.23.2"' in ci
-    assert ci.count("persist-credentials: false") == 7
+    assert ci.count("persist-credentials: false") == 8
+    assert ci.count("cache: pip") == 6
+    assert ci.count("cache-dependency-path: finary-bridge/pyproject.toml") == 6
 
 
 def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
     ci = CI_PATH.read_text(encoding="utf-8")
 
     assert 'python -m pytest -m "not live" --ignore=tests/live' in ci
-    job = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+    job = ci.split("  tests-shard:", 1)[1].split("  tests:", 1)[0]
     assert 'PYTEST_XDIST_WORKER_COUNT: "4"' in job
+    assert "--ignore=tests/test_mcp_oauth_docker.py" in job
+    assert "--ci-shard=${{ matrix.shard }}" in job
     assert (
         "-n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15"
     ) in " ".join(job.split())
@@ -80,7 +98,14 @@ def test_ci_explicitly_excludes_live_tests_and_references_no_secrets() -> None:
     assert "self-hosted" not in ci
     assert "docker compose up" not in ci
     assert "upload-artifact" not in ci
-    assert "cache:" not in ci
+
+
+def test_ci_cancels_only_superseded_runs_for_the_same_pull_request() -> None:
+    ci = CI_PATH.read_text(encoding="utf-8")
+
+    group = "group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+    assert group in ci
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in ci
 
 
 def test_repository_contract_commands_are_quiet_and_dependency_free() -> None:
@@ -124,24 +149,88 @@ def test_ci_does_not_activate_the_daily_workflow() -> None:
     assert "docker compose up" not in ci
 
 
-def test_ci_requires_pinned_runtime_execution_after_import():
+def test_ci_requires_sharded_pinned_runtime_execution_and_import_reuse():
     ci = CI_PATH.read_text(encoding="utf-8")
-    job = ci.split("  n8n-import:", 1)[1]
-    assert 'FINARY_REQUIRE_N8N_RUNTIME: "1"' in job
-    assert 'docker pull "$n8n_image" >/dev/null' in job
+    runtime = ci.split("  n8n-runtime-shard:", 1)[1].split("  n8n-shard-validation:", 1)[0]
+    collection = ci.split("  n8n-shard-validation:", 1)[1].split("  n8n-import:", 1)[0]
+    aggregate = ci.split("  n8n-import:", 1)[1].split("  oauth-ownership:", 1)[0]
+
+    assert runtime.count('shard: ["0/2", "1/2"]') == 1
+    assert "bash scripts/validate-n8n-imports.sh" in runtime
+    assert "if: matrix.shard == '0/2'" in runtime
+    assert 'Pre-pull Compose-pinned n8n image for runtime shard one' in runtime
+    assert 'docker pull "$n8n_image" >/dev/null' in runtime
+    assert runtime.count("if: matrix.shard == '1/2'") == 1
+    assert 'FINARY_REQUIRE_N8N_RUNTIME: "1"' in runtime
+    assert 'PYTEST_XDIST_WORKER_COUNT: "4"' in runtime
+    assert "--ci-shard=${{ matrix.shard }}" in runtime
     pytest_cmd = (
         "python -m pytest -q -n auto --maxprocesses 4 --dist worksteal "
         "--max-worker-restart 0 --durations=15"
     )
-    assert pytest_cmd in " ".join(job.split())
-    assert "finary-bridge/tests/test_n8n_runtime_support.py" in job
-    assert "finary-bridge/tests/test_mcp_runtime.py" in job
-    assert job.index("bash scripts/validate-n8n-imports.sh") < job.index(
-        "FINARY_REQUIRE_N8N_RUNTIME"
+    assert pytest_cmd in " ".join(runtime.split())
+    assert "finary-bridge/tests/test_n8n_runtime_support.py" in runtime
+    assert "finary-bridge/tests/test_mcp_runtime.py" in runtime
+    assert "python scripts/validate-pytest-shards.py runtime" in collection
+    assert "docker" not in collection
+    assert "if: ${{ always() }}" in aggregate
+    assert "needs: [n8n-runtime-shard, n8n-shard-validation]" in aggregate
+    assert 'test "$RUNTIME_RESULT" = success && test "$COLLECTION_RESULT" = success' in aggregate
+    assert "continue-on-error" not in aggregate
+
+
+def test_ci_shards_are_complete_and_aggregate_fail_closed() -> None:
+    ci = CI_PATH.read_text(encoding="utf-8")
+    test_shards = ci.split("  tests-shard:", 1)[1].split("  tests:", 1)[0]
+    test_aggregate = ci.split("  tests:", 1)[1].split("  mcp-validation-python314:", 1)[0]
+
+    assert test_shards.count('shard: ["0/2", "1/2"]') == 1
+    assert "if: ${{ always() }}" in test_aggregate
+    assert "needs: tests-shard" in test_aggregate
+    assert 'test "$SHARD_RESULT" = success' in test_aggregate
+    assert "continue-on-error" not in test_aggregate
+
+
+@pytest.mark.parametrize(
+    "environment,accepted",
+    [
+        ({"SHARD_RESULT": "success"}, True),
+        ({"SHARD_RESULT": "failure"}, False),
+        ({"SHARD_RESULT": "cancelled"}, False),
+        ({"SHARD_RESULT": "skipped"}, False),
+    ],
+)
+def test_ci_aggregate_shell_guards_accept_only_success(environment, accepted) -> None:
+    completed = subprocess.run(
+        ["bash", "-c", 'test "$SHARD_RESULT" = success'], env=environment
     )
-    assert job.index('docker pull "$n8n_image" >/dev/null') < job.index(
-        "FINARY_REQUIRE_N8N_RUNTIME"
+    assert (completed.returncode == 0) is accepted
+
+
+@pytest.mark.parametrize(
+    "environment,accepted",
+    [
+        ({"RUNTIME_RESULT": "success", "COLLECTION_RESULT": "success"}, True),
+        ({"RUNTIME_RESULT": "failure", "COLLECTION_RESULT": "success"}, False),
+        ({"RUNTIME_RESULT": "cancelled", "COLLECTION_RESULT": "success"}, False),
+        ({"RUNTIME_RESULT": "skipped", "COLLECTION_RESULT": "success"}, False),
+        ({"RUNTIME_RESULT": "success", "COLLECTION_RESULT": "failure"}, False),
+        ({"RUNTIME_RESULT": "success", "COLLECTION_RESULT": "cancelled"}, False),
+        ({"RUNTIME_RESULT": "success", "COLLECTION_RESULT": "skipped"}, False),
+    ],
+)
+def test_n8n_aggregate_shell_guard_requires_runtime_and_collection_success(
+    environment, accepted
+) -> None:
+    completed = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'test "$RUNTIME_RESULT" = success && test "$COLLECTION_RESULT" = success',
+        ],
+        env=environment,
     )
+    assert (completed.returncode == 0) is accepted
 
 
 def test_python314_compatibility_job_runs_mcp_validation() -> None:

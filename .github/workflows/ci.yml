@@ -9,11 +9,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  tests:
-    name: tests
+  tests-shard:
+    name: tests-shard-${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["0/2", "1/2"]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -23,6 +31,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -45,7 +55,21 @@ jobs:
           PYTEST_XDIST_WORKER_COUNT: "4"
         run: >-
           python -m pytest -m "not live" --ignore=tests/live
+          --ignore=tests/test_mcp_oauth_docker.py
+          --ci-shard=${{ matrix.shard }}
           -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
+
+  tests:
+    name: tests
+    if: ${{ always() }}
+    needs: tests-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every test shard to pass
+        env:
+          SHARD_RESULT: ${{ needs.tests-shard.result }}
+        run: test "$SHARD_RESULT" = success
 
   mcp-validation-python314:
     name: mcp-validation-python314
@@ -60,6 +84,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14.6"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -92,6 +118,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
       - name: Install development dependencies
         working-directory: finary-bridge
         run: |
@@ -131,28 +159,36 @@ jobs:
           FINARY_MCP_CANDIDATE_WORKBOOK_ID: synthetic-candidate
         run: docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
 
-  n8n-import:
-    name: n8n-import
+  n8n-runtime-shard:
+    name: n8n-runtime-shard-${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["0/2", "1/2"]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Import-validate workflows with Compose-pinned n8n
+        if: matrix.shard == '0/2'
         run: bash scripts/validate-n8n-imports.sh
       - name: Set up Python for isolated runtime regressions
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
       - name: Set up Node.js for fixture preparation
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22.23.2"
       - name: Install synthetic test dependencies
         run: python -m pip install -e "./finary-bridge[dev]"
-      - name: Pre-pull Compose-pinned n8n image for parallel runtime tests
+      - name: Pre-pull Compose-pinned n8n image for runtime shard one
+        if: matrix.shard == '1/2'
         run: |
           n8n_images="$(docker compose config --images | awk '/^n8nio\/n8n:/{print}')"
           n8n_image_count="$(printf '%s\n' "$n8n_images" | awk 'NF { count += 1 } END { print count + 0 }')"
@@ -165,10 +201,46 @@ jobs:
       - name: Execute MCP graph and installed Sheets regressions in isolated pinned n8n
         env:
           FINARY_REQUIRE_N8N_RUNTIME: "1"
+          PYTEST_XDIST_WORKER_COUNT: "4"
         run: >-
           python -m pytest -q -n auto --maxprocesses 4 --dist worksteal --max-worker-restart 0 --durations=15
+          --ci-shard=${{ matrix.shard }}
           finary-bridge/tests/test_n8n_runtime_support.py
           finary-bridge/tests/test_mcp_runtime.py
+
+  n8n-shard-validation:
+    name: n8n-shard-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python for collection validation
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
+      - name: Install synthetic test dependencies
+        run: python -m pip install -e "./finary-bridge[dev]"
+      - name: Prove runtime shard collection is complete and disjoint
+        run: python scripts/validate-pytest-shards.py runtime
+
+  n8n-import:
+    name: n8n-import
+    if: ${{ always() }}
+    needs: [n8n-runtime-shard, n8n-shard-validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require runtime shards and collection validation to pass
+        env:
+          RUNTIME_RESULT: ${{ needs.n8n-runtime-shard.result }}
+          COLLECTION_RESULT: ${{ needs.n8n-shard-validation.result }}
+        run: >-
+          test "$RUNTIME_RESULT" = success && test "$COLLECTION_RESULT" = success
 
   oauth-ownership:
     name: oauth-ownership
@@ -183,6 +255,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12.14"
+          cache: pip
+          cache-dependency-path: finary-bridge/pyproject.toml
       - name: Install synthetic test dependencies
         run: python -m pip install -e "./finary-bridge[dev]"
       - name: Verify actual bridge ownership handoff

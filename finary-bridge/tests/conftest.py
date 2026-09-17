@@ -3,9 +3,32 @@
 import os
 
 import pytest
+from ci_shards import parse_shard, select_nodeids
 
 _LOCAL_DEFAULT_WORKER_COUNT = 2
 _CI_MAX_WORKER_COUNT = 4
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--ci-shard",
+        action="store",
+        default=None,
+        metavar="INDEX/TOTAL",
+        help="Run one deterministic weighted CI test partition.",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    value = config.getoption("--ci-shard")
+    if value is None:
+        return
+    selected_nodeids = select_nodeids([item.nodeid for item in items], parse_shard(value))
+    selected, deselected = [], []
+    for item in items:
+        (selected if item.nodeid in selected_nodeids else deselected).append(item)
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
 
 
 def _parse_worker_count_override(raw_value: str) -> int:
