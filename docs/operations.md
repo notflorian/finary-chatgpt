@@ -197,10 +197,39 @@ ID and positive generation. Explicitly change only its state from `PAUSED` to
 
 ## Import and first manual synchronization
 
-Import `n8n/workflows/finary-mcp-sync.json` into n8n and keep it unpublished.
-Assign the runtime Google Sheets OAuth credential to **every Google Sheets node**,
-including preflight, control, terminal and failure nodes. Never commit credential
-bindings in an export. No separate error workflow or n8n API credential is needed.
+Create and authorize one **Google Sheets OAuth2 API** credential in the destination
+n8n instance before importing the workflow. In n8n 2.35.5, open **Credentials**,
+select that credential, and copy its identifier from the final path segment of the
+credential editor URL (`/credentials/<credential-id>`). Record the credential name
+shown by the editor exactly as well. The identifier and name are a reference, not
+an OAuth secret; do not export the credential or disclose its OAuth material.
+
+Prepare a personalized, local import file outside this repository and every Git
+worktree. The command reads only the canonical inactive export and changes only
+Google Sheets credential references:
+
+```bash
+python scripts/prepare-n8n-workflow.py \
+  --credential-id '<existing-n8n-credential-id>' \
+  --credential-name '<exact-n8n-credential-name>' \
+  --output /tmp/finary-mcp-sync-local.json
+```
+
+It configures every Google Sheets node, including preflight, control, terminal and
+failure nodes, and reports the configured count without printing the credential.
+It neither authenticates Google nor checks that the referenced credential exists
+in n8n. It also never executes, uploads, activates, or publishes a workflow.
+The output path must be new and external: an existing destination, a checkout, or
+a symlink resolving into a checkout is rejected without modification. Keep the
+generated file private and out of version control. Regenerate it if the credential
+is recreated or if the target n8n instance changes.
+
+Import `/tmp/finary-mcp-sync-local.json` into that same n8n instance and keep it
+unpublished. Check the Google Sheets bindings before continuing. As a fallback,
+import `n8n/workflows/finary-mcp-sync.json` and manually assign the same runtime
+Google Sheets OAuth credential to **every Google Sheets node**. Never commit
+credential bindings in an export. No separate error workflow or n8n API credential
+is needed.
 
 Run one full execution from **Manual Trigger**, with no cached or pinned node
 outputs. Every required write must precede **Record MCP Success**. Empty batches
