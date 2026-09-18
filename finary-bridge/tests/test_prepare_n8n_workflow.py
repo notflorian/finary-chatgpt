@@ -104,3 +104,29 @@ def test_internal_source_validation_never_returns_partial_workflow():
     for source in ({}, {"active": False, "nodes": []}, {"active": False, "nodes": [None]}):
         with pytest.raises(ValueError):
             module.prepared_workflow(source, "synthetic-id", "Synthetic name")
+
+
+def test_checkout_with_newline_is_rejected_as_an_output_destination(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("prepare_n8n_workflow", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    checkout = tmp_path / "checkout\nwith-newline"
+    checkout.mkdir()
+
+    class Result:
+        stdout = f"worktree {checkout}\0HEAD synthetic\0\0"
+
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: Result())
+    assert module.checkouts() == [checkout.resolve()]
+    with pytest.raises(ValueError, match="WORKFLOW_OUTPUT_PATH_REJECTED"):
+        module.external_output(checkout / "personalized-workflow.json")
+
+
+def test_missing_connections_is_rejected_without_a_prepared_workflow():
+    spec = importlib.util.spec_from_file_location("prepare_n8n_workflow", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    source = json.loads((ROOT / "n8n/workflows/finary-mcp-sync.json").read_text())
+    del source["connections"]
+    with pytest.raises(ValueError, match="WORKFLOW_SOURCE_INVALID"):
+        module.prepared_workflow(source, "synthetic-id", "Synthetic name")

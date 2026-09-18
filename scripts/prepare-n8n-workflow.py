@@ -21,7 +21,7 @@ def fail(message):
 def checkouts():
     try:
         completed = subprocess.run(
-            ["git", "-C", str(ROOT), "worktree", "list", "--porcelain"],
+            ["git", "-C", str(ROOT), "worktree", "list", "--porcelain", "-z"],
             check=True,
             capture_output=True,
             text=True,
@@ -29,9 +29,9 @@ def checkouts():
     except (OSError, subprocess.CalledProcessError):
         fail("WORKFLOW_OUTPUT_PATH_REJECTED")
     return [
-        Path(line.removeprefix("worktree ")).resolve()
-        for line in completed.stdout.splitlines()
-        if line.startswith("worktree ")
+        Path(entry.removeprefix("worktree ")).resolve()
+        for entry in completed.stdout.split("\0")
+        if entry.startswith("worktree ")
     ]
 
 
@@ -50,7 +50,7 @@ def prepared_workflow(source, credential_id, credential_name):
     if not isinstance(source, dict) or source.get("active") is not False:
         fail("WORKFLOW_SOURCE_INVALID")
     nodes = source.get("nodes")
-    if not isinstance(nodes, list) or any(
+    if not isinstance(nodes, list) or not isinstance(source.get("connections"), dict) or any(
         not isinstance(node, dict) or not isinstance(node.get("type"), str) for node in nodes
     ):
         fail("WORKFLOW_SOURCE_INVALID")
