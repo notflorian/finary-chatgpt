@@ -16,6 +16,12 @@ python -m pip install -e '.[dev]'
 The application uses FastAPI, Pydantic v2, Uvicorn and the pinned native MCP SDK.
 Keep source-specific dependencies inside the adapter boundary.
 
+Package and image implementation details: the package build stages the root MIT
+notice automatically. Compose builds from the repository root using
+`finary-bridge/Dockerfile`; `.dockerignore` limits inputs to package sources,
+configuration, and the notice. For a direct image build, run
+`docker build -f finary-bridge/Dockerfile .` from the repository root.
+
 Run the bridge without Docker:
 
 ```bash

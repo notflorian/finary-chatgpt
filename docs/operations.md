@@ -5,25 +5,51 @@ workbook. Follow this sequence from a clean checkout. Installation creates a new
 workbook; it supplies no conversion or relabeling of existing data. The repository
 workflow exports are inactive for safe import.
 
-## Install and configure
+## Guided fresh installation
 
-Use Docker Compose, Git, Python 3.12+ and a local browser. Obtain access to the
-official Finary MCP service and a Google account able to create private Sheets.
-From the repository root:
+Follow the numbered path from a clean checkout. Each authorization is separate:
+local health, OAuth-state placement, Google credential binding, successful
+synchronization, and validated readback prove different things.
+
+### 1. Verify prerequisites and host boundary
+
+**Where:** repository-root terminal, local browser, and Google Cloud.
+
+Before creating a virtual environment, verify Git, Compose, the running Docker
+daemon, and the specific Python command to use. Do not assume stock `python3`
+meets the version requirement:
 
 ```bash
-python3 -m venv finary-bridge/.venv
+git --version
+docker compose version
+docker info >/dev/null
+python3.12 --version
+```
+
+Choose an interpreter reporting Python 3.12 or newer; substitute its command for
+`python3.12` below. You also need a local browser, official Finary MCP access, a
+Google account, and Google Cloud permission to enable Sheets and Drive APIs and
+create a Web OAuth client. Continue only when Docker responds successfully.
+
+Host OAuth uses POSIX locking. Native Windows Python is unsupported. The handoff
+is regression-tested on rootful Linux Docker without user-namespace remapping;
+macOS, rootless Docker, user namespaces, and WSL are not certified by that
+evidence and have different ownership semantics.
+
+### 2. Install the operator tools and create private configuration
+
+**Where:** repository-root terminal. Create private `.env` before starting the
+stack:
+
+```bash
+python3.12 -m venv finary-bridge/.venv
 source finary-bridge/.venv/bin/activate
 python -m pip install ./finary-bridge
 umask 077
 cp -n .env.example .env
 chmod 600 .env
+export COMPOSE_PROJECT_NAME=finary-chatgpt
 ```
-
-The package build stages the root MIT notice automatically. Compose builds use
-the repository root and the explicit `finary-bridge/Dockerfile`; `.dockerignore`
-limits inputs to package sources, configuration and the notice. For a direct image
-build, run `docker build -f finary-bridge/Dockerfile .` from the repository root.
 
 Keep this environment active for repository scripts. Review `.env` locally; do
 not print its contents or resolved Compose configuration. Set a strong, stable
@@ -31,9 +57,17 @@ not print its contents or resolved Compose configuration. Set a strong, stable
 manager. The bridge and n8n receive the same API key. Keep the stock state path
 `/var/lib/finary-mcp/state/oauth.json`, localhost ports and one production writer.
 Record the checked-out Git commit and image pins privately. Install from matching
-source/contracts, not from a tag selected solely by its version label.
+source/contracts, not from a tag selected solely by its version label. Keep the
+Compose project for handoff, startup, and later configuration: retain this export
+in the terminal or save `COMPOSE_PROJECT_NAME=finary-chatgpt` in private `.env`.
+Exported values override `.env`.
 
-## Independent MCP OAuth
+### 3. Authorize Finary on the host
+
+**Where:** repository-root terminal and local browser. This is explicit operator
+consent, not an assistant/plugin grant.
+
+#### Independent MCP OAuth
 
 Create a new private staging directory outside the checkout and run explicit
 operator consent on the host:
@@ -58,7 +92,10 @@ OAuth bodies. It remains an explicit consent attempt. See
 isolated checks, including the operator UID/GID configuration and exclusive
 host/container handoff.
 
-## Place state in the bridge volume
+### 4. Hand off the authorized state
+
+**Where:** repository-root terminal. Finish bootstrap and stop all users of its
+state before continuing.
 
 Finish the host bootstrap and stop all users of its state. The host command
 requires POSIX file locking. The production-volume handoff is regression-tested
@@ -107,7 +144,9 @@ This verifies local placement and preserved renewable-state structure only.
 `live_validity` remains unverified: successful handoff does not prove current
 consent validity, refresh success or connectivity.
 
-## Start the stack and authorize Google
+### 5. Start the stack and authorize Google
+
+**Where:** repository-root terminal, Google Cloud, browser, and n8n.
 
 ```bash
 docker compose up -d --build --wait
@@ -121,13 +160,19 @@ your local n8n account. The schema server has no host port.
 
 In your Google Cloud project, enable the Google Sheets API and Google Drive API,
 configure the OAuth consent audience/test users appropriate to your account, and
-create a Web application OAuth client. In n8n, create a Google Sheets OAuth2
-credential. Register the **exact callback URL displayed by n8n** on that Google
-client, enter its client ID/secret into n8n and connect your Google account.
+create a Web application OAuth client. In n8n 2.35.5, create a Google Sheets
+OAuth2 credential. Register the **exact callback URL displayed by n8n** on that
+Google client—Google requires an exact redirect URI match—then enter its client
+ID/secret and connect your account. See [Google's consent-screen guidance](https://developers.google.com/workspace/guides/configure-oauth-consent) and
+[redirect-URI rule](https://developers.google.com/identity/protocols/oauth2/web-server#redirect-uri).
 Use that credential only in this n8n instance; keep the workbook private.
 Google authorization is independent of Finary OAuth and ChatGPT's Drive access.
 
-## Fresh workbook initialization
+### 6. Create and activate a fresh workbook
+
+**Where:** repository-root terminal, n8n, Sheets, then `.env`.
+
+#### Fresh workbook initialization
 
 Generate the complete offline Google `spreadsheets.create` body:
 
@@ -156,7 +201,7 @@ creation is not idempotent. Stop on partial/incompatible structure rather than
 clearing or reshaping a populated workbook. Remove the temporary creation node
 once the result is verified to prevent accidental repeat creation.
 
-## Writer configuration and activation
+#### Configure writer and activate the workbook
 
 Edit the repository-root `.env` file, replacing any existing entries below with
 the new workbook and the exact initializer values. Save the file; pasting these
@@ -196,14 +241,17 @@ Verify exactly one `writer_control` row with workbook `1.0`, official provider, 
 ID and positive generation. Explicitly change only its state from `PAUSED` to
 `ACTIVE`. This permits manual writes; it does not publish a schedule.
 
-## Import and first manual synchronization
+### 7. Prepare, import, and run the workflow
+
+**Where:** repository-root terminal and the same n8n instance.
 
 Create and authorize one **Google Sheets OAuth2 API** credential in the destination
 n8n instance before importing the workflow. In n8n 2.35.5, open **Credentials**,
 select that credential, and copy its identifier from the final path segment of the
-credential editor URL (`/credentials/<credential-id>`). Record the credential name
-shown by the editor exactly as well. The identifier and name are a reference, not
-an OAuth secret; do not export the credential or disclose its OAuth material.
+credential editor URL (`/credentials/<credential-id>`). Record the credential
+identifier and exact credential name before using the preparation command. They
+are references, not OAuth secrets; do not export the credential or disclose OAuth
+material.
 
 Prepare a personalized, local import file outside this repository and every Git
 worktree. The command reads only the canonical inactive export and changes only
@@ -244,27 +292,11 @@ notes can contain formulas; allocation fractions must be ordered within 0–1.
 Automated amounts/quantities remain exact decimal text with RAW writes; nulls
 explicitly clear cells using empty strings. Known zero and false remain known.
 
-### Generated artifact adoption
+### 8. Validate native readback, then publish and connect ChatGPT
 
-The workbook schema contains only downstream definitions; the full packaged MCP
-contract still validates bridge and optional-tool responses. Application/source
-contract `1.0.0`, API/workbook `1.0`, physical sheets and headers are unchanged.
-Existing compatible workbooks need no migration or data edits. Timestamp
-validation follows the [canonical policy](finary-mcp-contract.md#timestamp-validation);
-unsupported retained encodings block validation and are not automatically repaired.
+**Where:** n8n, repository-root terminal, then ChatGPT.
 
-The workflow binds the exact generated workbook metadata and digest, including
-an independent inline schema for failure finalization. To adopt changed artifacts,
-an operator must stop scheduled/manual executions, update the bridge and reference
-reader from the same commit, serve the matching canonical
-`docs/google-sheets-schema.json` through schema-server, and reimport the matching
-inactive workflow export. Restore runtime credential bindings and clear cached or
-pinned outputs before separately authorizing execution. Adopt both artifacts from
-the same commit: mixing old and new schemas/exports fails validation even when
-their version fields match. Do not bypass the digest check or initialize over an
-existing workbook. Workflow publication remains a separate operator action.
-
-## Consumer readback verification
+#### Consumer readback verification
 
 After writes settle, use a temporary unpublished HTTP Request node with the same
 Google credential: method `GET`, URL
@@ -291,7 +323,7 @@ The [reading rules](chatgpt.md#reading-an-observation) explain interpretation.
 Sequential reads and writes are not atomic; retry a full read after writes settle
 if evidence conflicts. Matching repeat reads do not prove a transaction.
 
-## Scheduled synchronization and monitoring
+#### Scheduled synchronization and monitoring
 
 Publish only after the manual run and full readback meet the intended coverage.
 The schedule runs at 07:30 `Europe/Paris`; independently verify its first execution
@@ -299,6 +331,15 @@ with the same readback process. A successful state older than 48 hours is
 operationally stale. A newer FAILED row does not replace valid success. Bank
 freshness is independent of ingestion time. Connect ChatGPT using its
 [private workbook setup](chatgpt.md#connect-the-workbook).
+
+## Generated artifact adoption
+
+Existing compatible workbooks need no migration or data edit. To adopt changed
+artifacts, stop scheduled/manual executions, update bridge and reader from the
+same commit, serve its matching schema, reimport its matching inactive workflow,
+restore runtime credential binding, clear cached/pinned outputs, and authorize
+execution separately. Do not mix artifacts from different commits, bypass the
+digest, or initialize over an existing workbook.
 
 ## Stop and recover
 
