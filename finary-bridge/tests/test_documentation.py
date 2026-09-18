@@ -190,7 +190,7 @@ def test_documented_shell_commands_parse_and_select_existing_files():
 
 def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path):
     document = (ROOT / "docs/operations.md").read_text()
-    section = document.split("## Place state in the bridge volume\n", 1)[1].split(
+    section = document.split("### 4. Hand off the authorized state\n", 1)[1].split(
         "\n## ", 1
     )[0]
     blocks = [
@@ -235,6 +235,31 @@ def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path)
         ],
         "project": "finary-chatgpt",
     }
+
+
+def test_guided_installation_introduces_each_dependency_before_use():
+    document = (ROOT / "docs/operations.md").read_text()
+    headings = [
+        "### 1. Verify prerequisites and host boundary",
+        "### 2. Install the operator tools and create private configuration",
+        "### 3. Authorize Finary on the host",
+        "### 4. Hand off the authorized state",
+        "### 5. Start the stack and authorize Google",
+        "### 6. Create and activate a fresh workbook",
+        "### 7. Prepare, import, and run the workflow",
+        "### 8. Validate native readback, then publish and connect ChatGPT",
+    ]
+    positions = [document.index(heading) for heading in headings]
+    assert positions == sorted(positions)
+    assert document.index("FINARY_MCP_GOOGLE_SHEET_ID=") < document.index(
+        "python scripts/prepare-n8n-workflow.py"
+    )
+    assert document.index("credential editor URL") < document.index(
+        "python scripts/prepare-n8n-workflow.py"
+    )
+    assert document.index("--run-id '<run-id-from-Record-MCP-Success>'") > document.index(
+        "Run one full execution"
+    )
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
