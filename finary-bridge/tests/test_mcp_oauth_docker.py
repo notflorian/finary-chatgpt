@@ -13,9 +13,10 @@ import pytest
 from mcp_auth_peer import AuthPeer, consent
 from mcp_oauth_handoff import assert_private, renew
 
-from app.mcp_auth import OAuthStore
+from app.mcp_auth import CALLBACK, ISSUER, OAuthState, OAuthStore
 
 ROOT = Path(__file__).parents[2]
+HANDOFF = ROOT / "scripts/handoff-mcp-oauth-state.py"
 
 
 def test_rootful_linux_host_container_host_handoff(tmp_path):
@@ -121,3 +122,144 @@ def test_rootful_linux_host_container_host_handoff(tmp_path):
     finally:
         run(["docker", "rm", "-f", container], check=False)
         run(["docker", "image", "rm", "-f", image], check=False)
+
+
+def test_rootful_linux_fresh_install_helper_uses_production_volume(tmp_path):
+    def unavailable(reason):
+        if os.getenv("FINARY_REQUIRE_OAUTH_DOCKER") == "1":
+            pytest.fail(reason)
+        pytest.skip(reason)
+
+    if sys.platform != "linux" or not shutil.which("docker"):
+        unavailable("Requires rootful Linux Docker")
+
+    def run(args, *, timeout=60, env=None, check=True, input=None):
+        return subprocess.run(
+            args,
+            cwd=ROOT,
+            env=env,
+            input=input,
+            capture_output=True,
+            timeout=timeout,
+            check=check,
+        )
+
+    info = run(["docker", "info", "--format", "{{json .}}"], check=False)
+    if info.returncode:
+        unavailable("Docker daemon is unavailable")
+    details = json.loads(info.stdout)
+    if any(
+        "rootless" in option or "userns" in option for option in details["SecurityOptions"]
+    ):
+        unavailable("Requires rootful Docker without user-namespace remapping")
+
+    source_directory = tmp_path / "finary-mcp-bootstrap.synthetic-docker"
+    store = OAuthStore(source_directory / "oauth.json")
+    state = store.replace(
+        "",
+        OAuthState(
+            "",
+            {
+                "client_id": "synthetic-local-client",
+                "issuer": ISSUER,
+                "redirect_uris": [CALLBACK],
+                "token_endpoint_auth_method": "none",
+            },
+            "synthetic-renewable-docker",
+            "openid offline_access",
+        ),
+    )
+    original = store.path.read_bytes()
+    project = "finary-handoff-" + uuid4().hex
+    volume = project + "_finary_mcp_data"
+    compose = [
+        "docker",
+        "compose",
+        "--project-directory",
+        str(ROOT),
+        "-f",
+        str(ROOT / "docker-compose.yml"),
+        "-p",
+        project,
+    ]
+    env = {
+        "PATH": os.environ.get("PATH", os.defpath),
+        "COMPOSE_ENV_FILES": "/dev/null",
+    }
+    repository = project + "-finary-bridge"
+    try:
+        result = run(
+            [
+                sys.executable,
+                str(HANDOFF),
+                "--source",
+                str(store.path),
+                "--project-name",
+                project,
+                "--cleanup-source",
+            ],
+            timeout=360,
+            env=env,
+        )
+        assert json.loads(result.stdout) == {
+            "bridge": "STOPPED",
+            "generation_match": True,
+            "renewable_state": True,
+            "source_cleanup": "REMOVED",
+            "status": "OAUTH_STATE_HANDOFF_VERIFIED",
+        }
+        assert result.stderr == b""
+        assert not source_directory.exists()
+        stopped = run(
+            [*compose, "ps", "--status", "running", "--quiet", "finary-bridge"], env=env
+        )
+        assert stopped.stdout == b""
+        image = run(
+            ["docker", "image", "inspect", repository, "--format", "{{.Id}}"], env=env
+        ).stdout.strip()
+        probe = r'''
+import hmac
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+directory = Path("/var/lib/finary-mcp/state")
+state_path = directory / "oauth.json"
+expected = sys.stdin.buffer.read()
+actual = state_path.read_bytes()
+directory_info = directory.stat()
+file_info = state_path.stat()
+value = json.loads(actual)
+assert hmac.compare_digest(actual, expected)
+assert value["generation"] == sys.argv[1]
+assert value["refresh_token"] == "synthetic-renewable-docker"
+assert (directory_info.st_uid, directory_info.st_gid) == (0, 0)
+assert (file_info.st_uid, file_info.st_gid) == (0, 0)
+assert stat.S_IMODE(directory_info.st_mode) == 0o700
+assert stat.S_IMODE(file_info.st_mode) == 0o600
+print("SYNTHETIC_PRODUCTION_VOLUME_HANDOFF_VALIDATED")
+'''
+        inspected = run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-i",
+                "--network",
+                "none",
+                "--mount",
+                f"type=volume,source={volume},target=/var/lib/finary-mcp",
+                image.decode(),
+                "python",
+                "-c",
+                probe,
+                state.generation,
+            ],
+            input=original,
+        )
+        assert inspected.stdout.strip() == b"SYNTHETIC_PRODUCTION_VOLUME_HANDOFF_VALIDATED"
+    finally:
+        run(["docker", "volume", "rm", "-f", volume], check=False)
+        run(["docker", "image", "rm", "-f", repository], check=False)

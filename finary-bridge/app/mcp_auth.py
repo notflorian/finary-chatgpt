@@ -109,13 +109,13 @@ class OAuthStore:
         private_stat(info, 0o700)
 
     @contextmanager
-    def locked(self) -> Iterator[None]:
+    def locked(self) -> Iterator[int]:
         self.directory()
         fd = os.open(str(self.path) + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
             private_stat(os.fstat(fd), 0o600)
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            yield
+            yield fd
         except (OSError, ValueError):
             raise McpFailure("MCP_AUTH_UNAVAILABLE") from None
         finally:
@@ -193,7 +193,7 @@ class OAuthStore:
             return OAuthState(generation, state.client, state.refresh_token, state.scope)
 
     @asynccontextmanager
-    async def lease(self) -> AsyncIterator[None]:
+    async def lease(self) -> AsyncIterator[int]:
         self.directory()
         fd = os.open(str(self.path) + ".lease", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
@@ -206,7 +206,7 @@ class OAuthStore:
                     await asyncio.sleep(0.05)
             else:
                 raise McpFailure("MCP_AUTH_UNAVAILABLE")
-            yield
+            yield fd
         finally:
             os.close(fd)
 

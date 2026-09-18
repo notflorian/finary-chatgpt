@@ -188,6 +188,55 @@ def test_documented_shell_commands_parse_and_select_existing_files():
                 assert (base / path).is_file(), (document, path)
 
 
+def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path):
+    document = (ROOT / "docs/operations.md").read_text()
+    section = document.split("## Place state in the bridge volume\n", 1)[1].split(
+        "\n## ", 1
+    )[0]
+    blocks = [
+        block
+        for block in re.findall(r"```bash\n(.*?)```", section, flags=re.S)
+        if "handoff-mcp-oauth-state.py" in block
+    ]
+    assert len(blocks) == 1
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    python = binary / "python"
+    python.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "print(json.dumps({'args': sys.argv[1:], "
+        "'project': os.environ.get('COMPOSE_PROJECT_NAME')}))\n"
+    )
+    python.chmod(0o700)
+    staging = tmp_path / "finary-mcp-bootstrap.with spaces;$x"
+    result = subprocess.run(
+        ["/bin/bash", "--noprofile", "--norc", "-eu", "-c", blocks[0]],
+        cwd=ROOT,
+        env={
+            "PATH": str(binary),
+            "HOME": str(tmp_path),
+            "MCP_BOOTSTRAP_DIR": str(staging),
+        },
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    )
+    assert result.stderr == ""
+    assert json.loads(result.stdout) == {
+        "args": [
+            "scripts/handoff-mcp-oauth-state.py",
+            "--source",
+            str(staging / "oauth.json"),
+            "--project-name",
+            "finary-chatgpt",
+            "--cleanup-source",
+        ],
+        "project": "finary-chatgpt",
+    }
+
+
 @pytest.mark.parametrize("ambiguous", [False, True])
 def test_readback_cli_completion_ambiguity_with_fixed_clock(tmp_path, ambiguous):
     book = book_with_two_observations()

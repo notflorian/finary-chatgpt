@@ -42,7 +42,6 @@ operator consent on the host:
 umask 077
 export MCP_BOOTSTRAP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/finary-mcp-bootstrap.XXXXXX")"
 python -m app.mcp_auth bootstrap --state "$MCP_BOOTSTRAP_DIR/oauth.json"
-python -m app.mcp_auth status --state "$MCP_BOOTSTRAP_DIR/oauth.json"
 ```
 
 Bootstrap opens a browser and binds `127.0.0.1:8765/callback`; keep that port free.
@@ -53,58 +52,60 @@ offline_access` does not prove the actual requested/granted scopes: the SDK uses
 the challenge and metadata. Effective scopes are not a certified minimum set.
 Unsupported consent returns `MCP_AUTH_UNAVAILABLE`, without invented endpoints.
 
-`status` reads local state only and reports `live_validity: UNVERIFIED`; it does
-not prove connectivity, consent validity or refresh success. Bootstrap
-`--diagnose` prints fixed stage names/status codes, never tokens or OAuth bodies.
-It remains an explicit consent attempt. See [diagnostics](development.md#opt-in-diagnostics)
-for separately authorized isolated checks, including the operator UID/GID
-configuration and exclusive host/container handoff.
+Bootstrap `--diagnose` prints fixed stage names/status codes, never tokens or
+OAuth bodies. It remains an explicit consent attempt. See
+[diagnostics](development.md#opt-in-diagnostics) for separately authorized
+isolated checks, including the operator UID/GID configuration and exclusive
+host/container handoff.
 
 ## Place state in the bridge volume
 
-Finish the host bootstrap and stop all users of its state. For a fresh, empty
-bridge volume, run this block once from the repository root. It stops on any
-error and refuses an already existing state directory:
+Finish the host bootstrap and stop all users of its state. The host command
+requires POSIX file locking. The production-volume handoff is regression-tested
+on rootful Linux Docker without user-namespace remapping; native Windows Python
+is unsupported, and macOS, rootless Docker and user namespaces are not certified
+by that Linux ownership evidence.
+
+Choose the Compose project that will own the installation. The example runs from
+the repository root; the helper itself resolves repository and Compose paths from
+its installed script location rather than the caller's working directory. Keep
+`COMPOSE_PROJECT_NAME` exported for the later Compose commands.
+`--cleanup-source` requests removal of the designated
+`finary-mcp-bootstrap.*` staging directory only after destination verification;
+omit it to retain the staging copy for separate operator cleanup.
 
 ```bash
-(
-  set -eu
-  docker compose build finary-bridge
-  docker compose create finary-bridge
-  docker compose run --rm --no-deps -T finary-bridge python -c \
-    "from pathlib import Path; Path('/var/lib/finary-mcp/state').mkdir(mode=0o700)"
-  docker compose cp "$MCP_BOOTSTRAP_DIR/oauth.json" finary-bridge:/var/lib/finary-mcp/state/oauth.json
-  docker compose run --rm --no-deps -T finary-bridge python -m app.mcp_auth status \
-    --state /var/lib/finary-mcp/state/oauth.json
-)
+export COMPOSE_PROJECT_NAME=finary-chatgpt
+python scripts/handoff-mcp-oauth-state.py \
+  --source "$MCP_BOOTSTRAP_DIR/oauth.json" \
+  --project-name "$COMPOSE_PROJECT_NAME" \
+  --cleanup-source && unset MCP_BOOTSTRAP_DIR
 ```
 
-Do not rerun only the copy step against an existing destination. An interrupted
-transfer requires inspection while the bridge remains stopped. The supplied
-image runs as root; the destination directory/file must be root-owned and
-0700/0600. `status` enforces these permissions. The volume is mounted only in the
-bridge, never n8n. Access tokens remain memory-only.
+Success is one JSON object with `status: OAUTH_STATE_HANDOFF_VERIFIED`,
+`bridge: STOPPED`, `renewable_state: true`, `generation_match: true`, and the
+requested cleanup outcome. The helper validates the existing private source
+before mutation, holds its existing OAuth lease during transfer, targets the
+stock bridge-only named volume, runs transfer and verification containers with
+no network, and preserves the exact state generation and bytes under root-owned
+0700/0600 paths. It does not start the bridge, n8n or synchronization.
 
-After the destination status confirms the same nonempty generation as the host,
-remove only the stopped staging copy and its lock files; never revoke the grant
-as a way to remove the duplicate file:
+An existing destination state directory is always refused. If transfer or
+verification is interrupted, retain the original staging state, keep the bridge
+stopped, and inspect both locations; do not delete the partial volume or rerun
+the helper over it. A cleanup failure is reported separately as verified
+destination plus failed cleanup—inspect only the designated staging directory
+instead of repeating the handoff. Cleanup begins only after the source lease is
+held continuously through transfer and verification; it revalidates the exact
+source while holding both source locks, then removes only the state and known
+coordination files while those locks remain held. The operating model still
+requires one owner and does not provide an atomic host-to-Docker transaction.
+Never revoke the grant merely to remove staging files, and do not back up
+renewable state.
 
-```bash
-python - <<'PY'
-import os
-from pathlib import Path
-p = Path(os.environ['MCP_BOOTSTRAP_DIR'])
-assert p.is_absolute() and not p.is_symlink() and p.name.startswith('finary-mcp-bootstrap.')
-assert {f.name for f in p.iterdir()} <= {'oauth.json', 'oauth.json.lock', 'oauth.json.lease'}
-for f in p.iterdir():
-    assert f.is_file() and not f.is_symlink()
-    f.unlink()
-p.rmdir()
-PY
-unset MCP_BOOTSTRAP_DIR
-```
-
-This removes the staging files only. Do not back up renewable Finary state.
+This verifies local placement and preserved renewable-state structure only.
+`live_validity` remains unverified: successful handoff does not prove current
+consent validity, refresh success or connectivity.
 
 ## Start the stack and authorize Google
 
