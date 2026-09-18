@@ -93,6 +93,7 @@ def test_local_documentation_links_and_anchors_resolve():
         ROOT / "AGENTS.md",
         *ROOT.glob("docs/*.md"),
         ROOT / ".github/copilot-instructions.md",
+        ROOT / ".specify/memory/constitution.md",
     ]
     for document in documents:
         text = re.sub(r"```.*?```", "", document.read_text(), flags=re.S)

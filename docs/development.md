@@ -30,6 +30,29 @@ state. No provider selector or private credentials are used. Follow the
 [OAuth runbook](operations.md#independent-mcp-oauth). Health and
 OpenAPI access require no OAuth state; routes never initiate consent.
 
+## Optional Spec Kit workflow
+
+Spec Kit 1.0.8 is initialized for Codex but remains optional. Keep routine work
+direct: issue → implementation → relevant tests → pull request. Use Spec Kit when
+a feature benefits from durable requirements, design, task breakdown, or
+cross-artifact review.
+
+Initialize or amend the active
+[constitution](../.specify/memory/constitution.md) with `$speckit-constitution`
+before using `$speckit-plan` or `$speckit-analyze`; those commands treat its
+principles as non-negotiable. Start an optional feature workflow with
+`$speckit-specify`, then use `$speckit-clarify`, `$speckit-plan`,
+`$speckit-tasks`, `$speckit-analyze`, `$speckit-implement`, or
+`$speckit-converge` as useful. `$speckit-checklist` and
+`$speckit-taskstoissues` provide targeted follow-ups.
+
+`$speckit-specify` stores feature context in its resolved feature directory
+(by default `specs/<feature>/`) and records the active directory in
+`.specify/feature.json`; this context is independent of Git branch names. The
+constitution summarizes durable governance only. `AGENTS.md`, the canonical
+contracts, and the maintained guides remain the sources for detailed project rules,
+commands, and operations.
+
 ## Required local checks
 
 Run normal tests and static analysis from `finary-bridge`:
