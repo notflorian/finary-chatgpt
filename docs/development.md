@@ -97,13 +97,17 @@ FINARY_MCP_CANDIDATE_UID=1001 FINARY_MCP_CANDIDATE_GID=1001 \
 docker compose --env-file /dev/null -p finary-mcp-candidate -f docker-compose.mcp-test.yml config --quiet
 ```
 
-The OAuth Docker gate requires a non-root Linux host and a rootful daemon without
-user-namespace remapping. It builds the bridge image, resolves the candidate
-identity/bind mount, rejects the original root identity, rotates fabricated state
-through the existing fake OAuth transport, and verifies host recovery and 0700/0600
-ownership after container exit. Containers have no network and use only a fresh
-synthetic directory. The required gate fails when this runtime is unavailable;
-on other local platforms, obtain that evidence from the `oauth-ownership` CI job.
+The OAuth Docker gate requires a rootful Linux daemon without user-namespace
+remapping. Its diagnostic regression additionally requires a non-root host: it
+builds the bridge image, resolves the candidate identity/bind mount, rejects the
+original root identity, rotates fabricated state through the fake OAuth transport,
+and verifies host recovery. A separate regression runs the fresh-install helper
+against a unique Compose project and bridge-only named volume, then independently
+checks exact content, generation, root ownership and 0700/0600 modes while the
+bridge remains stopped. Execution containers have no network and cleanup targets
+only their synthetic directories, images and uniquely named volumes. The required
+gate fails when this runtime is unavailable; on other local platforms, obtain that
+evidence from the `oauth-ownership` CI job.
 
 Keep evidence boundaries distinct:
 
@@ -370,7 +374,7 @@ acceptance jobs remain:
 | `mcp-validation-python314` | Python 3.14 contract/model, MCP SDK/OAuth, HTTP boundary, optional endpoints and exact decimals |
 | `static-analysis` | Ruff and strict mypy for `app` |
 | `repository-contracts` | JSON parsing and resolved Compose validation |
-| `oauth-ownership` | required synthetic host–container–host handoff on rootful Linux using the actual bridge image |
+| `oauth-ownership` | required diagnostic and fresh-install volume handoffs on rootful Linux using the actual bridge image |
 | `n8n-import` | isolated import validation and required synthetic workflow executions using pinned n8n |
 
 Actions are pinned to immutable revisions, runtime versions are explicit, and
