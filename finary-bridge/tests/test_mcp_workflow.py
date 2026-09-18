@@ -6,8 +6,37 @@ from copy import deepcopy
 import pytest
 from mcp_artifacts import WORKFLOW
 from mcp_snapshots import snapshot
-from mcp_workbooks import empty_book, failure, prepare, writes
+from mcp_workbooks import book_with_retained_observations, empty_book, failure, prepare, writes
 from n8n_code import _run_code_node, _run_mcp_validation_probe
+
+
+def test_exported_retained_history_joins_scale_linearly():
+    body = """
+const decoded=Object.fromEntries(Object.entries($input.first().json).map(([table,rows])=>[
+  table,rows.map(row=>mcpDecode(table,row))
+]));
+let accesses=0;
+const existing=Object.fromEntries(Object.entries(decoded).map(([table,rows])=>[
+  table,new Proxy(rows,{get(target,property,receiver){
+    if(typeof property==='string'&&/^(?:0|[1-9]\\d*)$/.test(property))accesses++;
+    return Reflect.get(target,property,receiver);
+  }})
+]));
+mcpRetained(existing);
+return [{json:{accesses}}];
+"""
+    measured = {}
+    for count in (1, 10, 100, 200):
+        book = book_with_retained_observations(count)
+        measured[count] = _run_mcp_validation_probe(
+            body, [book], node_name="Prepare MCP Rows"
+        )[0]["json"]["accesses"]
+        assert prepare(book=book, execution=f"retained-{count}")["Prepare MCP Rows"]
+
+    assert measured[1] > 0
+    assert measured[10] > measured[1]
+    assert measured[100] > measured[10]
+    assert measured[200] <= measured[100] * 3
 
 
 def test_exported_series_comparison_requires_known_compatible_dimensions():

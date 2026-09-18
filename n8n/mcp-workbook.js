@@ -172,27 +172,33 @@ const mcpRetained = existing => {
   mcpBatch('sync_runs',existing.sync_runs);
   for(const table of mcpWorkbook.manual_sheets)mcpBatch(table,existing[table]);
   mcpAssert(mcpStable(existing.README)===mcpStable(mcpWorkbook.readme_entries));
+  const terminals=new Map(),successful=[],membership=new Map();
+  for(const terminal of existing.sync_runs){
+    if(terminal.observation_id!==null)terminals.set(terminal.observation_id,terminal);
+    if(['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(terminal.status))successful.push(terminal);
+  }
   for(const [table,rows]of Object.entries(existing)){
     if(!mcpTableInputs[table])continue;
+    const counts=new Map();membership.set(table,counts);
     for(const row of rows){
       mcpRow(table,row);
       if(mcpChildFields[table])mcpAssert(row.row_key===mcpChildKey(row.observation_id,table,mcpNormalized(table,row)));
       if(table==='positions_history')mcpAssert(row.history_key===`mcp:history:${row.snapshot_date}:${row.observation_id}:${row.position_key}`);
       if(table==='portfolio_daily')mcpAssert(row.daily_key===`mcp:daily:${row.snapshot_date}:${row.observation_id}`);
-      const terminal=existing.sync_runs.filter(r=>r.observation_id===row.observation_id);
-      mcpAssert(terminal.length===1);
-      mcpAssert(terminal[0].run_id===row.run_id&&terminal[0].provider==='finary_official_mcp');
+      const terminal=terminals.get(row.observation_id);
+      mcpAssert(terminal!==undefined);
+      mcpAssert(terminal.run_id===row.run_id&&terminal.provider==='finary_official_mcp');
+      counts.set(row.observation_id,(counts.get(row.observation_id)||0)+1);
     }
   }
-  for(const terminal of existing.sync_runs.filter(r=>['SUCCESS','SUCCESS_WITH_WARNINGS'].includes(r.status))){
+  for(const terminal of successful){
     mcpRow('sync_runs',terminal);
     mcpAssert(terminal.api_schema===mcpWorkbook.api_schema&&terminal.workbook_schema===mcpWorkbook.schema_version&&terminal.source_contract_version===mcpContract.contract_version);
-    const observations=existing.observations.filter(r=>r.observation_id===terminal.observation_id&&r.run_id===terminal.run_id);
-    mcpAssert(observations.length===1);
+    mcpAssert((membership.get('observations')?.get(terminal.observation_id)||0)===1);
     for(const [table,column]of Object.entries(mcpWorkbook.mcp_tables.sync_runs.count_columns)){
       if(table.endsWith('_current'))continue;
-      const selected=existing[table].filter(r=>r.observation_id===terminal.observation_id);
-      mcpAssert(terminal[column]===null?selected.length===0:selected.length===terminal[column]);
+      const count=membership.get(table)?.get(terminal.observation_id)||0;
+      mcpAssert(terminal[column]===null?count===0:count===terminal[column]);
     }
   }
 };
