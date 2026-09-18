@@ -157,7 +157,9 @@ once the result is verified to prevent accidental repeat creation.
 
 ## Writer configuration and activation
 
-Set `.env` to the new workbook and the exact initializer values:
+Edit the repository-root `.env` file, replacing any existing entries below with
+the new workbook and the exact initializer values. Save the file; pasting these
+assignments into a terminal does not update `.env`:
 
 ```dotenv
 FINARY_MCP_GOOGLE_SHEET_ID=<new-workbook-id>
@@ -166,9 +168,30 @@ FINARY_MCP_WRITER_ID=portfolio-writer
 FINARY_MCP_WRITER_GENERATION=1
 ```
 
-Run `docker compose up -d n8n` to apply the changed environment. Compare every
-sheet/header and README entry against the generated inventory. Verify exactly
-one `writer_control` row with workbook `1.0`, official provider, matching writer
+From the repository root, apply the changed environment:
+
+```bash
+docker compose up -d n8n
+```
+
+Compose recreates n8n when its effective environment changes. A container restart
+alone does not apply new environment values.
+
+For a temporary terminal-only configuration, use `export` before each assignment
+above, then run the Compose command from that same terminal. Bare `NAME=value`
+assignments on separate lines are not passed to Compose unless already exported.
+Exported values override `.env`; unset those variables before switching back to
+the saved file. Keep the settings in `.env` for subsequent terminal sessions.
+
+If **Initialize MCP Run** fails with `MCP_VALIDATION_FAILED` while validating
+writer configuration, check that `FINARY_MCP_WRITER_ID` is nonempty and
+`FINARY_MCP_WRITER_GENERATION` is an integer of at least 1 in n8n's environment.
+Both must match the workbook's `writer_control` row. After correcting the
+settings, apply them with the Compose command above and retry from
+**Manual Trigger** without cached or pinned outputs.
+
+Compare every sheet/header and README entry against the generated inventory.
+Verify exactly one `writer_control` row with workbook `1.0`, official provider, matching writer
 ID and positive generation. Explicitly change only its state from `PAUSED` to
 `ACTIVE`. This permits manual writes; it does not publish a schedule.
 
