@@ -66,7 +66,18 @@ def test_cli_binds_every_google_sheets_node_without_changing_canonical_export(tm
     assert "synthetic opaque/id" not in result.stdout + result.stderr
 
 
-@pytest.mark.parametrize("arguments", [["--credential-id", ""], ["--credential-name", ""], []])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--credential-id", "", "--credential-name", "Synthetic Sheets"],
+        ["--credential-id", "synthetic-id", "--credential-name", ""],
+        ["--credential-id", "   ", "--credential-name", "Synthetic Sheets"],
+        ["--credential-id", "synthetic-id", "--credential-name", "   "],
+        ["--credential-id", "synthetic-id"],
+        ["--credential-name", "Synthetic Sheets"],
+        [],
+    ],
+)
 def test_cli_rejects_missing_or_blank_credential_values(tmp_path, arguments):
     output = tmp_path / "workflow.json"
     result = subprocess.run(
