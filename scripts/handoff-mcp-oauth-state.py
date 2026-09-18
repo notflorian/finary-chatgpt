@@ -259,6 +259,7 @@ class DockerDestination:
         self.volume = ""
         self.image = ""
         self.bridge_state = "UNVERIFIED"
+        self.transfer_attempted = False
 
     def _compose(self, *arguments: str, timeout: int = 30) -> subprocess.CompletedProcess[bytes]:
         return _run(self.runner, [*self.compose, *arguments], timeout=timeout)
@@ -449,6 +450,7 @@ class DockerDestination:
         )
 
     def transfer(self, source: bytes) -> None:
+        self.transfer_attempted = True
         result = self._container(["python", "-c", TRANSFER_WORKER], input_bytes=source)
         if result.returncode == 20:
             _fail("DESTINATION_EXISTS", destination_touched=True)
@@ -570,7 +572,9 @@ async def _transfer_with_lease(
             destination.require_stopped()
             if cleanup_source:
                 _cleanup_source(store, source, state.generation, lease_fd)
-    except HandoffFailure:
+    except HandoffFailure as error:
+        if destination.transfer_attempted:
+            error.destination_touched = True
         raise
     except McpFailure:
         _fail("SOURCE_ACTIVE")

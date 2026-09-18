@@ -57,6 +57,7 @@ class FakeRunner:
         self.calls = []
         self.destination = None
         self.project = None
+        self.status_checks = 0
         self.volume_exists = failure in {"existing_destination", "wrong_volume_labels"}
         if failure == "existing_destination":
             self.destination = b"existing destination"
@@ -103,6 +104,11 @@ class FakeRunner:
                 }
             return self.result(args, stdout=json.dumps(config).encode())
         if "ps" in args:
+            self.status_checks += 1
+            if self.failure == "final_stopped_nonzero" and self.status_checks == 3:
+                return self.result(args, returncode=1, stderr=SECRET)
+            if self.failure == "final_stopped_timeout" and self.status_checks == 3:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
             state = {
                 "running": "running",
                 "paused": "paused",
@@ -158,9 +164,13 @@ class FakeRunner:
             if self.failure == "destination_path_error":
                 return self.result(args, returncode=23, stderr=SECRET)
             self.destination = kwargs["input"]
+            if self.failure == "transfer_timeout":
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
             return self.result(args, stdout=b'{"status":"TRANSFERRED"}\n')
         if args[1] == "run" and "app.mcp_auth" in args:
             source = json.loads(self.destination)
+            if self.failure == "status_timeout":
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
             status = "RENEWABLE_STATE_PRESENT"
             generation = source["generation"]
             returncode = 0
@@ -407,6 +417,35 @@ def test_failures_retain_source_and_report_exact_partial_destination(
             else "Correct the prerequisite and retry with the original staging state."
         ),
     }
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "transfer_timeout",
+        "status_timeout",
+        "final_stopped_nonzero",
+        "final_stopped_timeout",
+    ],
+)
+def test_post_transfer_docker_failure_requires_destination_inspection(
+    tmp_path, handoff_module, fault
+):
+    source, _ = source_state(tmp_path)
+    original = source.read_bytes()
+    runner = FakeRunner(failure=fault)
+
+    with pytest.raises(handoff_module.HandoffFailure) as failure:
+        handoff_module.handoff(source, "synthetic-post-transfer", True, runner=runner)
+
+    assert failure.value.code == "DOCKER_UNAVAILABLE"
+    assert failure.value.destination_touched is True
+    assert source.read_bytes() == original
+    assert runner.destination == original
+    assert handoff_module._failure_payload(failure.value)["action"] == (
+        "Keep the bridge stopped and inspect the destination and original staging state; "
+        "do not overwrite or automatically retry."
+    )
 
 
 @pytest.mark.parametrize("state", ["paused", "restarting", "removing", "dead"])
