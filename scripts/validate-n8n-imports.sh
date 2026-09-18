@@ -24,8 +24,15 @@ log_directory="$(mktemp -d "${TMPDIR:-/tmp}/finary-n8n-import.XXXXXX")"
 trap 'rm -rf "$log_directory"' EXIT
 
 workflows=(
-  "n8n/workflows/finary-mcp-sync.json"
+  "$repository_root/n8n/workflows/finary-mcp-sync.json"
 )
+
+personalized_workflow="$log_directory/finary-mcp-sync-local.json"
+python3 "$repository_root/scripts/prepare-n8n-workflow.py" \
+  --credential-id 'synthetic-n8n-credential-id' \
+  --credential-name 'Synthetic n8n Sheets credential' \
+  --output "$personalized_workflow" >/dev/null
+workflows+=("$personalized_workflow")
 
 for workflow in "${workflows[@]}"; do
   log_file="$log_directory/$(basename "$workflow").log"
@@ -34,7 +41,7 @@ for workflow in "${workflows[@]}"; do
     -e N8N_ENCRYPTION_KEY=ci-only-synthetic-import-key \
     -e N8N_DIAGNOSTICS_ENABLED=false \
     -e N8N_PERSONALIZATION_ENABLED=false \
-    --mount "type=bind,src=$repository_root/$workflow,dst=/tmp/workflow.json,readonly" \
+    --mount "type=bind,src=$workflow,dst=/tmp/workflow.json,readonly" \
     "$n8n_image" import:workflow --input=/tmp/workflow.json \
     >"$log_file" 2>&1; then
     cat "$log_file" >&2
