@@ -190,12 +190,9 @@ def test_documented_shell_commands_parse_and_select_existing_files():
 
 def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path):
     document = (ROOT / "docs/operations.md").read_text()
-    section = document.split("## Place state in the bridge volume\n", 1)[1].split(
-        "\n## ", 1
-    )[0]
     blocks = [
         block
-        for block in re.findall(r"```bash\n(.*?)```", section, flags=re.S)
+        for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
         if "handoff-mcp-oauth-state.py" in block
     ]
     assert len(blocks) == 1
@@ -235,6 +232,54 @@ def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path)
         ],
         "project": "finary-chatgpt",
     }
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_documented_readback_extraction_preserves_native_response(tmp_path, wrapped):
+    document = (ROOT / "docs/operations.md").read_text()
+    blocks = [
+        block for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
+        if "READBACK_OBJECT_EXTRACTED" in block
+    ]
+    assert len(blocks) == 1
+    native, run_id = native_observation()
+    source = tmp_path / "items.json"
+    output = tmp_path / "readback.json"
+    item = {"json": native, "pairedItem": {"item": 0}} if wrapped else native
+    source.write_text(json.dumps([item]))
+    block = blocks[0].replace("/tmp/finary-workbook-items.json", str(source)).replace(
+        "/tmp/finary-workbook-readback.json", str(output)
+    ).replace("python - ", f"{sys.executable} - ")
+    result = subprocess.run(
+        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "READBACK_OBJECT_EXTRACTED"
+    assert json.loads(output.read_text()) == native
+    assert output.stat().st_mode & 0o777 == 0o600
+    checked = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check-workbook.py"),
+         "--input", str(output), "--run-id", run_id],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert checked.returncode == 0, checked.stderr
+    assert json.loads(checked.stdout)["status"] in {
+        "WORKBOOK_READBACK_VALIDATED", "WORKBOOK_READBACK_QUALIFIED",
+    }
+    before = output.read_bytes()
+    repeated = subprocess.run(
+        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
+    )
+    assert repeated.returncode != 0
+    assert output.read_bytes() == before
+    output.unlink()
+    for invalid in ([], [item, item], [{"body": native}], native):
+        source.write_text(json.dumps(invalid))
+        rejected = subprocess.run(
+            ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
+        )
+        assert rejected.returncode != 0
+        assert not output.exists()
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
