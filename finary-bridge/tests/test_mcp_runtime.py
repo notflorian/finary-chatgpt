@@ -2,7 +2,7 @@
 
 import subprocess
 from copy import deepcopy
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from mcp_artifacts import SCHEMA, WORKFLOW
@@ -353,8 +353,6 @@ def test_initializer_bridge_engine_connector_consumer_round_trip(
     applied = connector(SCHEMA, book, connector_writes(data))["workbook"]
     for name, rows in applied.items():
         initialized["sheets"][name]["rows"] = rows
-    from datetime import UTC, datetime
-
     from app.mcp_consumer import select
 
     accepted = select(initialized, now=datetime.now(UTC))
@@ -440,7 +438,7 @@ def test_runtime_populated_empty_repeated_and_partial_preserves_manual(
             assert current == {**original, "is_active": False}
             assert "Write positions_history" not in data
             accepted = observation(
-                readback(book), book["sync_runs"][-1], now=NOW + timedelta(days=10)
+                readback(book), book["sync_runs"][-1], now=datetime.now(UTC)
             )
             assert accepted["current_complete"] and accepted["positions"] == []
         assert _output(data, "Continue positions_history") == [
@@ -486,7 +484,7 @@ def test_runtime_exhausted_retry_then_valid_recovery(runtime_image, connector, t
         else:
             assert not result.get("error")
             accepted = observation(
-                readback(book), book["sync_runs"][-1], now=NOW + timedelta(days=10)
+                readback(book), book["sync_runs"][-1], now=datetime.now(UTC)
             )
             assert accepted["current_complete"]
         assert {table: book[table] for table in SCHEMA["manual_sheets"]} == manual
