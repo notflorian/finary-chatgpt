@@ -191,9 +191,15 @@ Manual Trigger and an HTTP Request node:
 
 1. Set method `POST`, URL `https://sheets.googleapis.com/v4/spreadsheets`.
 2. Use **Predefined Credential Type → Google Sheets OAuth2 API**, selecting the
-   credential created above. Send a JSON body containing the complete generated
-   JSON object, not a quoted string. Request a JSON response.
-3. Execute once and record the returned `spreadsheetId` and workbook URL locally.
+   credential created above.
+3. Enable **Send Body**, set **Body Content Type → JSON**, then
+   **Specify Body → Using JSON**. Paste the complete generated object into the
+   **JSON** field in fixed-value mode, including its outer braces.
+4. Under **Options → Response**, set **Response Format → JSON** and leave
+   **Include Response Headers and Status** off.
+5. Execute once. Open the HTTP Request node's **Output → JSON** and record
+   `spreadsheetId` and `spreadsheetUrl` from the returned item locally. The ID
+   becomes `<new-workbook-id>` below.
 
 This request creates a new workbook; it has no existing destination to clear.
 If the response is lost, inspect Drive for the created workbook before repeating:
@@ -223,18 +229,9 @@ docker compose up -d n8n
 Compose recreates n8n when its effective environment changes. A container restart
 alone does not apply new environment values.
 
-For a temporary terminal-only configuration, use `export` before each assignment
-above, then run the Compose command from that same terminal. Bare `NAME=value`
-assignments on separate lines are not passed to Compose unless already exported.
-Exported values override `.env`; unset those variables before switching back to
-the saved file. Keep the settings in `.env` for subsequent terminal sessions.
-
-If **Initialize MCP Run** fails with `MCP_VALIDATION_FAILED` while validating
-writer configuration, check that `FINARY_MCP_WRITER_ID` is nonempty and
-`FINARY_MCP_WRITER_GENERATION` is an integer of at least 1 in n8n's environment.
-Both must match the workbook's `writer_control` row. After correcting the
-settings, apply them with the Compose command above and retry from
-**Manual Trigger** without cached or pinned outputs.
+Keep settings in `.env` for later sessions. See
+[configuration troubleshooting](#configuration-troubleshooting) if saved values
+are not taking effect.
 
 Compare every sheet/header and README entry against the generated inventory.
 Verify exactly one `writer_control` row with workbook `1.0`, official provider, matching writer
@@ -286,6 +283,12 @@ continue once without dummy rows. Complete empty holdings inactivate previous
 positions; partial/unavailable detail cannot clear them. Already inactive rows
 keep their original observation/timestamps without further writes.
 
+In this completed execution, open **Record MCP Success → Input → JSON**.
+Copy the terminal row's `run_id`, and confirm its `status` is `SUCCESS` or
+`SUCCESS_WITH_WARNINGS`. In Sheets, confirm the same `run_id` and status in
+`sync_runs`. Use that complete string for readback below, not the n8n execution
+number from the browser URL.
+
 Manual `allocation_targets`, `asset_overrides` and `cashflows` are never sync
 write targets. All rows still need unique keys and typed literal values. Only
 notes can contain formulas; allocation fractions must be ordered within 0–1.
@@ -301,11 +304,48 @@ explicitly clear cells using empty strings. Known zero and false remain known.
 After writes settle, use a temporary unpublished HTTP Request node with the same
 Google credential: method `GET`, URL
 `https://sheets.googleapis.com/v4/spreadsheets/<workbook-id>`, query parameter
-`includeGridData=true`, JSON response, and no field/range filter. Save the complete
-response object locally as `/tmp/finary-workbook-readback.json` with permissions
-0600. Save the actual object containing `sheets`, not an n8n item array or preview.
-It contains private portfolio data; keep it outside the repository and backups
-unless explicitly covered by your private data policy.
+`includeGridData=true`, and no field/range filter. Keep **Send Body** off. Under
+**Options → Response**, choose **Response Format → JSON** and leave
+**Include Response Headers and Status** off. Execute once with no pinned data.
+
+Open this node's **Output → JSON**, with no search or field selection. If n8n
+hides the large result, use **Download** in that panel. For a displayed result,
+use its **Copy to Clipboard** button with no JSON value selected and paste into
+a local plain-text file. Save the complete export as
+`/tmp/finary-workbook-items.json`; do not copy a visible preview by selecting text.
+The download contains `[{"json": {"sheets": [...], ...}, ...}]`; the whole-output
+clipboard copy contains `[{"sheets": [...], ...}]`. Neither array is the native
+object required by the checker. These behaviors are defined by the pinned
+[download implementation](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/frontend/editor-ui/src/features/ndv/runData/components/RunData.vue)
+and [JSON copy implementation](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/frontend/editor-ui/src/features/ndv/runData/components/RunDataJsonActions.vue).
+
+In the repository-root terminal with the venv active, extract the single response.
+This preserves every field, requires a `sheets` array, and refuses to overwrite
+an existing output. Both files contain private portfolio data: keep them outside
+the repository and backups unless covered by your private data policy.
+
+```bash
+chmod 600 /tmp/finary-workbook-items.json
+umask 077
+python - /tmp/finary-workbook-items.json /tmp/finary-workbook-readback.json <<'PY'
+import json
+import sys
+from pathlib import Path
+
+items = json.loads(Path(sys.argv[1]).read_text())
+if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
+    raise SystemExit("Expected exactly one exported HTTP response item")
+response = items[0].get("json", items[0])
+if not isinstance(response, dict) or not isinstance(response.get("sheets"), list):
+    raise SystemExit("Expected the complete Google response with sheets")
+with Path(sys.argv[2]).open("x", encoding="utf-8") as output:
+    json.dump(response, output, ensure_ascii=False)
+print("READBACK_OBJECT_EXTRACTED")
+PY
+```
+
+Continue after `READBACK_OBJECT_EXTRACTED`. This confirms extraction only;
+the next command checks workbook validity and the selected run.
 
 Validate it offline using the completed execution's run ID:
 
@@ -331,6 +371,21 @@ with the same readback process. A successful state older than 48 hours is
 operationally stale. A newer FAILED row does not replace valid success. Bank
 freshness is independent of ingestion time. Connect ChatGPT using its
 [private workbook setup](chatgpt.md#connect-the-workbook).
+
+## Configuration troubleshooting
+
+For temporary terminal-only configuration, export each writer variable before
+running `docker compose up -d n8n` in that same terminal. Bare `NAME=value`
+assignments are not passed to Compose unless already exported. Exported values
+override `.env`; unset them before returning to the saved file. Keep the same
+`COMPOSE_PROJECT_NAME` used for handoff and startup.
+
+If **Initialize MCP Run** fails with `MCP_VALIDATION_FAILED` while validating
+writer configuration, check that `FINARY_MCP_WRITER_ID` is nonempty and
+`FINARY_MCP_WRITER_GENERATION` is an integer of at least 1 in n8n's environment.
+Both must match the workbook's `writer_control` row. After correcting `.env`,
+apply it with `docker compose up -d n8n` and retry from **Manual Trigger** without
+cached or pinned outputs.
 
 ## Generated artifact adoption
 

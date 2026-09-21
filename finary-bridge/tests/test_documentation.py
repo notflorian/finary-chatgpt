@@ -190,12 +190,9 @@ def test_documented_shell_commands_parse_and_select_existing_files():
 
 def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path):
     document = (ROOT / "docs/operations.md").read_text()
-    section = document.split("### 4. Hand off the authorized state\n", 1)[1].split(
-        "\n## ", 1
-    )[0]
     blocks = [
         block
-        for block in re.findall(r"```bash\n(.*?)```", section, flags=re.S)
+        for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
         if "handoff-mcp-oauth-state.py" in block
     ]
     assert len(blocks) == 1
@@ -237,29 +234,52 @@ def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path)
     }
 
 
-def test_guided_installation_introduces_each_dependency_before_use():
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_documented_readback_extraction_preserves_native_response(tmp_path, wrapped):
     document = (ROOT / "docs/operations.md").read_text()
-    headings = [
-        "### 1. Verify prerequisites and host boundary",
-        "### 2. Install the operator tools and create private configuration",
-        "### 3. Authorize Finary on the host",
-        "### 4. Hand off the authorized state",
-        "### 5. Start the stack and authorize Google",
-        "### 6. Create and activate a fresh workbook",
-        "### 7. Prepare, import, and run the workflow",
-        "### 8. Validate native readback, then publish and connect ChatGPT",
+    blocks = [
+        block for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
+        if "READBACK_OBJECT_EXTRACTED" in block
     ]
-    positions = [document.index(heading) for heading in headings]
-    assert positions == sorted(positions)
-    assert document.index("FINARY_MCP_GOOGLE_SHEET_ID=") < document.index(
-        "python scripts/prepare-n8n-workflow.py"
+    assert len(blocks) == 1
+    native, run_id = native_observation()
+    source = tmp_path / "items.json"
+    output = tmp_path / "readback.json"
+    item = {"json": native, "pairedItem": {"item": 0}} if wrapped else native
+    source.write_text(json.dumps([item]))
+    block = blocks[0].replace("/tmp/finary-workbook-items.json", str(source)).replace(
+        "/tmp/finary-workbook-readback.json", str(output)
+    ).replace("python - ", f"{sys.executable} - ")
+    result = subprocess.run(
+        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
     )
-    assert document.index("credential editor URL") < document.index(
-        "python scripts/prepare-n8n-workflow.py"
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "READBACK_OBJECT_EXTRACTED"
+    assert json.loads(output.read_text()) == native
+    assert output.stat().st_mode & 0o777 == 0o600
+    checked = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check-workbook.py"),
+         "--input", str(output), "--run-id", run_id],
+        capture_output=True, text=True, timeout=30,
     )
-    assert document.index("--run-id '<run-id-from-Record-MCP-Success>'") > document.index(
-        "Run one full execution"
+    assert checked.returncode == 0, checked.stderr
+    assert json.loads(checked.stdout)["status"] in {
+        "WORKBOOK_READBACK_VALIDATED", "WORKBOOK_READBACK_QUALIFIED",
+    }
+    before = output.read_bytes()
+    repeated = subprocess.run(
+        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
     )
+    assert repeated.returncode != 0
+    assert output.read_bytes() == before
+    output.unlink()
+    for invalid in ([], [item, item], [{"body": native}], native):
+        source.write_text(json.dumps(invalid))
+        rejected = subprocess.run(
+            ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
+        )
+        assert rejected.returncode != 0
+        assert not output.exists()
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
