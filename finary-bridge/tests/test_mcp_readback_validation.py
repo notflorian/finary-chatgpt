@@ -15,8 +15,8 @@ from mcp_workbooks import (
     readback,
 )
 
-from app import mcp_workbook
-from app.mcp_consumer import select, select_native
+from app import mcp_consumer, mcp_workbook
+from app.mcp_consumer import observation, select, select_native
 from app.mcp_workbook import native_inventory, records
 
 
@@ -69,6 +69,35 @@ def test_native_selection_validates_every_inventory_row_once(monkeypatch):
     assert actual == expected
 
 
+@pytest.mark.parametrize("fallback", [False, True])
+def test_consumer_schema_work_is_limited_to_selected_candidates(monkeypatch, fallback):
+    book = book_with_retained_observations(10)
+    native, _ = native_observation(book)
+    calls = Counter()
+    original_validate = mcp_consumer.validate
+    original_normalized = mcp_consumer.normalized
+
+    def counted_validate(name, value):
+        if name == "uuid":
+            calls["uuid"] += 1
+        return original_validate(name, value)
+
+    def counted_normalized(table, row):
+        if table == "observations":
+            calls["observations"] += 1
+        return original_normalized(table, row)
+
+    monkeypatch.setattr(mcp_consumer, "validate", counted_validate)
+    monkeypatch.setattr(mcp_consumer, "normalized", counted_normalized)
+    result = select_native(native, now=NOW if fallback else NOW + timedelta(minutes=1))
+
+    assert result["context"]["run_id"] == book["sync_runs"][0 if fallback else -1]["run_id"]
+    assert result["current_complete"] is not fallback
+    assert result["dated_fallback"] is fallback
+    assert calls["uuid"] == 0
+    assert 1 <= calls["observations"] <= (10 if fallback else 2)
+
+
 def test_native_selection_reuses_fixed_headers_and_column_validators(monkeypatch):
     native, _ = native_observation(book_with_retained_observations(10))
     copied_headers = mcp_workbook.headers()
@@ -108,24 +137,44 @@ def test_terminal_ambiguity_and_run_mismatch_fail_closed(entrypoint, mutation):
             select(readback(book), now=NOW + timedelta(minutes=1))
 
 
-@pytest.mark.parametrize("entrypoint", ["native", "inventory"])
+@pytest.mark.parametrize("entrypoint", ["native", "inventory", "observation"])
 def test_unselected_failed_rows_are_validated_before_selection(entrypoint):
     book = partial_book()
     book["source_warnings"][-1]["code"] = "INVALID"
     with pytest.raises(ValueError):
         if entrypoint == "native":
             select_native(native_observation(book)[0], now=NOW + timedelta(minutes=1))
+        elif entrypoint == "observation":
+            observation(readback(book), book["sync_runs"][0], now=NOW + timedelta(minutes=1))
         else:
             select(readback(book), now=NOW + timedelta(minutes=1))
 
 
-def test_native_and_inventory_inputs_are_revalidated_after_mutation():
+@pytest.mark.parametrize("entrypoint", ["native", "inventory", "observation"])
+@pytest.mark.parametrize(
+    "field,value",
+    [("observation_id", "invalid"), ("run_id", ""), ("coverage_accounts", "INVALID")],
+)
+def test_unselected_older_rows_fail_inventory_gate(entrypoint, field, value):
+    book = book_with_retained_observations(2)
+    book["observations"][0][field] = value
+    with pytest.raises(ValueError):
+        if entrypoint == "native":
+            select_native(native_observation(book)[0], now=NOW + timedelta(minutes=1))
+        elif entrypoint == "observation":
+            observation(readback(book), book["sync_runs"][-1], now=NOW + timedelta(minutes=1))
+        else:
+            select(readback(book), now=NOW + timedelta(minutes=1))
+
+
+def test_public_inputs_are_revalidated_after_mutation():
     book = book_with_retained_observations(2)
     inventory = readback(book)
     native, _ = native_observation(book)
     now = NOW + timedelta(minutes=1)
     assert select(inventory, now=now)["current_complete"]
     assert select_native(native, now=now)["current_complete"]
+    assert observation(inventory, book["sync_runs"][-1], now=now)["current_complete"]
 
     inventory["sheets"]["positions_history"]["rows"][0]["current_value_amount"] = "bad"
     native_cell(native, "positions_history", 0, "current_value_amount")["userEnteredValue"] = {
@@ -135,6 +184,8 @@ def test_native_and_inventory_inputs_are_revalidated_after_mutation():
         select(inventory, now=now)
     with pytest.raises(ValueError):
         select_native(native, now=now)
+    with pytest.raises(ValueError):
+        observation(inventory, book["sync_runs"][-1], now=now)
 
 
 @pytest.fixture(scope="module")
