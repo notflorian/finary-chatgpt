@@ -337,43 +337,21 @@ use its **Copy to Clipboard** button with no JSON value selected and paste into
 a local plain-text file. Save the complete export as
 `/tmp/finary-workbook-items.json`; do not copy a visible preview by selecting text.
 The download contains `[{"json": {"sheets": [...], ...}, ...}]`; the whole-output
-clipboard copy contains `[{"sheets": [...], ...}]`. Neither array is the native
-object required by the checker. These behaviors are defined by the pinned
+clipboard copy contains `[{"sheets": [...], ...}]`. The checker accepts both
+complete exports with `--input-format n8n`. These export shapes are defined by
+the pinned
 [download implementation](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/frontend/editor-ui/src/features/ndv/runData/components/RunData.vue)
 and [JSON copy implementation](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/frontend/editor-ui/src/features/ndv/runData/components/RunDataJsonActions.vue).
 
-In the repository-root terminal with the venv active, extract the single response.
-This preserves every field, requires a `sheets` array, and refuses to overwrite
-an existing output. Both files contain private portfolio data: keep them outside
-the repository and backups unless covered by your private data policy.
+The export contains private portfolio data. Keep it outside the repository and
+backups unless covered by your private data policy. In the repository-root
+terminal with the venv active, validate the saved export offline using the
+completed execution's run ID:
 
 ```bash
 chmod 600 /tmp/finary-workbook-items.json
-umask 077
-python - /tmp/finary-workbook-items.json /tmp/finary-workbook-readback.json <<'PY'
-import json
-import sys
-from pathlib import Path
-
-items = json.loads(Path(sys.argv[1]).read_text())
-if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
-    raise SystemExit("Expected exactly one exported HTTP response item")
-response = items[0].get("json", items[0])
-if not isinstance(response, dict) or not isinstance(response.get("sheets"), list):
-    raise SystemExit("Expected the complete Google response with sheets")
-with Path(sys.argv[2]).open("x", encoding="utf-8") as output:
-    json.dump(response, output, ensure_ascii=False)
-print("READBACK_OBJECT_EXTRACTED")
-PY
-```
-
-Continue after `READBACK_OBJECT_EXTRACTED`. This confirms extraction only;
-the next command checks workbook validity and the selected run.
-
-Validate it offline using the completed execution's run ID:
-
-```bash
-python scripts/check-workbook.py --input /tmp/finary-workbook-readback.json \
+python scripts/check-workbook.py --input-format n8n \
+  --input /tmp/finary-workbook-items.json \
   --run-id '<run-id-from-Record-MCP-Success>'
 ```
 
