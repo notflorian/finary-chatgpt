@@ -118,12 +118,6 @@ def _observation(
     members: dict[str, list[dict[str, Any]] | None] = {}
     for table, column in COUNTS.items():
         rows = rows_by_table[table]
-        if not table.endswith("_current"):
-            for row in rows:
-                validate("uuid", row.get("observation_id"))
-                require(isinstance(row.get("run_id"), str) and bool(row["run_id"]))
-                if table == "observations":
-                    normalized(table, row)
         selected = [r for r in rows if r.get("observation_id") == observation_id]
         require(all(r.get("run_id") == run_id for r in selected))
         expected = blank(terminal.get(column))
