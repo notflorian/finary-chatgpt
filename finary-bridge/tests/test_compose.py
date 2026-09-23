@@ -219,6 +219,13 @@ def test_candidate_preflight_rejects_invalid_identity_without_mutation(tmp_path,
     )
 
 
+def lstat_or_none(path):
+    try:
+        return path.lstat()
+    except FileNotFoundError:
+        return None
+
+
 @pytest.mark.parametrize("fault", ["permissions", "symlink", "missing"])
 def test_candidate_preflight_preserves_unsafe_directory(tmp_path, fault):
     import sys
@@ -233,13 +240,20 @@ def test_candidate_preflight_preserves_unsafe_directory(tmp_path, fault):
         directory.symlink_to(target, target_is_directory=True)
     else:
         directory.rmdir()
-    before = directory.lstat() if directory.exists() else None
+
+    before = lstat_or_none(directory)
+
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts/validate-mcp-candidate.py")],
-        env={"FINARY_MCP_TEST_DIR": str(directory),
-             "FINARY_MCP_CANDIDATE_UID": str(os.getuid()),
-             "FINARY_MCP_CANDIDATE_GID": str(os.getgid())},
-        capture_output=True, text=True, check=False,
+        env={
+            "FINARY_MCP_TEST_DIR": str(directory),
+            "FINARY_MCP_CANDIDATE_UID": str(os.getuid()),
+            "FINARY_MCP_CANDIDATE_GID": str(os.getgid()),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
     )
+
     assert result.returncode != 0 and result.stdout == ""
-    assert (directory.lstat() if directory.exists() else None) == before
+    assert lstat_or_none(directory) == before
