@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -235,51 +235,117 @@ def test_documented_oauth_handoff_command_preserves_explicit_arguments(tmp_path)
 
 
 @pytest.mark.parametrize("wrapped", [False, True])
-def test_documented_readback_extraction_preserves_native_response(tmp_path, wrapped):
+def test_documented_readback_command_accepts_complete_n8n_exports(tmp_path, wrapped):
     document = (ROOT / "docs/operations.md").read_text()
     blocks = [
         block for block in re.findall(r"```bash\n(.*?)```", document, flags=re.S)
-        if "READBACK_OBJECT_EXTRACTED" in block
+        if "scripts/check-workbook.py" in block
     ]
     assert len(blocks) == 1
     native, run_id = native_observation()
     source = tmp_path / "items.json"
-    output = tmp_path / "readback.json"
     item = {"json": native, "pairedItem": {"item": 0}} if wrapped else native
     source.write_text(json.dumps([item]))
+    before = source.read_bytes()
+    files = set(tmp_path.iterdir())
     block = blocks[0].replace("/tmp/finary-workbook-items.json", str(source)).replace(
-        "/tmp/finary-workbook-readback.json", str(output)
-    ).replace("python - ", f"{sys.executable} - ")
-    result = subprocess.run(
-        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
-    )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "READBACK_OBJECT_EXTRACTED"
-    assert json.loads(output.read_text()) == native
-    assert output.stat().st_mode & 0o777 == 0o600
-    checked = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/check-workbook.py"),
-         "--input", str(output), "--run-id", run_id],
-        capture_output=True, text=True, timeout=30,
-    )
-    assert checked.returncode == 0, checked.stderr
-    assert json.loads(checked.stdout)["status"] in {
-        "WORKBOOK_READBACK_VALIDATED", "WORKBOOK_READBACK_QUALIFIED",
-    }
-    before = output.read_bytes()
-    repeated = subprocess.run(
-        ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
-    )
-    assert repeated.returncode != 0
-    assert output.read_bytes() == before
-    output.unlink()
-    for invalid in ([], [item, item], [{"body": native}], native):
-        source.write_text(json.dumps(invalid))
-        rejected = subprocess.run(
-            ["bash", "-eu", "-c", block], capture_output=True, text=True, timeout=10
+        "<run-id-from-Record-MCP-Success>", run_id
+    ).replace("python scripts/check-workbook.py", f"{sys.executable} scripts/check-workbook.py")
+    for _ in range(2):
+        checked = subprocess.run(
+            ["bash", "-eu", "-c", block], cwd=ROOT,
+            capture_output=True, text=True, timeout=30,
         )
-        assert rejected.returncode != 0
-        assert not output.exists()
+        assert checked.returncode == 0, checked.stderr
+        assert json.loads(checked.stdout)["status"] in {
+            "WORKBOOK_READBACK_VALIDATED", "WORKBOOK_READBACK_QUALIFIED",
+        }
+        assert source.read_bytes() == before
+        assert set(tmp_path.iterdir()) == files
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("qualified", [False, True])
+def test_n8n_readback_matches_native_status_and_booleans(tmp_path, monkeypatch, capsys,
+                                                          wrapped, qualified):
+    book = partial_book() if qualified else None
+    native, run_id = native_observation(book)
+    script = ROOT / "scripts/check-workbook.py"
+    spec = importlib.util.spec_from_file_location("check_workbook", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW + timedelta(days=3) if qualified else NOW
+
+    monkeypatch.setattr(module, "datetime", Clock)
+    outputs = []
+    for mode, content in (("native", native), ("n8n", [{"json": native} if wrapped else native])):
+        source = tmp_path / f"{mode}.json"
+        source.write_text(json.dumps(content))
+        args = [str(script), "--input", str(source), "--run-id", run_id]
+        if mode == "n8n":
+            args += ["--input-format", "n8n"]
+        monkeypatch.setattr(sys, "argv", args)
+        module.main()
+        outputs.append(json.loads(capsys.readouterr().out))
+    assert outputs[0] == outputs[1]
+    assert outputs[1]["status"] == (
+        "WORKBOOK_READBACK_QUALIFIED" if qualified else "WORKBOOK_READBACK_VALIDATED"
+    )
+
+
+@pytest.mark.parametrize("content", [
+    "{private-value:", "[]", "{}", '[null]', '[{}, {}]',
+    '[{"body": {"sheets": []}}]', '[{"json": null}]',
+    '[{"json": {"sheets": []}, "sheets": []}]',
+    '[{"json": {}}]', '[{"sheets": null}]',
+])
+def test_n8n_readback_rejects_malformed_exports(tmp_path, content):
+    source = tmp_path / "items.json"
+    source.write_text(content)
+    before = source.read_bytes()
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check-workbook.py"),
+         "--input-format", "n8n", "--input", str(source), "--run-id", "private-value"],
+        cwd=tmp_path, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr.strip() == "WORKBOOK_READBACK_REVIEW_REQUIRED"
+    assert source.read_bytes() == before
+    assert set(tmp_path.iterdir()) == {source}
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("mutation", ["wrong_run", "truncated", "invalid_retained"])
+def test_n8n_readback_requires_matching_run_and_complete_valid_inventory(
+    tmp_path, wrapped, mutation
+):
+    book = partial_book(tables=("source_warnings",)) if mutation == "invalid_retained" else None
+    native, run_id = native_observation(book)
+    if mutation == "truncated":
+        native["sheets"].pop()
+    elif mutation == "invalid_retained":
+        book["source_warnings"][-1]["row_key"] = "synthetic-private-wrong-key"
+        native, run_id = native_observation(book)
+    item = {"json": native, "pairedItem": {"item": 0}} if wrapped else native
+    source = tmp_path / "items.json"
+    source.write_text(json.dumps([item]))
+    before = source.read_bytes()
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check-workbook.py"),
+         "--input-format", "n8n", "--input", str(source),
+         "--run-id", "synthetic-private-wrong-run" if mutation == "wrong_run" else run_id],
+        cwd=tmp_path, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert result.stderr.strip() == "WORKBOOK_READBACK_REVIEW_REQUIRED"
+    assert source.read_bytes() == before
+    assert set(tmp_path.iterdir()) == {source}
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])

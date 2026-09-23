@@ -1,4 +1,4 @@
-"""Validate a complete native Google read offline without printing portfolio values."""
+"""Validate a complete Google read offline without printing portfolio values."""
 
 import argparse
 import json
@@ -11,13 +11,26 @@ from app.mcp_consumer import select_native
 from app.mcp_workbook import require
 
 
+def native_response(data, input_format):
+    if input_format == "native":
+        return data
+    require(isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict))
+    item = data[0]
+    require(not ("json" in item and "sheets" in item))
+    response = item["json"] if "json" in item else item
+    require(isinstance(response, dict) and isinstance(response.get("sheets"), list))
+    return response
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--input-format", choices=("native", "n8n"), default="native")
     parser.add_argument("--run-id", required=True)
     args = parser.parse_args()
     try:
-        result = select_native(json.loads(args.input.read_text()), now=datetime.now(timezone.utc))
+        response = native_response(json.loads(args.input.read_text()), args.input_format)
+        result = select_native(response, now=datetime.now(timezone.utc))
         require(result["context"]["run_id"] == args.run_id)
         complete = (
             result["current_complete"]
