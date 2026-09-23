@@ -160,12 +160,35 @@ your local n8n account. The schema server has no host port.
 
 In your Google Cloud project, enable the Google Sheets API and Google Drive API,
 configure the OAuth consent audience/test users appropriate to your account, and
-create a Web application OAuth client. In n8n 2.35.5, create a Google Sheets
-OAuth2 credential. Register the **exact callback URL displayed by n8n** on that
-Google client—Google requires an exact redirect URI match—then enter its client
-ID/secret and connect your account. See [Google's consent-screen guidance](https://developers.google.com/workspace/guides/configure-oauth-consent) and
-[redirect-URI rule](https://developers.google.com/identity/protocols/oauth2/web-server#redirect-uri).
-Use that credential only in this n8n instance; keep the workbook private.
+create a Web application OAuth client. Before connecting, choose how this Google
+OAuth app will be used:
+
+- For temporary evaluation, an **External** app in **Testing** can authorize
+  listed test users, but its refresh tokens expire after seven days. The pinned
+  [n8n 2.35.5 Sheets credential](https://github.com/n8n-io/n8n/blob/n8n%402.35.5/packages/nodes-base/credentials/GoogleSheetsOAuth2Api.credentials.ts)
+  requests Sheets and Drive scopes, so Google's identity-only exception does not
+  apply. Expect to reconnect the credential; a successful first run does not
+  establish unattended access.
+- For sustained use with a personal Google account, use an **External** app with
+  publishing status **In production**, subject to Google's
+  [audience, verification and account-policy conditions](https://support.google.com/cloud/answer/15549945)
+  and [personal-use verification rules](https://support.google.com/cloud/answer/13464323).
+  An eligible Google Workspace organization can instead use an **Internal** app
+  limited to its members, subject to administrator policies. Neither choice
+  guarantees that a grant will never expire or be revoked; see Google's
+  [refresh-token expiration rules](https://developers.google.com/identity/protocols/oauth2#expiration).
+
+If you already connected while the app was in Testing, review its configuration
+and reconnect the n8n credential before relying on an unattended schedule.
+
+In n8n 2.35.5, create a Google Sheets OAuth2 credential. Register the **exact
+callback URL displayed by n8n** on that Google client—Google requires an exact
+redirect URI match—then enter its client ID/secret and connect your account with
+explicit consent. See [Google's consent-screen guidance](https://developers.google.com/workspace/guides/configure-oauth-consent)
+and [redirect-URI rule](https://developers.google.com/identity/protocols/oauth2/web-server#redirect-uri).
+Publishing the External Google OAuth app sets its publishing status; it does
+not share the workbook or publish the n8n workflow. Use the credential only in
+this n8n instance, keep the workbook private, and keep the stack on localhost.
 Google authorization is independent of Finary OAuth and ChatGPT's Drive access.
 
 ### 6. Create and activate a fresh workbook
@@ -371,6 +394,11 @@ with the same readback process. A successful state older than 48 hours is
 operationally stale. A newer FAILED row does not replace valid success. Bank
 freshness is independent of ingestion time. Connect ChatGPT using its
 [private workbook setup](chatgpt.md#connect-the-workbook).
+
+If the Google grant expires, [reconnect the existing Google Sheets OAuth2
+credential in n8n](https://docs.n8n.io/integrations/builtin/credentials/google/oauth-single-service/#google-cloud-app-becoming-unauthorized)
+with explicit Google consent. Rerun a manual synchronization and complete the
+full workbook readback above before relying on the schedule again.
 
 ## Configuration troubleshooting
 
